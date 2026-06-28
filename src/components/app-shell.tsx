@@ -30,17 +30,17 @@ import { LevelMedallion } from "@/components/game/level-medallion";
 import { SoundToggle } from "@/components/game/sound-toggle";
 
 const navItems = [
-  { href: "/dashboard", label: "Quest Hub", icon: LayoutDashboard },
-  { href: "/profile", label: "Hero", icon: UserCircle },
-  { href: "/leaderboard", label: "Guild Rank", icon: Trophy },
-  { href: "/schedule", label: "Planner", icon: CalendarDays },
-  { href: "/photos", label: "Memories", icon: Camera },
-  { href: "/challenges", label: "Secrets", icon: Sparkles },
-  { href: "/assassin", label: "Assassin", icon: Shield },
-  { href: "/questline", label: "Map", icon: Gamepad2 },
-  { href: "/badges", label: "Relics", icon: BadgeCheck },
-  { href: "/awards", label: "Awards", icon: Crown },
-  { href: "/admin", label: "Admin", icon: WandSparkles }
+  { href: "/dashboard", label: "Quest Hub", emoji: "Q", icon: LayoutDashboard },
+  { href: "/profile", label: "Hero", emoji: "H", icon: UserCircle },
+  { href: "/leaderboard", label: "Guild Rank", emoji: "G", icon: Trophy },
+  { href: "/schedule", label: "Planner", emoji: "P", icon: CalendarDays },
+  { href: "/photos", label: "Memories", emoji: "M", icon: Camera },
+  { href: "/challenges", label: "Secrets", emoji: "S", icon: Sparkles },
+  { href: "/assassin", label: "Assassin", emoji: "A", icon: Shield },
+  { href: "/questline", label: "Map", emoji: "Map", icon: Gamepad2 },
+  { href: "/badges", label: "Relics", emoji: "R", icon: BadgeCheck },
+  { href: "/awards", label: "Awards", emoji: "W", icon: Crown },
+  { href: "/admin", label: "Admin", emoji: "Admin", icon: WandSparkles }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -80,7 +80,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1">
               <Badge>Hero Level</Badge>
               <p className="mt-2 truncate text-xl font-black">{currentUser.username}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{currentUser.country} / {currentUser.countryCode}</p>
               <p className="text-xs font-semibold text-muted-foreground">{currentUser.totalXp.toLocaleString()} XP collected</p>
             </div>
           </div>
@@ -98,13 +97,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 className={cn(
                   "group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-black text-muted-foreground transition duration-300",
-                  active ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-white/45 hover:text-foreground dark:hover:bg-white/8"
+                  active ? "border-2 border-accent bg-primary text-primary-foreground shadow-md" : "hover:bg-white/45 hover:text-foreground dark:hover:bg-white/8"
                 )}
               >
-                <span className={cn("grid h-9 w-9 place-items-center rounded-xl transition", active ? "bg-white/35" : "bg-muted/60 group-hover:bg-accent/15")}> 
-                  <Icon className="h-4 w-4" />
+                <span className={cn("grid place-items-center rounded-xl font-black transition", active ? "h-12 w-12 bg-accent text-lg text-slate-950" : "h-9 w-9 bg-muted/60 text-xs group-hover:bg-accent/15")}>
+                  {active ? item.emoji : <Icon className="h-4 w-4" />}
                 </span>
-                {item.label}
+                <span className={cn(active && "text-base")}>{item.label}</span>
               </Link>
             );
           })}
@@ -132,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Avatar src={currentUser.avatarUrl} alt={currentUser.username} />
             <div>
               <p className="font-black">{currentUser.username}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{currentUser.country} / {currentUser.countryCode} / Level {currentUser.level}</p>
+              <p className="text-xs font-semibold text-muted-foreground">Level {currentUser.level}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -168,12 +167,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 className={cn(
                   "relative grid place-items-center gap-1 rounded-[1.25rem] px-2 py-2 text-[10px] font-black transition duration-300",
-                  active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
+                  active ? "border-2 border-accent bg-primary text-primary-foreground shadow-md" : "text-muted-foreground"
                 )}
               >
                 {active && <span className="absolute -top-1 h-1 w-8 rounded-full bg-white/80" />}
-                <Icon className="h-5 w-5" />
-                {item.label.split(" ")[0]}
+                <span className={cn(active ? "text-base" : "hidden")}>{item.emoji}</span>
+                {!active && <Icon className="h-5 w-5" />}
+                <span className={cn(active && "text-[11px]")}>{item.label.split(" ")[0]}</span>
               </Link>
             );
           })}

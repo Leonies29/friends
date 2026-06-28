@@ -21,6 +21,7 @@ export interface CreateGroupInput {
   startDate: string;
   endDate: string;
   invitees: string;
+  friendNicknames: string[];
   vibe: string;
   gameModes: string[];
 }
@@ -36,8 +37,6 @@ export interface RegisterInput {
   username: string;
   email: string;
   password: string;
-  country: string;
-  countryCode: string;
   groupId: string;
   inviteCode: string;
   avatarFile?: File;
@@ -68,6 +67,9 @@ export async function createFriendGroup(input: CreateGroupInput): Promise<Create
     invitees: input.invitees.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean),
     vibe: input.vibe.trim(),
     gameModes: input.gameModes,
+    gameStarted: false,
+    status: "setup",
+    currentDay: 0,
     memberIds: [],
     createdBy: null,
     createdAt: serverTimestamp(),
@@ -79,8 +81,10 @@ export async function createFriendGroup(input: CreateGroupInput): Promise<Create
     name: input.name.trim() || "Untitled Quest Group",
     destination: input.destination.trim(),
     inviteCode,
-    currentDay: 1,
+    currentDay: 0,
     totalDays: 7,
+    gameStarted: false,
+    status: "setup",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   }, { merge: true });
@@ -91,6 +95,30 @@ export async function createFriendGroup(input: CreateGroupInput): Promise<Create
     name: input.name.trim() || "Untitled Quest Group",
     destination: input.destination.trim()
   };
+}
+
+
+export async function getGroupByInviteCode(inviteCode: string) {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDocs(query(collection(db, "friendGroups"), where("inviteCode", "==", inviteCode)));
+  const group = snapshot.docs[0];
+  return group ? { id: group.id, ...group.data() } : null;
+}
+
+async function claimPlannedMember(groupId: string, nickname: string, userId: string) {
+  if (!nickname) return;
+
+  const db = getFirebaseFirestore();
+  const groupSnapshot = await getDocs(query(collection(db, "friendGroups"), where("__name__", "==", groupId)));
+  const groupData = groupSnapshot.docs[0]?.data();
+  const plannedMembers = Array.isArray(groupData?.plannedMembers) ? groupData.plannedMembers : [];
+  const nextMembers = plannedMembers.map((member: { nickname?: string; claimedBy?: string | null }) =>
+    member.nickname === nickname ? { ...member, claimedBy: userId } : member
+  );
+
+  if (nextMembers.length) {
+    await setDoc(doc(db, "friendGroups", groupId), { plannedMembers: nextMembers, updatedAt: serverTimestamp() }, { merge: true });
+  }
 }
 
 export async function findGroupIdByInviteCode(inviteCode: string) {
@@ -120,9 +148,9 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
     username: input.username,
     email: input.email,
     avatarUrl,
-    country: input.country,
-    countryCode: input.countryCode,
-    flagEmoji: input.countryCode,
+    country: "",
+    countryCode: "",
+    flagEmoji: "",
     level: 1,
     totalXp: 0,
     joinedAt: new Date().toISOString(),
@@ -148,6 +176,15 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
     updatedAt: serverTimestamp()
   }, { merge: true });
 
+  await claimPlannedMember(groupId, input.username, userId);
+
+  return credential.user;
+}
+
+
+export async function signInExistingAccount(email: string, password: string) {
+  const auth = getFirebaseAuth();
+  const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user;
 }
 

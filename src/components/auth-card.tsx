@@ -8,13 +8,6 @@ import { ArrowRight, Camera, ImagePlus, Loader2, Mail, UserPlus } from "lucide-r
 import { Avatar, Badge, Button, Card, Field } from "@/components/ui";
 import { friendGroups } from "@/lib/mock-data";
 
-const countries = [
-  { label: "South Africa", code: "ZA" },
-  { label: "Estonia", code: "EE" },
-  { label: "France", code: "FR" },
-  { label: "Turkey", code: "TR" }
-];
-
 const copy = {
   login: {
     icon: Mail,
@@ -58,7 +51,8 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
   const Icon = content.icon;
   const groupParam = searchParams.get("group");
   const inviteCodeParam = searchParams.get("inviteCode");
-  const selectedGroup = friendGroups.find((group) => group.id === groupParam) ?? {
+  const hasGroupContext = Boolean(groupParam || inviteCodeParam || searchParams.get("groupName"));
+  const selectedGroup = hasGroupContext ? (friendGroups.find((group) => group.id === groupParam) ?? {
     id: groupParam ?? friendGroups[0].id,
     name: searchParams.get("groupName") ?? friendGroups[0].name,
     inviteCode: inviteCodeParam ?? groupParam ?? friendGroups[0].inviteCode,
@@ -69,7 +63,8 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
     dates: "Custom dates",
     memberIds: [],
     createdBy: "pending"
-  };
+  }) : null;
+  const selectedNickname = searchParams.get("nickname") ?? "";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,32 +87,37 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
       let authenticatedUserId = "";
 
       if (mode === "login") {
-        const user = await firebaseService.signInAndJoinGroup(email, password, selectedGroup.id, selectedGroup.inviteCode);
+        const user = selectedGroup
+          ? await firebaseService.signInAndJoinGroup(email, password, selectedGroup.id, selectedGroup.inviteCode)
+          : await firebaseService.signInExistingAccount(email, password);
         authenticatedUserId = user.uid;
       }
 
       if (mode === "register") {
-        const countryCode = String(formData.get("countryCode") ?? "FR");
-        const country = countries.find((item) => item.code === countryCode)?.label ?? "France";
-
         const user = await firebaseService.registerUserAndJoinGroup({
           username: String(formData.get("username") ?? ""),
           email,
           password,
-          country,
-          countryCode,
-          groupId: selectedGroup.id,
-          inviteCode: selectedGroup.inviteCode,
+          groupId: selectedGroup?.id ?? "",
+          inviteCode: selectedGroup?.inviteCode ?? "",
           avatarFile
         });
         authenticatedUserId = user.uid;
       }
 
       document.cookie = `istanbul_quest_session=${authenticatedUserId}; path=/; max-age=604800; SameSite=Lax`;
-      document.cookie = `istanbul_quest_active_group=${selectedGroup.id}; path=/; max-age=604800; SameSite=Lax`;
+      if (selectedGroup) {
+        document.cookie = `istanbul_quest_active_group=${selectedGroup.id}; path=/; max-age=604800; SameSite=Lax`;
+      }
       router.push("/dashboard");
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Firebase action failed.");
+      const message = error instanceof Error ? error.message : "Firebase action failed.";
+      const friendlyMessage = message.includes("auth/configuration-not-found")
+        ? "Firebase Authentication is not configured yet. Enable Authentication > Email/Password in Firebase Console, then try again."
+        : message.includes("auth/unauthorized-domain")
+          ? "This domain is not authorized in Firebase Authentication. Add your GitHub Pages domain in Firebase Auth settings."
+          : message;
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -147,8 +147,8 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
             </div>
             <div className="rounded-[2rem] border border-white/15 bg-white/10 p-5 backdrop-blur">
               <p className="text-sm font-semibold">Current friend space</p>
-              <p className="mt-2 text-2xl font-black">{selectedGroup.name}</p>
-              <p className="mt-2 text-primary-foreground/75">{selectedGroup.description}</p>
+              <p className="mt-2 text-2xl font-black">{selectedGroup?.name ?? "Your existing group"}</p>
+              <p className="mt-2 text-primary-foreground/75">{selectedGroup?.description ?? "Log in to access the group already linked to your account."}</p>
             </div>
           </div>
         </section>
@@ -165,9 +165,9 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
               <>
                 <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
                   <Badge>Joining Group</Badge>
-                  <p className="mt-2 text-xl font-black">{selectedGroup.name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Invite code: {selectedGroup.inviteCode}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Destination: {selectedGroup.destination}</p>
+                  <p className="mt-2 text-xl font-black">{selectedGroup?.name ?? "Selected group"}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Invite code: {selectedGroup?.inviteCode ?? "Required"}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Destination: {selectedGroup?.destination ?? "Group destination"}</p>
                 </div>
 
                 <label
@@ -188,14 +188,8 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
             {mode === "forgot" && <Field name="email" label="Email" type="email" placeholder="Email" required />}
             {mode === "register" && (
               <>
-                <Field name="username" label="Username" placeholder={"Keira, Marko, Noah, Yaman or L\u00e9onie"} required />
+                <Field name="username" label="Nickname" placeholder="Choose your group nickname" defaultValue={selectedNickname} readOnly={Boolean(selectedNickname)} required />
                 <Field name="email" label="Email" type="email" placeholder="Email" required />
-                <label className="grid gap-2 text-sm font-bold text-muted-foreground">
-                  Country
-                  <select name="countryCode" className="rounded-2xl border border-border bg-white/72 px-4 py-3 text-foreground shadow-inner outline-none focus:border-accent focus:ring-4 focus:ring-accent/15 dark:bg-white/10" defaultValue="FR">
-                    {countries.map((country) => <option key={country.code} value={country.code}>{country.label} / {country.code}</option>)}
-                  </select>
-                </label>
                 <Field name="password" label="Password" type="password" placeholder="Password" required />
               </>
             )}

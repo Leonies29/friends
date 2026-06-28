@@ -139,7 +139,7 @@ export function CurrentUserProfile() {
               <div className="pb-2">
                 <Badge>Joined {new Date(profile.joinedAt).toLocaleDateString("en")}</Badge>
                 <h1 className="mt-3 font-display text-6xl font-black leading-none">{profile.username}</h1>
-                <p className="mt-2 font-semibold text-muted-foreground">{profile.country} / {profile.countryCode} / Level {profile.level} / {profile.totalXp.toLocaleString()} XP</p>
+                <p className="mt-2 font-semibold text-muted-foreground">Level {profile.level} / {profile.totalXp.toLocaleString()} XP</p>
               </div>
             </div>
             <LevelMedallion level={profile.level} xp={profile.totalXp} className="h-28 w-28" />
@@ -170,7 +170,7 @@ export function CurrentUserProfile() {
                 <Avatar src={member.avatarUrl || fallbackUser.avatarUrl} alt={member.username} />
                 <div>
                   <p className="font-black">{member.username}</p>
-                  <p className="text-sm text-muted-foreground">{member.country} / {member.countryCode}</p>
+                  <p className="text-sm text-muted-foreground">Level {member.level}</p>
                 </div>
               </div>
             ))}

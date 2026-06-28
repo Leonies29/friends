@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Copy, Loader2, LogIn, Plus, UserPlus, X } from "lucide-react";
-import { Badge, Button, Card, Field, TextArea } from "@/components/ui";
+import { ArrowRight, CheckCircle2, Copy, Loader2, LogIn, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { Badge, Button, Card, Field } from "@/components/ui";
 
 const gameModes = [
   "Daily secret challenges",
@@ -15,11 +15,26 @@ const gameModes = [
   "Hidden cats"
 ];
 
+const tripVibes = [
+  "Funny",
+  "Chill",
+  "Chaotic",
+  "Adventure",
+  "Nightlife",
+  "Foodies",
+  "Culture",
+  "Premium",
+  "Photo trip",
+  "Competitive"
+];
+
 export function CreateGroupForm() {
   const [groupName, setGroupName] = useState("");
   const [destination, setDestination] = useState("");
   const [groupId, setGroupId] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [friendNicknames, setFriendNicknames] = useState<string[]>([""]);
+  const [selectedVibes, setSelectedVibes] = useState<string[]>(["Funny", "Adventure"]);
   const [created, setCreated] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -50,8 +65,9 @@ export function CreateGroupForm() {
         destination: String(formData.get("destination") ?? ""),
         startDate: String(formData.get("startDate") ?? ""),
         endDate: String(formData.get("endDate") ?? ""),
-        invitees: String(formData.get("invitees") ?? ""),
-        vibe: String(formData.get("vibe") ?? ""),
+        invitees: "",
+        friendNicknames: friendNicknames.map((item) => item.trim()).filter(Boolean),
+        vibe: selectedVibes.join(", "),
         gameModes: selectedGameModes
       });
 
@@ -77,8 +93,59 @@ export function CreateGroupForm() {
             <Field name="startDate" label="Start date" type="date" />
             <Field name="endDate" label="End date" type="date" />
           </div>
-          <TextArea name="invitees" label="Invite friends" placeholder="Add names or emails, one per line" />
-          <TextArea name="vibe" label="Trip vibe" placeholder="Funny, chill, chaotic, premium, exploration, nightlife..." />
+          <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-black">Friends nicknames</p>
+                <p className="text-sm text-muted-foreground">Add the exact nickname each friend will choose when joining with the invite code.</p>
+              </div>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setFriendNicknames((items) => [...items, ""])}>
+                <Plus className="h-4 w-4" />
+                Add friend
+              </Button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {friendNicknames.map((nickname, index) => (
+                <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <Field
+                    label={`Friend ${index + 1}`}
+                    placeholder="Example: Yaman, Leonie, Marko..."
+                    value={nickname}
+                    onChange={(event) => setFriendNicknames((items) => items.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="self-end text-rose-500"
+                    onClick={() => setFriendNicknames((items) => items.length === 1 ? [""] : items.filter((_, itemIndex) => itemIndex !== index))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+            <p className="font-black">Trip vibe</p>
+            <p className="mt-1 text-sm text-muted-foreground">Select the mood of the trip. You can choose several.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {tripVibes.map((vibe) => {
+                const selected = selectedVibes.includes(vibe);
+                return (
+                  <button
+                    key={vibe}
+                    type="button"
+                    className={`rounded-full border px-4 py-2 text-sm font-black transition ${selected ? "border-accent bg-accent text-slate-950" : "border-border bg-background/70 text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setSelectedVibes((items) => selected ? items.filter((item) => item !== vibe) : [...items, vibe])}
+                  >
+                    {vibe}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
             <p className="font-black">Game modes</p>
