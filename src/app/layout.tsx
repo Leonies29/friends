@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import { FirebaseAnalytics } from "@/components/firebase-analytics";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <FirebaseAnalytics />
           {children}
         </ThemeProvider>
       </body>

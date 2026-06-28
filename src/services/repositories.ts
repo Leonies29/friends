@@ -15,7 +15,7 @@ import type { Challenge, Photo, ScheduleEvent, User } from "@/types";
 
 export interface AuthRepository {
   login(email: string, password: string): Promise<User>;
-  register(input: Pick<User, "username" | "email" | "avatarUrl"> & { password: string }): Promise<User>;
+  register(input: Pick<User, "username" | "email" | "avatarUrl" | "country" | "countryCode" | "flagEmoji"> & { password: string }): Promise<User>;
   sendPasswordReset(email: string): Promise<void>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;
@@ -31,6 +31,9 @@ export const mockAuthRepository: AuthRepository = {
       username: input.username,
       email: input.email,
       avatarUrl: input.avatarUrl,
+      country: input.country,
+      countryCode: input.countryCode,
+      flagEmoji: input.flagEmoji,
       level: 1,
       totalXp: 0,
       joinedAt: new Date().toISOString(),

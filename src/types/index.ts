@@ -7,6 +7,9 @@ export interface User {
   username: string;
   email: string;
   avatarUrl: string;
+  country: string;
+  countryCode: string;
+  flagEmoji: string;
   level: number;
   totalXp: number;
   joinedAt: string;
@@ -138,4 +141,15 @@ export interface FunAward {
   title: string;
   winnerId: string;
   reason: string;
+}
+
+export interface FriendGroup {
+  id: string;
+  name: string;
+  inviteCode: string;
+  description: string;
+  destination: string;
+  dates: string;
+  memberIds: string[];
+  createdBy: string;
 }

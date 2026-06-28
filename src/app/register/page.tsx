@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AuthCard } from "@/components/auth-card";
 
 export default function RegisterPage() {
-  return <AuthCard mode="register" />;
+  return (
+    <Suspense fallback={null}>
+      <AuthCard mode="register" />
+    </Suspense>
+  );
 }

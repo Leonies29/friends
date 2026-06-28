@@ -4,6 +4,7 @@ import type {
   Challenge,
   EliminationRecord,
   FunAward,
+  FriendGroup,
   Photo,
   Quest,
   ScheduleEvent,
@@ -11,7 +12,7 @@ import type {
   WorldEvent
 } from "@/types";
 
-const avatar = (seed: string) => `https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}`;
+const avatar = (seed: string) => `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
 
 export const badges: Badge[] = [
   { id: "photographer", name: "Photographer", description: "Uploaded iconic Istanbul memories.", icon: "Camera", unlockedAt: "2026-06-28" },
@@ -28,13 +29,15 @@ export const badges: Badge[] = [
 export const users: User[] = [
   {
     id: "u1",
-    username: "Maya",
-    email: "maya@example.com",
-    avatarUrl: avatar("Maya"),
+    username: "Keira",
+    email: "keira@example.com",
+    avatarUrl: avatar("Keira South Africa"),
+    country: "South Africa",
+    countryCode: "ZA",
+    flagEmoji: "ZA",
     level: 7,
     totalXp: 3290,
     joinedAt: "2026-06-01",
-    isAdmin: true,
     stats: { challengesCompleted: 9, assassinations: 2, photosUploaded: 18, pointsEarned: 3290, relicsCollected: 7, catsFound: 18 },
     badges: [badges[0], badges[1], badges[3]],
     achievements: [
@@ -44,9 +47,12 @@ export const users: User[] = [
   },
   {
     id: "u2",
-    username: "Leo",
-    email: "leo@example.com",
-    avatarUrl: avatar("Leo"),
+    username: "Marko",
+    email: "marko@example.com",
+    avatarUrl: avatar("Marko Estonia"),
+    country: "Estonia",
+    countryCode: "EE",
+    flagEmoji: "EE",
     level: 6,
     totalXp: 2865,
     joinedAt: "2026-06-02",
@@ -56,9 +62,12 @@ export const users: User[] = [
   },
   {
     id: "u3",
-    username: "Nora",
-    email: "nora@example.com",
-    avatarUrl: avatar("Nora"),
+    username: "Noah",
+    email: "noah@example.com",
+    avatarUrl: avatar("Noah France"),
+    country: "France",
+    countryCode: "FR",
+    flagEmoji: "FR",
     level: 5,
     totalXp: 2410,
     joinedAt: "2026-06-03",
@@ -68,19 +77,51 @@ export const users: User[] = [
   },
   {
     id: "u4",
-    username: "Sam",
-    email: "sam@example.com",
-    avatarUrl: avatar("Sam"),
+    username: "Yaman",
+    email: "yaman@example.com",
+    avatarUrl: avatar("Yaman Turkiye"),
+    country: "Turkey",
+    countryCode: "TR",
+    flagEmoji: "TR",
     level: 4,
     totalXp: 1815,
     joinedAt: "2026-06-05",
     stats: { challengesCompleted: 5, assassinations: 0, photosUploaded: 9, pointsEarned: 1815, relicsCollected: 5, catsFound: 6 },
     badges: [badges[2]],
     achievements: [{ id: "a5", title: "Tea Time", description: "Find 5 tea glasses.", progress: 3, goal: 5, xpReward: 100 }]
+  },
+  {
+    id: "u5",
+    username: "L\u00e9onie",
+    email: "leonie@example.com",
+    avatarUrl: avatar("Leonie France"),
+    country: "France",
+    countryCode: "FR",
+    flagEmoji: "????",
+    level: 5,
+    totalXp: 2250,
+    joinedAt: "2026-06-06",
+    isAdmin: true,
+    stats: { challengesCompleted: 6, assassinations: 1, photosUploaded: 14, pointsEarned: 2250, relicsCollected: 6, catsFound: 11 },
+    badges: [badges[1], badges[3]],
+    achievements: [{ id: "a6", title: "Squad Architect", description: "Create the perfect Istanbul group plan.", progress: 4, goal: 5, xpReward: 180 }]
   }
 ];
 
-export const currentUser = users[0];
+export const friendGroups: FriendGroup[] = [
+  {
+    id: "istanbul-crew-2026",
+    name: "Istanbul Crew 2026",
+    inviteCode: "ISTANBUL-5",
+    description: "Keira, Marko, Noah, Yaman and L\u00e9onie's private Istanbul adventure space.",
+    destination: "Istanbul, Turkey",
+    dates: "7 days",
+    memberIds: users.map((user) => user.id),
+    createdBy: "u5"
+  }
+];
+
+export const currentUser = users[4];
 
 export const worldEvents: WorldEvent[] = [
   {
@@ -112,7 +153,7 @@ export const scheduleEvents: ScheduleEvent[] = [
     time: "08:30",
     meetingLocation: "Hotel lobby",
     notes: "Bring water, sunglasses, and one historically accurate fun fact.",
-    readiness: { u1: "ready", u2: "ready", u3: "not-ready", u4: "ready" }
+    readiness: { u1: "ready", u2: "ready", u3: "not-ready", u4: "ready", u5: "ready" }
   },
   {
     id: "e2",
@@ -122,7 +163,7 @@ export const scheduleEvents: ScheduleEvent[] = [
     time: "17:45",
     meetingLocation: "Eminonu ferry pier",
     notes: "Anyone late buys simit.",
-    readiness: { u1: "ready", u2: "not-ready", u3: "ready", u4: "not-ready" }
+    readiness: { u1: "ready", u2: "not-ready", u3: "ready", u4: "not-ready", u5: "ready" }
   },
   {
     id: "e3",
@@ -132,7 +173,7 @@ export const scheduleEvents: ScheduleEvent[] = [
     time: "12:00",
     meetingLocation: "Beyazit Gate",
     notes: "Quest relic: Bazaar item.",
-    readiness: { u1: "not-ready", u2: "ready", u3: "ready", u4: "ready" }
+    readiness: { u1: "not-ready", u2: "ready", u3: "ready", u4: "ready", u5: "not-ready" }
   }
 ];
 
@@ -140,7 +181,7 @@ export const photos: Photo[] = [
   {
     id: "p1",
     ownerId: "u3",
-    ownerName: "Nora",
+    ownerName: "Noah",
     ownerAvatar: users[2].avatarUrl,
     imageUrl: "https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?auto=format&fit=crop&w=900&q=80",
     caption: "Istanbul decided to be photogenic again. Rude.",
@@ -153,7 +194,7 @@ export const photos: Photo[] = [
   {
     id: "p2",
     ownerId: "u2",
-    ownerName: "Leo",
+    ownerName: "Marko",
     ownerAvatar: users[1].avatarUrl,
     imageUrl: "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?auto=format&fit=crop&w=900&q=80",
     caption: "Ferry wind: 1. Hair: 0.",
@@ -165,9 +206,9 @@ export const photos: Photo[] = [
   },
   {
     id: "p3",
-    ownerId: "u1",
-    ownerName: "Maya",
-    ownerAvatar: users[0].avatarUrl,
+    ownerId: "u5",
+    ownerName: "L\u00e9onie",
+    ownerAvatar: users[4].avatarUrl,
     imageUrl: "https://images.unsplash.com/photo-1589561454226-796a8aa89b05?auto=format&fit=crop&w=900&q=80",
     caption: "Evidence that cats own this city.",
     createdAt: "2026-06-28T14:15:00.000Z",
@@ -177,16 +218,17 @@ export const photos: Photo[] = [
 
 export const challenges: Challenge[] = [
   { id: "c1", ownerId: "u1", title: "Historical Drama", description: "Use \"This feels surprisingly historical\" three times.", difficulty: "Easy", xpReward: 80, status: "secret" },
-  { id: "c2", ownerId: "u2", title: "Cat Government", description: "Convince someone cats secretly run Istanbul.", difficulty: "Medium", xpReward: 160, status: "submitted", proof: { type: "description", value: "Sam nodded seriously for 11 seconds.", submittedAt: "2026-06-28T13:00:00.000Z" } },
+  { id: "c2", ownerId: "u2", title: "Cat Government", description: "Convince someone cats secretly run Istanbul.", difficulty: "Medium", xpReward: 160, status: "submitted", proof: { type: "description", value: "Yaman nodded seriously for 11 seconds.", submittedAt: "2026-06-28T13:00:00.000Z" } },
   { id: "c3", ownerId: "u3", title: "Question Mode", description: "Have a conversation using only questions.", difficulty: "Medium", xpReward: 150, status: "secret" },
   { id: "c4", ownerId: "u4", title: "Imaginary Invention", description: "Get a stranger to rate your imaginary invention.", difficulty: "Hard", xpReward: 260, status: "secret" }
 ];
 
 export const assassinMissions: AssassinMission[] = [
-  { id: "m1", playerId: "u1", targetId: "u2", condition: "Get Leo to take a selfie with you.", status: "active", xpReward: 250 },
-  { id: "m2", playerId: "u2", targetId: "u3", condition: "Make Nora say the secret word: baklava.", status: "active", xpReward: 250 },
-  { id: "m3", playerId: "u3", targetId: "u4", condition: "Make Sam hold your phone.", status: "active", xpReward: 250 },
-  { id: "m4", playerId: "u4", targetId: "u1", condition: "Make Maya take a photo of a street musician.", status: "active", xpReward: 250 }
+  { id: "m1", playerId: "u1", targetId: "u2", condition: "Get Marko to take a selfie with you.", status: "active", xpReward: 250 },
+  { id: "m2", playerId: "u2", targetId: "u3", condition: "Make Noah say the secret word: baklava.", status: "active", xpReward: 250 },
+  { id: "m3", playerId: "u3", targetId: "u4", condition: "Make Yaman hold your phone.", status: "active", xpReward: 250 },
+  { id: "m4", playerId: "u4", targetId: "u5", condition: "Make L\u00e9onie take a photo of a street musician.", status: "active", xpReward: 250 },
+  { id: "m5", playerId: "u5", targetId: "u1", condition: "Make Keira say the secret word: Bosphorus.", status: "active", xpReward: 250 }
 ];
 
 export const eliminationHistory: EliminationRecord[] = [
@@ -221,7 +263,7 @@ export const quest: Quest = {
 
 export const funAwards: FunAward[] = [
   { id: "fa1", title: "Most Likely To Get Lost", winnerId: "u4", reason: "Asked Google Maps for emotional support." },
-  { id: "fa2", title: "Human GPS", winnerId: "u1", reason: "Somehow knows every tram line already." },
-  { id: "fa3", title: "Chaos Goblin", winnerId: "u2", reason: "Turned a snack run into a side quest." },
+  { id: "fa2", title: "Human GPS", winnerId: "u1", reason: "Already knows every tram line and pretends it is normal." },
+  { id: "fa3", title: "Chaos Goblin", winnerId: "u2", reason: "Turned a snack run into an international side quest." },
   { id: "fa4", title: "Most Dramatic Photo", winnerId: "u3", reason: "Made a ferry photo look like a movie poster." }
 ];

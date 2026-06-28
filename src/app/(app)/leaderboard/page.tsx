@@ -1,5 +1,5 @@
 import { Camera, Crown, Laugh, Map, Swords } from "lucide-react";
-import { Avatar, Badge, Card } from "@/components/ui";
+import { Avatar, Badge, Card, GameCard } from "@/components/ui";
 import { users } from "@/lib/mock-data";
 
 const rankings = [
@@ -15,24 +15,25 @@ export default function LeaderboardPage() {
 
   return (
     <div className="grid gap-6">
-      <div>
-        <Badge>Leaderboard</Badge>
-        <h1 className="mt-3 font-display text-5xl font-black">Hall of Extremely Serious Glory</h1>
+      <div className="turkish-tile rounded-[2.5rem] bg-primary p-8 text-primary-foreground shadow-2xl">
+        <Badge className="border-white/20 bg-white/10 text-primary-foreground/80">Guild Leaderboard</Badge>
+        <h1 className="mt-3 font-display text-6xl font-black leading-none">Hall of Glory</h1>
+        <p className="mt-3 text-primary-foreground/75">Animated podiums, heroic ranks, and extremely serious vacation prestige.</p>
       </div>
 
       <section className="grid items-end gap-4 md:grid-cols-3">
         {[podium[1], podium[0], podium[2]].map((user, index) => {
           const actualRank = sortedUsers.findIndex((item) => item.id === user.id) + 1;
-          const heights = ["md:min-h-60", "md:min-h-72", "md:min-h-52"];
+          const heights = ["md:min-h-60", "md:min-h-80", "md:min-h-52"];
 
           return (
-            <Card key={user.id} className={`grid place-items-center text-center transition hover:-translate-y-2 ${heights[index]}`}>
-              <Crown className="mb-3 h-8 w-8 text-accent" />
+            <GameCard key={user.id} className={`grid place-items-center text-center ${heights[index]}`}>
+              <Crown className="mb-3 h-9 w-9 text-accent" />
               <Avatar src={user.avatarUrl} alt={user.username} className="h-24 w-24" />
               <h2 className="mt-4 text-2xl font-black">#{actualRank} {user.username}</h2>
-              <p className="text-muted-foreground">Level {user.level}</p>
-              <p className="mt-2 text-3xl font-black text-accent">{user.totalXp.toLocaleString()} XP</p>
-            </Card>
+              <p className="text-muted-foreground">{user.country} ? {user.countryCode} / Level {user.level}</p>
+              <p className="mt-2 bg-gradient-to-r from-amber-300 to-yellow-600 bg-clip-text text-4xl font-black text-transparent">{user.totalXp.toLocaleString()} XP</p>
+            </GameCard>
           );
         })}
       </section>
@@ -48,7 +49,7 @@ export default function LeaderboardPage() {
                   <Avatar src={user.avatarUrl} alt={user.username} />
                   <div>
                     <p className="font-black">{user.username}</p>
-                    <p className="text-xs text-muted-foreground">Level {user.level}</p>
+                    <p className="text-xs text-muted-foreground">{user.country} ? {user.countryCode} / Level {user.level}</p>
                   </div>
                 </div>
                 <p className="hidden font-bold text-muted-foreground sm:block">{user.stats.challengesCompleted} quests</p>
@@ -59,7 +60,7 @@ export default function LeaderboardPage() {
         </Card>
 
         <Card>
-          <Badge>Extra Rankings</Badge>
+          <Badge>Fun Titles</Badge>
           <div className="mt-5 grid gap-3">
             {rankings.map((ranking) => {
               const Icon = ranking.icon;
