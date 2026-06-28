@@ -52,7 +52,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   function logout() {
     document.cookie = "istanbul_quest_session=; path=/; max-age=0; SameSite=Lax";
-    router.push("/login");
+    document.cookie = "istanbul_quest_active_group=; path=/; max-age=0; SameSite=Lax";
+    router.push("/");
   }
 
   function collectCat() {
@@ -79,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1">
               <Badge>Hero Level</Badge>
               <p className="mt-2 truncate text-xl font-black">{currentUser.username}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{currentUser.country} ? {currentUser.countryCode}</p>
+              <p className="text-xs font-semibold text-muted-foreground">{currentUser.country} / {currentUser.countryCode}</p>
               <p className="text-xs font-semibold text-muted-foreground">{currentUser.totalXp.toLocaleString()} XP collected</p>
             </div>
           </div>
@@ -131,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Avatar src={currentUser.avatarUrl} alt={currentUser.username} />
             <div>
               <p className="font-black">{currentUser.username}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{currentUser.country} ? {currentUser.countryCode} / Level {currentUser.level}</p>
+              <p className="text-xs font-semibold text-muted-foreground">{currentUser.country} / {currentUser.countryCode} / Level {currentUser.level}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

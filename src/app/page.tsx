@@ -22,7 +22,7 @@ export default function Home() {
               </Link>
             </Button>
             <Button asChild variant="secondary" size="lg" className="border-white/20 bg-white/10 text-primary-foreground hover:bg-white/20">
-              <Link href="/register?mode=create-group">
+              <Link href="/create-group">
                 Create New Group
                 <Plus className="h-5 w-5" />
               </Link>
@@ -46,7 +46,7 @@ export default function Home() {
                 <Avatar src={member.avatarUrl} alt={member.username} />
                 <div className="min-w-0 flex-1">
                   <p className="font-black">{member.username}</p>
-                  <p className="text-sm font-semibold text-muted-foreground">{member.country} ? {member.countryCode}</p>
+                  <p className="text-sm font-semibold text-muted-foreground">{member.country} / {member.countryCode}</p>
                 </div>
                 <Badge>Lvl {member.level}</Badge>
               </div>
