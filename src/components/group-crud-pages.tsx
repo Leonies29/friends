@@ -2,35 +2,25 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  Archive,
   CalendarDays,
   Camera,
   Check,
   Copy,
-  Eye,
-  EyeOff,
   Loader2,
   Minus,
-  Pencil,
   Plus,
   Star,
   Trash2,
   Trophy,
   Users
 } from "lucide-react";
-import { GameCustomizeModal } from "@/components/game-customize-modal";
+import { GameManagementPanel } from "@/components/game-management-panel";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
 import { buildInviteLink } from "@/lib/app-paths";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManagePlanning, canManageScores, canModeratePhotos } from "@/services/permissions";
 import {
-  archiveGame,
-  createGame,
-  duplicateGame,
-  ensureDefaultGames,
-  listGames,
-  setGameActive,
-  updateGame
+  ensureDefaultGames
 } from "@/services/game-service";
 import {
   addPhotoComment,
@@ -49,7 +39,7 @@ import {
   summarizeAttendance
 } from "@/services/schedule-service";
 import { addXpTransaction, getWeekKey, listXpTransactions } from "@/services/xp-service";
-import type { AttendanceStatus, Challenge, Game, GameCategory, Photo, ScheduleEvent, XpTransaction } from "@/types";
+import type { AttendanceStatus, Challenge, Game, Photo, ScheduleEvent, XpTransaction } from "@/types";
 import { calculateLevel } from "@/lib/utils";
 
 type GroupState = ReturnType<typeof useActiveGroup>;
@@ -593,9 +583,7 @@ export function GroupAdminPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [quests, setQuests] = useState<RelicDoc[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [saving, setSaving] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
-  const [editingGame, setEditingGame] = useState<Game | null>(null);
   const canAdmin = canManageGames(state.currentMember?.role) || canManageScores(state.currentMember?.role) || canManagePlanning(state.currentMember?.role);
 
   async function loadAdmin(groupId = state.group?.id) {
@@ -636,21 +624,6 @@ export function GroupAdminPage() {
     );
   }
 
-  async function handleCreateGame(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    const form = new FormData(event.currentTarget);
-    await createGame(group.id, {
-      title: String(form.get("title") ?? ""),
-      description: String(form.get("description") ?? ""),
-      icon: String(form.get("icon") ?? "Gamepad2"),
-      category: String(form.get("category") ?? "custom") as GameCategory
-    });
-    event.currentTarget.reset();
-    await loadAdmin(group.id);
-    setSaving(false);
-  }
-
   async function handleXp(event: FormEvent<HTMLFormElement>, amountSign: 1 | -1) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -672,13 +645,6 @@ export function GroupAdminPage() {
 
   return (
     <div className="grid gap-6">
-      {editingGame && (
-        <GameCustomizeModal
-          game={editingGame}
-          onClose={() => setEditingGame(null)}
-          onSaved={() => void loadAdmin(group.id)}
-        />
-      )}
       <PageHero eyebrow="Group admin" title="Admin Panel" description="Manage this trip's members, games, content, and score corrections." group={group} />
 
       <section className="grid gap-4 md:grid-cols-5">
@@ -702,39 +668,7 @@ export function GroupAdminPage() {
         </div>
       </Card>
 
-      <Card>
-        <Badge>Games management</Badge>
-        <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateGame}>
-          <input name="title" required placeholder="Game title" className={inputClass} />
-          <input name="icon" placeholder="Icon name" defaultValue="Gamepad2" className={inputClass} />
-          <select name="category" className={inputClass}><option value="custom">Custom</option><option value="challenge">Challenge</option><option value="photo">Photo</option><option value="treasure">Treasure Hunt</option><option value="quiz">Quiz</option><option value="bingo">Bingo</option><option value="assassin">Assassin</option></select>
-          <input name="description" placeholder="Short description" className={inputClass} />
-          <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />Create game</Button>
-        </form>
-        <div className="mt-5 grid gap-3">
-          {games.map((game) => (
-            <div key={game.id} className="rounded-3xl border border-border bg-background p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <Badge>{game.category} / {game.status}</Badge>
-                  <h3 className="mt-2 text-xl font-black">{game.title}</h3>
-                  <p className="text-sm text-muted-foreground">{game.description}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => setEditingGame(game)} title="Customize game">
-                    <Pencil className="h-4 w-4" />
-                    Customize
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => void setGameActive(game.id, !game.enabled).then(() => loadAdmin(group.id))}>{game.enabled ? "Deactivate" : "Activate"}</Button>
-                  <Button size="sm" variant="secondary" onClick={() => void updateGame(game.id, { visible: !game.visible }).then(() => loadAdmin(group.id))}>{game.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{game.visible ? "Hide" : "Show"}</Button>
-                  <Button size="sm" variant="secondary" onClick={() => void duplicateGame(game).then(() => loadAdmin(group.id))}><Copy className="h-4 w-4" />Duplicate</Button>
-                  <Button size="sm" variant="ghost" onClick={() => void archiveGame(game.id).then(() => loadAdmin(group.id))}><Archive className="h-4 w-4" />Archive</Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <GameManagementPanel groupId={group.id} games={games} onReload={async () => { await loadAdmin(group.id); }} />
 
       <Card>
         <Badge>Challenge and quest management</Badge>

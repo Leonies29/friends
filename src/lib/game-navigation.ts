@@ -8,14 +8,14 @@ export type AppNavItem = {
   order: number;
 };
 
-const CATEGORY_NAV: Record<GameCategory, { href: string; emoji: string }> = {
-  assassin: { href: "/assassin", emoji: "🔪" },
-  challenge: { href: "/challenges", emoji: "✨" },
-  photo: { href: "/photos", emoji: "📸" },
-  treasure: { href: "/questline", emoji: "🗺️" },
-  quiz: { href: "/badges", emoji: "❓" },
-  bingo: { href: "/badges", emoji: "🎯" },
-  custom: { href: "/challenges", emoji: "🎮" }
+const CATEGORY_NAV: Record<GameCategory, { href: string; emoji: string; label: string }> = {
+  assassin: { href: "/assassin", emoji: "🔪", label: "Assassin" },
+  challenge: { href: "/challenges", emoji: "✨", label: "Challenges" },
+  photo: { href: "/photos", emoji: "📸", label: "Travel Album" },
+  treasure: { href: "/questline", emoji: "🗺️", label: "Quests" },
+  quiz: { href: "/badges", emoji: "❓", label: "Quiz" },
+  bingo: { href: "/badges", emoji: "🎯", label: "Bingo" },
+  custom: { href: "/challenges", emoji: "🎮", label: "Custom" }
 };
 
 const CORE_NAV: AppNavItem[] = [
@@ -25,16 +25,24 @@ const CORE_NAV: AppNavItem[] = [
   { href: "/awards", label: "Awards", emoji: "🏅", order: 90 }
 ];
 
+export function isGameInMenu(game: Pick<Game, "enabled" | "visible" | "archived">) {
+  return Boolean(game.enabled && game.visible && !game.archived);
+}
+
+export function getGameNavTarget(category: GameCategory) {
+  return CATEGORY_NAV[category] ?? CATEGORY_NAV.custom;
+}
+
 export function buildNavigationFromGames(games: Game[], canAdmin: boolean) {
   const activeGames = games
-    .filter((game) => game.enabled && game.visible && !game.archived)
+    .filter((game) => isGameInMenu(game))
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const gameNav: AppNavItem[] = [];
   const seenHrefs = new Set<string>();
 
   activeGames.forEach((game, index) => {
-    const mapping = CATEGORY_NAV[game.category] ?? CATEGORY_NAV.custom;
+    const mapping = getGameNavTarget(game.category);
     if (seenHrefs.has(mapping.href)) return;
     seenHrefs.add(mapping.href);
     gameNav.push({

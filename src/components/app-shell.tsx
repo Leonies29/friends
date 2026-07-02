@@ -8,7 +8,8 @@ import { signOut } from "firebase/auth";
 import { useTheme } from "next-themes";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { useActiveGroup } from "@/hooks/use-active-group";
-import { buildMobilePrimaryNav, buildNavigationFromGames, filterVisibleNavItems } from "@/lib/game-navigation";
+import { GAMES_UPDATED_EVENT } from "@/lib/game-events";
+import { buildNavigationFromGames, buildMobilePrimaryNav, filterVisibleNavItems } from "@/lib/game-navigation";
 import { canManageGames } from "@/services/permissions";
 import { ensureDefaultGames } from "@/services/game-service";
 import { listXpTransactions } from "@/services/xp-service";
@@ -50,7 +51,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setGames([]);
       return;
     }
-    void ensureDefaultGames(state.group.id).then(setGames);
+    const reload = () => void ensureDefaultGames(state.group!.id).then(setGames);
+    reload();
+    window.addEventListener(GAMES_UPDATED_EVENT, reload);
+    return () => window.removeEventListener(GAMES_UPDATED_EVENT, reload);
   }, [state.group?.id, pathname]);
 
   async function logout() {

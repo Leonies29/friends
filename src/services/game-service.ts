@@ -10,6 +10,7 @@ import {
   where
 } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
+import { isGameInMenu } from "@/lib/game-navigation";
 import type { Game, GameCategory, XpRule } from "@/types";
 
 export const GAMES_COLLECTION = "games";
@@ -169,6 +170,7 @@ export async function setGameActive(gameId: string, active: boolean) {
     await updateGame(gameId, {
       enabled: true,
       visible: true,
+      archived: false,
       status: "active",
       activatedAt: new Date().toISOString()
     });
@@ -177,9 +179,16 @@ export async function setGameActive(gameId: string, active: boolean) {
 
   await updateGame(gameId, {
     enabled: false,
+    visible: false,
     status: "inactive",
     deactivatedAt: new Date().toISOString()
   });
+}
+
+export async function toggleGameActive(game: Pick<Game, "id" | "enabled" | "visible" | "archived">) {
+  const shouldActivate = !isGameInMenu(game);
+  await setGameActive(game.id, shouldActivate);
+  return shouldActivate;
 }
 
 export async function listNavGames(groupId: string) {
