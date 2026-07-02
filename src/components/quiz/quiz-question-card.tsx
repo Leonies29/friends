@@ -66,7 +66,7 @@ export function QuizQuestionCard({
             feedback.isCorrect ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"
           }`}
         >
-          {feedback.isCorrect ? `✅ Bravo ! +${feedback.points} pts` : `❌ Bonne réponse : ${feedback.correctLabel}`}
+          {feedback.isCorrect ? `✅ Nice one! +${feedback.points} pts` : `❌ Correct answer: ${feedback.correctLabel}`}
         </motion.div>
       )}
     </motion.div>

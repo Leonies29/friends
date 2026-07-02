@@ -65,8 +65,8 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     xpRules: [{ id: "quest-item", label: "Quest item collected", amount: 75, sourceType: "quest" }]
   },
   {
-    title: "Histoire d'Istanbul et de la Turquie",
-    description: "Quiz QCM chronométré sur Istanbul et la Turquie. +10 pts par bonne réponse, +5 bonus rapidité.",
+    title: "History of Istanbul & Turkey",
+    description: "Timed multiple-choice quiz on Istanbul and Turkish history. +10 pts per correct answer, +5 speed bonus.",
     icon: "CircleHelp",
     category: "quiz",
     enabled: false,
@@ -74,7 +74,7 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     archived: false,
     status: "inactive",
     order: 50,
-    xpRules: [{ id: "quiz-answer", label: "Bonne réponse quiz", amount: 10, sourceType: "game" }]
+    xpRules: [{ id: "quiz-answer", label: "Correct quiz answer", amount: 10, sourceType: "game" }]
   },
   {
     title: "Bingo Voyage",

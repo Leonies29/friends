@@ -17,7 +17,7 @@ const SETUP_LABELS: Record<Game["category"], string> = {
   assassin: "Configure targets and missions before starting",
   challenge: "Configure secret challenges",
   photo: "Configure travel album link",
-  quiz: "Gérer les questions du quiz Histoire d'Istanbul",
+  quiz: "Manage Istanbul & Turkey history questions",
   bingo: "Configure le pool de défis et lance la partie",
   custom: "Configure game content"
 };

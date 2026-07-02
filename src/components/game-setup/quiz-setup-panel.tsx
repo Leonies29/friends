@@ -8,7 +8,6 @@ import {
   deleteQuizQuestion,
   ensureQuizQuestions,
   importQuizQuestions,
-  listQuizQuestions,
   updateQuizQuestion
 } from "@/services/quiz-service";
 import type { Game } from "@/types";
@@ -46,11 +45,11 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
       difficulty: String(form.get("difficulty") ?? "easy") as QuizDifficulty
     });
     event.currentTarget.reset();
-    setMessage("Question ajoutée.");
+    setMessage("Question added.");
     await load();
   }
 
-  if (loading) return <p className="text-sm text-muted-foreground">Chargement des questions...</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Loading questions...</p>;
 
   return (
     <div className="grid gap-4">
@@ -58,25 +57,25 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
 
       <Card className="p-4">
         <Badge>Import</Badge>
-        <p className="mt-2 text-sm text-muted-foreground">Recharge les 30 questions historiques d'Istanbul et de Turquie.</p>
-        <Button className="mt-3" size="sm" variant="secondary" onClick={() => void importQuizQuestions(groupId, game.id, undefined, true).then(() => { setMessage("30 questions importées."); return load(); })}>
-          📥 Importer les 30 questions
+        <p className="mt-2 text-sm text-muted-foreground">Reload all 30 curated questions on Istanbul and Turkish history.</p>
+        <Button className="mt-3" size="sm" variant="secondary" onClick={() => void importQuizQuestions(groupId, game.id, undefined, true).then(() => { setMessage("30 questions imported."); return load(); })}>
+          📥 Import 30 questions
         </Button>
       </Card>
 
       <form className="grid gap-2 rounded-2xl border border-border bg-background p-4" onSubmit={(event) => void handleAdd(event)}>
-        <Badge>Ajouter une question</Badge>
+        <Badge>Add a question</Badge>
         <textarea name="question" required placeholder="Question" className={`${inputClass} min-h-20`} />
-        <input name="answerA" required placeholder="Réponse A" className={inputClass} />
-        <input name="answerB" required placeholder="Réponse B" className={inputClass} />
-        <input name="answerC" required placeholder="Réponse C" className={inputClass} />
-        <input name="answerD" required placeholder="Réponse D" className={inputClass} />
+        <input name="answerA" required placeholder="Answer A" className={inputClass} />
+        <input name="answerB" required placeholder="Answer B" className={inputClass} />
+        <input name="answerC" required placeholder="Answer C" className={inputClass} />
+        <input name="answerD" required placeholder="Answer D" className={inputClass} />
         <div className="grid gap-2 md:grid-cols-3">
           <select name="correctAnswer" className={inputClass} defaultValue="0">
-            <option value="0">Bonne réponse : A</option>
-            <option value="1">Bonne réponse : B</option>
-            <option value="2">Bonne réponse : C</option>
-            <option value="3">Bonne réponse : D</option>
+            <option value="0">Correct answer: A</option>
+            <option value="1">Correct answer: B</option>
+            <option value="2">Correct answer: C</option>
+            <option value="3">Correct answer: D</option>
           </select>
           <select name="category" className={inputClass}>
             {Object.entries(QUIZ_CATEGORY_META).map(([key, value]) => (
@@ -89,19 +88,19 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
             ))}
           </select>
         </div>
-        <Button type="submit" size="sm">➕ Ajouter</Button>
+        <Button type="submit" size="sm">➕ Add</Button>
       </form>
 
       <div className="grid gap-2">
-        <p className="text-sm font-black">{questions.filter((q) => q.active).length} questions actives · {questions.length} total</p>
+        <p className="text-sm font-black">{questions.filter((q) => q.active).length} active questions · {questions.length} total</p>
         {questions.map((question) => (
           <div key={question.id} className="rounded-2xl border border-border bg-background p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap gap-2">
-                  <Badge>{QUIZ_CATEGORY_META[question.category].emoji}</Badge>
-                  <Badge>{QUIZ_DIFFICULTY_META[question.difficulty].emoji}</Badge>
-                  {!question.active && <Badge>Inactif</Badge>}
+                  <Badge>{QUIZ_CATEGORY_META[question.category].emoji} {QUIZ_CATEGORY_META[question.category].label}</Badge>
+                  <Badge>{QUIZ_DIFFICULTY_META[question.difficulty].emoji} {QUIZ_DIFFICULTY_META[question.difficulty].label}</Badge>
+                  {!question.active && <Badge>Inactive</Badge>}
                 </div>
                 <p className="mt-2 font-black">{question.question}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -109,15 +108,15 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
                 </p>
               </div>
               <div className="flex gap-1">
-                <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Modifier" onClick={() => {
+                <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Edit" onClick={() => {
                   const text = window.prompt("Question", question.question);
                   if (!text) return;
                   void updateQuizQuestion(question.id, { question: text }).then(load);
                 }}>✏️</button>
-                <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Activer/Désactiver" onClick={() => void updateQuizQuestion(question.id, { active: !question.active }).then(load)}>
+                <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Enable / disable" onClick={() => void updateQuizQuestion(question.id, { active: !question.active }).then(load)}>
                   {question.active ? "⏸️" : "▶️"}
                 </button>
-                <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Supprimer" onClick={() => void deleteQuizQuestion(question.id).then(load)}>🗑️</button>
+                <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Delete" onClick={() => void deleteQuizQuestion(question.id).then(load)}>🗑️</button>
               </div>
             </div>
           </div>

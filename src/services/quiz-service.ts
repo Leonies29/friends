@@ -143,7 +143,7 @@ export async function getOrCreateQuizSession(input: {
   if (existing) return existing;
 
   const questions = (await listQuizQuestions(input.groupId, input.gameId)).filter((question) => question.active);
-  if (!questions.length) throw new Error("Aucune question active pour ce quiz.");
+  if (!questions.length) throw new Error("No active questions found for this quiz.");
 
   const questionOrder = shuffle(questions.map((question) => question.id));
   const db = getFirebaseFirestore();
@@ -197,7 +197,7 @@ export async function submitQuizAnswer(input: {
   responseTimeMs: number;
 }) {
   if (input.session.answeredQuestionIds.includes(input.question.id)) {
-    throw new Error("Tu as déjà répondu à cette question.");
+    throw new Error("You have already answered this question.");
   }
 
   const isCorrect = input.selectedAnswer >= 0
@@ -256,7 +256,7 @@ export async function submitQuizAnswer(input: {
       amount: points,
       sourceType: "game",
       sourceId: input.question.id,
-      reason: isCorrect && points > 10 ? `Quiz rapide (+${points} pts)` : `Bonne réponse quiz (+${points} pts)`,
+      reason: isCorrect && points > 10 ? `Speed bonus quiz (+${points} pts)` : `Correct quiz answer (+${points} pts)`,
       createdBy: input.session.userId
     });
   }

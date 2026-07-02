@@ -7,7 +7,7 @@ export function QuizProgressBar({ current, total }: { current: number; total: nu
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between text-sm font-semibold text-muted-foreground">
-        <span>Progression</span>
+        <span>Progress</span>
         <span>{current}/{total} · {percent}%</span>
       </div>
       <div className="mt-2 h-3 overflow-hidden rounded-full bg-muted">

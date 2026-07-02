@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge, Button, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { QuizLeaderboardPanel } from "@/components/quiz/quiz-leaderboard-panel";
 import { QuizProgressBar } from "@/components/quiz/quiz-progress-bar";
 import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
@@ -141,20 +141,20 @@ export function QuizPage() {
 
   const remaining = useQuizTimer(timerActive && !locked, handleTimeout);
 
-  if (state.loading || loading) return <LoadingCard label="Chargement du quiz..." />;
+  if (state.loading || loading) return <LoadingCard label="Loading quiz..." />;
   if (!state.group) return <EmptyGroupCard />;
 
   if (!quizGame) {
     return (
-      <PageShell eyebrow="Quiz" title="Histoire d'Istanbul" description="Le quiz n'est pas encore activé pour ce voyage." group={state.group}>
-        <Card><p className="text-sm text-muted-foreground">Demande à un admin d'activer le jeu Quiz dans Admin → Games.</p></Card>
+      <PageShell eyebrow="History Quiz" title="Istanbul & Turkey" description="This quiz is not enabled for your trip yet." group={state.group}>
+        <Card><p className="text-sm text-muted-foreground">Ask an admin to enable the quiz under Admin → Games.</p></Card>
       </PageShell>
     );
   }
 
   if (session?.status === "completed" || (session && !current && !timerActive)) {
     return (
-      <PageShell eyebrow="Quiz" title={quizGame.title} description="Histoire d'Istanbul et de la Turquie" group={state.group}>
+      <PageShell eyebrow="History Quiz" title={quizGame.title} description="Discover the story of Istanbul and Turkey" group={state.group}>
         {session && !showLeaderboard && <QuizResultsScreen session={session} onReplayLeaderboard={() => setShowLeaderboard(true)} />}
         {(showLeaderboard || !session) && <QuizLeaderboardPanel entries={leaderboard} />}
       </PageShell>
@@ -162,22 +162,22 @@ export function QuizPage() {
   }
 
   return (
-    <PageShell eyebrow="Quiz" title={quizGame.title} description="Réponds vite pour le bonus +5 pts (≤ 20 s) · +10 pts par bonne réponse" group={state.group}>
+    <PageShell eyebrow="History Quiz" title={quizGame.title} description="Answer within 20s for a +5 speed bonus · +10 pts per correct answer" group={state.group}>
       {session && (
         <QuizProgressBar current={session.answeredQuestionIds.length} total={session.questionOrder.length} />
       )}
 
       <Card className="grid gap-2 sm:grid-cols-3">
         <div className="rounded-2xl bg-emerald-50 p-3 text-center">
-          <p className="text-xs font-black uppercase text-emerald-700">Bonne réponse</p>
+          <p className="text-xs font-black uppercase text-emerald-700">Correct answer</p>
           <p className="text-2xl font-black text-emerald-900">+{QUIZ_BASE_POINTS}</p>
         </div>
         <div className="rounded-2xl bg-amber-50 p-3 text-center">
-          <p className="text-xs font-black uppercase text-amber-700">Bonus rapidité</p>
+          <p className="text-xs font-black uppercase text-amber-700">Speed bonus</p>
           <p className="text-2xl font-black text-amber-900">+{QUIZ_SPEED_BONUS}</p>
         </div>
         <div className="rounded-2xl bg-sky-50 p-3 text-center">
-          <p className="text-xs font-black uppercase text-sky-700">Ton score</p>
+          <p className="text-xs font-black uppercase text-sky-700">Your score</p>
           <p className="text-2xl font-black text-sky-900">{session?.score ?? 0}</p>
         </div>
       </Card>

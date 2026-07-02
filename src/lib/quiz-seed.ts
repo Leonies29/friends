@@ -6,13 +6,13 @@ export const QUIZ_TIMER_SECONDS = 20;
 
 export const QUIZ_CATEGORY_META: Record<QuizCategory, { emoji: string; label: string }> = {
   istanbul: { emoji: "🕌", label: "Istanbul" },
-  turquie: { emoji: "🇹🇷", label: "Turquie" }
+  turquie: { emoji: "🇹🇷", label: "Turkey" }
 };
 
 export const QUIZ_DIFFICULTY_META: Record<QuizDifficulty, { emoji: string; label: string }> = {
-  easy: { emoji: "🟢", label: "Facile" },
-  medium: { emoji: "🟠", label: "Moyen" },
-  hard: { emoji: "🔴", label: "Difficile" }
+  easy: { emoji: "🟢", label: "Easy" },
+  medium: { emoji: "🟠", label: "Medium" },
+  hard: { emoji: "🔴", label: "Hard" }
 };
 
 export type QuizSeedQuestion = {
@@ -25,211 +25,211 @@ export type QuizSeedQuestion = {
 
 export const ISTANBUL_HISTORY_QUIZ_SEED: QuizSeedQuestion[] = [
   {
-    question: "Quel était le premier nom connu d'Istanbul ?",
-    answers: ["Troie", "Byzance", "Éphèse", "Nicée"],
+    question: "What was the earliest known name of Istanbul?",
+    answers: ["Troy", "Byzantium", "Ephesus", "Nicaea"],
     correctAnswer: 1,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Vers quelle année Byzance a-t-elle été fondée par des colons grecs ?",
-    answers: ["657 av. J.-C.", "1453", "330", "1071"],
+    question: "Around what year was Byzantium founded by Greek colonists?",
+    answers: ["657 BC", "1453", "330", "1071"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "Quel empereur romain fit de la ville la nouvelle capitale de l'Empire romain en 330 ?",
-    answers: ["Constantin Ier (Constantin le Grand)", "Hadrien", "Théodose Ier", "Justinien Ier"],
+    question: "Which Roman emperor made the city the new capital of the Roman Empire in 330?",
+    answers: ["Constantine I (Constantine the Great)", "Hadrian", "Theodosius I", "Justinian I"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel nom reçut la ville après sa refondation par Constantin ?",
-    answers: ["Alexandrie", "Constantinople", "Pergame", "Smyrne"],
+    question: "What name did the city receive after Constantine's refounding?",
+    answers: ["Alexandria", "Constantinople", "Pergamon", "Smyrna"],
     correctAnswer: 1,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Sur quels deux continents Istanbul est-elle située ?",
-    answers: ["L'Europe et l'Asie", "L'Europe et l'Afrique", "L'Asie et l'Afrique", "L'Europe et l'Amérique"],
+    question: "On which two continents does Istanbul lie?",
+    answers: ["Europe and Asia", "Europe and Africa", "Asia and Africa", "Europe and America"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel détroit sépare la partie européenne de la partie asiatique d'Istanbul ?",
-    answers: ["Le Bosphore", "Le Danube", "Le Dardanelles", "La Corne d'Or"],
+    question: "Which strait separates Istanbul's European and Asian sides?",
+    answers: ["The Bosphorus", "The Danube", "The Dardanelles", "The Golden Horn"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel empire avait Constantinople pour capitale avant 1453 ?",
-    answers: ["Empire byzantin", "Empire perse", "Empire mongol", "Empire britannique"],
+    question: "Which empire had Constantinople as its capital before 1453?",
+    answers: ["The Byzantine Empire", "The Persian Empire", "The Mongol Empire", "The British Empire"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "En quelle année Constantinople fut-elle conquise par les Ottomans ?",
+    question: "In what year was Constantinople conquered by the Ottomans?",
     answers: ["1453", "1204", "1071", "1520"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel sultan ottoman conquit Constantinople ?",
-    answers: ["Mehmed II (Mehmed le Conquérant)", "Suleiman le Magnifique", "Selim Ier", "Bayezid II"],
+    question: "Which Ottoman sultan conquered Constantinople?",
+    answers: ["Mehmed II (Mehmed the Conqueror)", "Suleiman the Magnificent", "Selim I", "Bayezid II"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "Combien de jours dura le siège de Constantinople en 1453 ?",
+    question: "How many days did the siege of Constantinople last in 1453?",
     answers: ["10", "25", "53", "120"],
     correctAnswer: 2,
     category: "istanbul",
     difficulty: "hard"
   },
   {
-    question: "Quelle immense église fut transformée en mosquée après la conquête ottomane ?",
-    answers: ["Sainte-Sophie (Hagia Sophia)", "Sainte-Irène", "Notre-Dame de Paris", "Basilique Saint-Pierre"],
+    question: "Which great church was converted into a mosque after the Ottoman conquest?",
+    answers: ["Hagia Sophia", "Hagia Irene", "Notre-Dame de Paris", "St. Peter's Basilica"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Sous quel empereur byzantin la Sainte-Sophie actuelle fut-elle construite ?",
-    answers: ["Justinien Ier", "Constantin Ier", "Théodose II", "Basile II"],
+    question: "Under which Byzantine emperor was the present Hagia Sophia built?",
+    answers: ["Justinian I", "Constantine I", "Theodosius II", "Basil II"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "En quelle année la Sainte-Sophie actuelle fut-elle achevée ?",
+    question: "In what year was the present Hagia Sophia completed?",
     answers: ["330", "537", "1096", "1453"],
     correctAnswer: 1,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "Quel est aujourd'hui le plus grand symbole de l'architecture byzantine à Istanbul ?",
-    answers: ["La Sainte-Sophie", "Le palais de Topkapi", "La tour de Galata", "Le palais de Dolmabahçe"],
+    question: "What is today the greatest symbol of Byzantine architecture in Istanbul?",
+    answers: ["Hagia Sophia", "Topkapi Palace", "Galata Tower", "Dolmabahçe Palace"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel est le plus grand fleuve de Turquie ?",
-    answers: ["Kızılırmak", "Nil", "Danube", "Euphrate"],
+    question: "What is the longest river in Turkey?",
+    answers: ["Kızılırmak", "The Nile", "The Danube", "The Euphrates"],
     correctAnswer: 0,
     category: "turquie",
     difficulty: "medium"
   },
   {
-    question: "Quelle est la capitale actuelle de la Turquie ?",
+    question: "What is the current capital of Turkey?",
     answers: ["Istanbul", "Ankara", "Izmir", "Bursa"],
     correctAnswer: 1,
     category: "turquie",
     difficulty: "easy"
   },
   {
-    question: "En quelle année la République de Turquie fut-elle fondée ?",
+    question: "In what year was the Republic of Turkey founded?",
     answers: ["1453", "1914", "1923", "1938"],
     correctAnswer: 2,
     category: "turquie",
     difficulty: "medium"
   },
   {
-    question: "Qui est le fondateur de la République de Turquie ?",
-    answers: ["Mustafa Kemal Atatürk", "Mehmed II", "Suleiman le Magnifique", "Abdülhamid II"],
+    question: "Who founded the Republic of Turkey?",
+    answers: ["Mustafa Kemal Atatürk", "Mehmed II", "Suleiman the Magnificent", "Abdülhamid II"],
     correctAnswer: 0,
     category: "turquie",
     difficulty: "easy"
   },
   {
-    question: "Quel palais fut la résidence principale des sultans ottomans pendant plusieurs siècles ?",
-    answers: ["Le palais de Topkapi", "Le palais de Dolmabahçe", "Le palais de Yildiz", "Le palais de Beylerbeyi"],
+    question: "Which palace served as the main residence of the Ottoman sultans for centuries?",
+    answers: ["Topkapi Palace", "Dolmabahçe Palace", "Yildiz Palace", "Beylerbeyi Palace"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Comment s'appelle le grand marché historique d'Istanbul ?",
-    answers: ["Le Grand Bazar (Kapalıçarşı)", "Le marché aux épices", "L'Arasta", "Le bazar égyptien"],
+    question: "What is the name of Istanbul's great historic covered market?",
+    answers: ["The Grand Bazaar (Kapalıçarşı)", "The Spice Bazaar", "Arasta Bazaar", "The Egyptian Bazaar"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel bras de mer forme le port naturel historique d'Istanbul ?",
-    answers: ["La Corne d'Or (Golden Horn)", "Le Bosphore", "La mer de Marmara", "Les Dardanelles"],
+    question: "Which inlet forms Istanbul's historic natural harbor?",
+    answers: ["The Golden Horn", "The Bosphorus", "The Sea of Marmara", "The Dardanelles"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "Quel célèbre monument possède six minarets ?",
-    answers: ["La Mosquée Bleue", "Sainte-Sophie", "La tour de Galata", "Topkapi"],
+    question: "Which famous monument has six minarets?",
+    answers: ["The Blue Mosque", "Hagia Sophia", "Galata Tower", "Topkapi Palace"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "Comment s'appelle la tour médiévale emblématique dominant le quartier de Galata ?",
-    answers: ["La tour de Galata", "La tour de Léandre", "La tour de la Vierge", "La tour de Beyazit"],
+    question: "What is the name of the iconic medieval tower overlooking the Galata district?",
+    answers: ["Galata Tower", "Leander's Tower", "Maiden's Tower", "Beyazit Tower"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel empire a succédé à l'Empire byzantin à Constantinople après 1453 ?",
-    answers: ["L'Empire ottoman", "L'Empire perse", "L'Empire russe", "L'Empire austro-hongrois"],
+    question: "Which empire succeeded the Byzantine Empire in Constantinople after 1453?",
+    answers: ["The Ottoman Empire", "The Persian Empire", "The Russian Empire", "The Austro-Hungarian Empire"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel nom est officiellement adopté pour la ville en 1930 ?",
-    answers: ["Istanbul", "Constantinople", "Byzance", "Ankara"],
+    question: "Which name was officially adopted for the city in 1930?",
+    answers: ["Istanbul", "Constantinople", "Byzantium", "Ankara"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "Quel peuple fonda initialement Byzance ?",
-    answers: ["Les Grecs", "Les Romains", "Les Ottomans", "Les Perses"],
+    question: "Which people originally founded Byzantium?",
+    answers: ["The Greeks", "The Romans", "The Ottomans", "The Persians"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel empereur byzantin était au pouvoir lors de la chute de Constantinople ?",
-    answers: ["Constantin XI", "Justinien Ier", "Basile II", "Andronic II"],
+    question: "Which Byzantine emperor was in power when Constantinople fell?",
+    answers: ["Constantine XI", "Justinian I", "Basil II", "Andronicus II"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "hard"
   },
   {
-    question: "Quel détroit relie la mer Noire à la mer de Marmara ?",
-    answers: ["Le Bosphore", "Le Danube", "Le Nil", "La Méditerranée"],
+    question: "Which strait connects the Black Sea to the Sea of Marmara?",
+    answers: ["The Bosphorus", "The Danube", "The Nile", "The Mediterranean"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
   },
   {
-    question: "Quel empire a utilisé Constantinople comme capitale pendant plus de 1 000 ans ?",
-    answers: ["L'Empire byzantin", "L'Empire ottoman", "L'Empire romain d'Occident", "L'Empire perse"],
+    question: "Which empire used Constantinople as its capital for more than 1,000 years?",
+    answers: ["The Byzantine Empire", "The Ottoman Empire", "The Western Roman Empire", "The Persian Empire"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "medium"
   },
   {
-    question: "Quel bâtiment a été tour à tour église, mosquée, musée puis de nouveau mosquée ?",
-    answers: ["La Sainte-Sophie", "Sainte-Irène", "La Mosquée Bleue", "Süleymaniye"],
+    question: "Which building has been, in turn, a church, a mosque, a museum, and a mosque again?",
+    answers: ["Hagia Sophia", "Hagia Irene", "The Blue Mosque", "Süleymaniye Mosque"],
     correctAnswer: 0,
     category: "istanbul",
     difficulty: "easy"
