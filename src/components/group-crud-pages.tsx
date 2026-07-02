@@ -1,44 +1,111 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Camera, Check, Loader2, Plus, Trash2, Trophy, Users } from "lucide-react";
-import { Avatar, Badge, Button, Card, GameCard, Progress } from "@/components/ui";
+import {
+  Archive,
+  CalendarDays,
+  Camera,
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  Loader2,
+  Minus,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+  Trophy,
+  Users
+} from "lucide-react";
+import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
+import { canManageGames, canManagePlanning, canManageScores, canModeratePhotos } from "@/services/permissions";
+import {
+  archiveGame,
+  createGame,
+  duplicateGame,
+  ensureDefaultGames,
+  listGames,
+  setGameActive,
+  updateGame
+} from "@/services/game-service";
+import {
+  addPhotoComment,
+  deletePhoto,
+  listPhotos,
+  reactToPhoto,
+  setPhotoFeatured,
+  uploadGroupPhoto
+} from "@/services/photo-service";
+import {
+  createScheduleEvent,
+  deleteScheduleEvent,
+  listScheduleEvents,
+  setScheduleAttendance,
+  summarizeAttendance
+} from "@/services/schedule-service";
+import { addXpTransaction, getWeekKey, listXpTransactions } from "@/services/xp-service";
+import type { AttendanceStatus, Challenge, Game, GameCategory, Photo, ScheduleEvent, XpTransaction } from "@/types";
+import { calculateLevel } from "@/lib/utils";
 
 type GroupState = ReturnType<typeof useActiveGroup>;
-type ReadyStatus = "ready" | "not-ready";
-
-type ScheduleEventDoc = { id: string; groupId: string; title: string; description: string; date: string; time: string; meetingLocation: string; notes: string; readiness?: Record<string, ReadyStatus> };
-type PhotoDoc = { id: string; groupId: string; ownerId: string; ownerName: string; ownerAvatar?: string; imageUrl: string; caption: string; reactionCounts?: Record<string, number> };
-type ChallengeDoc = { id: string; groupId: string; ownerId: string; ownerName: string; title: string; description: string; difficulty: "Easy" | "Medium" | "Hard"; xpReward: number; status: "secret" | "submitted" | "approved"; proof?: { type: "description"; value: string; submittedAt: string } };
 type RelicDoc = { id: string; groupId: string; key: string; label: string; xpReward: number; collectedBy?: string; collectedByName?: string };
 
 const relicTemplates = [
-  ["cat-photo", "Cat photo"],
-  ["ferry-photo", "Ferry photo"],
-  ["tea-glass", "Tea glass"],
-  ["bazaar-item", "Bazaar item"],
-  ["turkish-dessert", "Turkish dessert"],
-  ["sunset", "Sunset"],
   ["group-selfie", "Group selfie"],
-  ["street-musician", "Street musician"],
-  ["historic-monument", "Historic monument"],
-  ["funny-sign", "Funny sign"]
+  ["local-snack", "Local snack"],
+  ["sunset", "Sunset"],
+  ["funny-sign", "Funny sign"],
+  ["public-transport", "Public transport"],
+  ["best-view", "Best view"],
+  ["street-moment", "Street moment"],
+  ["souvenir", "Souvenir"],
+  ["hidden-gem", "Hidden gem"],
+  ["final-memory", "Final memory"]
 ] as const;
+
+const inputClass = "rounded-2xl border border-border bg-background px-4 py-3 font-semibold outline-none focus:border-accent focus:ring-4 focus:ring-accent/15";
+const textareaClass = `${inputClass} min-h-24`;
+
+function memberName(member?: GroupMember | null) {
+  return member?.nickname || member?.username || "Group member";
+}
 
 function renderGroupState(state: GroupState) {
   if (state.loading) {
-    return <Card className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-accent" /><p className="font-semibold text-muted-foreground">Loading your group space...</p></Card>;
+    return (
+      <Card className="flex items-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-accent" />
+        <p className="font-semibold text-muted-foreground">Loading your group space...</p>
+      </Card>
+    );
   }
+
   if (state.error) return <Card className="text-sm font-semibold text-rose-600">{state.error}</Card>;
+
   if (!state.group) {
-    return <Card><Badge>No active group</Badge><h1 className="mt-3 text-3xl font-black">Join or create a group first</h1><p className="mt-2 text-muted-foreground">This page only reads and writes data for your active group.</p></Card>;
+    return (
+      <Card>
+        <Badge>No active group</Badge>
+        <h1 className="mt-3 text-3xl font-black">Join or create a group first</h1>
+        <p className="mt-2 text-muted-foreground">This page only reads and writes data for your active group.</p>
+      </Card>
+    );
   }
+
   return null;
 }
 
 function PageHero({ eyebrow, title, description, group }: { eyebrow: string; title: string; description: string; group: ActiveGroup }) {
-  return <GameCard className="bg-primary text-primary-foreground"><Badge className="border-white/20 bg-white/10 text-primary-foreground/80">{eyebrow}</Badge><h1 className="mt-4 font-display text-5xl font-black leading-none">{title}</h1><p className="mt-4 max-w-2xl text-primary-foreground/75">{description}</p><p className="mt-4 text-sm font-black text-primary-foreground/70">{group.name ?? "Active group"}</p></GameCard>;
+  return (
+    <Card className="bg-primary text-primary-foreground">
+      <Badge className="border-white/20 bg-white/10 text-primary-foreground/80">{eyebrow}</Badge>
+      <h1 className="mt-4 font-display text-4xl font-black leading-none md:text-5xl">{title}</h1>
+      <p className="mt-4 max-w-2xl text-primary-foreground/75">{description}</p>
+      <p className="mt-4 text-sm font-black text-primary-foreground/70">{group.name ?? "Active group"}</p>
+    </Card>
+  );
 }
 
 async function listGroupDocs<T>(collectionName: string, groupId: string) {
@@ -47,22 +114,33 @@ async function listGroupDocs<T>(collectionName: string, groupId: string) {
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as T);
 }
 
-function readinessPercent(event: ScheduleEventDoc, members: GroupMember[]) {
+async function updateGroupDoc(collectionName: string, id: string, data: Record<string, unknown>) {
+  const [{ doc, serverTimestamp, updateDoc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
+  await updateDoc(doc(getFirebaseFirestore(), collectionName, id), { ...data, updatedAt: serverTimestamp() });
+}
+
+async function deleteGroupDoc(collectionName: string, id: string) {
+  const [{ deleteDoc, doc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
+  await deleteDoc(doc(getFirebaseFirestore(), collectionName, id));
+}
+
+function attendancePercent(event: ScheduleEvent, members: GroupMember[]) {
   if (!members.length) return 0;
-  return Math.round((members.filter((member) => event.readiness?.[member.id] === "ready").length / members.length) * 100);
+  const summary = summarizeAttendance(event, members.map((member) => member.userId || member.id));
+  return Math.round((summary.ready / members.length) * 100);
 }
 
 export function GroupSchedulePage() {
   const state = useActiveGroup();
-  const [events, setEvents] = useState<ScheduleEventDoc[]>([]);
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [saving, setSaving] = useState(false);
+  const canEdit = canManagePlanning(state.currentMember?.role);
 
   async function loadEvents(groupId = state.group?.id) {
     if (!groupId) return;
     setLoadingItems(true);
-    const items = await listGroupDocs<ScheduleEventDoc>("scheduleEvents", groupId);
-    setEvents(items.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)));
+    setEvents(await listScheduleEvents(groupId));
     setLoadingItems(false);
   }
 
@@ -74,39 +152,90 @@ export function GroupSchedulePage() {
 
   async function createEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canEdit) return;
     setSaving(true);
     const form = new FormData(event.currentTarget);
-    const [{ addDoc, collection, serverTimestamp }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await addDoc(collection(getFirebaseFirestore(), "scheduleEvents"), { groupId: group.id, title: String(form.get("title") ?? ""), description: String(form.get("description") ?? ""), date: String(form.get("date") ?? ""), time: String(form.get("time") ?? ""), meetingLocation: String(form.get("meetingLocation") ?? ""), notes: String(form.get("notes") ?? ""), readiness: {}, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    await createScheduleEvent(group.id, {
+      title: String(form.get("title") ?? ""),
+      location: String(form.get("location") ?? ""),
+      date: String(form.get("date") ?? ""),
+      startTime: String(form.get("startTime") ?? ""),
+      endTime: String(form.get("endTime") ?? ""),
+      description: String(form.get("description") ?? "")
+    });
     event.currentTarget.reset();
     await loadEvents(group.id);
     setSaving(false);
   }
 
-  async function setReady(eventId: string, status: ReadyStatus) {
+  async function setAttendance(eventId: string, status: AttendanceStatus) {
     if (!state.userId) return;
-    const [{ doc, serverTimestamp, updateDoc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await updateDoc(doc(getFirebaseFirestore(), "scheduleEvents", eventId), { [`readiness.${state.userId}`]: status, updatedAt: serverTimestamp() });
+    await setScheduleAttendance(eventId, state.userId, status);
     await loadEvents(group.id);
   }
 
-  async function deleteEvent(eventId: string) {
-    const [{ deleteDoc, doc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await deleteDoc(doc(getFirebaseFirestore(), "scheduleEvents", eventId));
-    await loadEvents(group.id);
-  }
+  return (
+    <div className="grid gap-6">
+      <PageHero eyebrow="Shared planning" title="Planner" description="A simple schedule with attendance for this trip only." group={group} />
 
-  return <div className="grid gap-6"><PageHero eyebrow="Group schedule" title="Planner" description="Create events that only belong to this group." group={group} /><Card><form className="grid gap-3 md:grid-cols-2" onSubmit={createEvent}><input name="title" required placeholder="Event title" className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><input name="meetingLocation" placeholder="Meeting location" className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><input name="date" type="date" required className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><input name="time" type="time" required className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><textarea name="description" placeholder="Description" className="min-h-24 rounded-2xl border border-border bg-background px-4 py-3 font-semibold md:col-span-2" /><textarea name="notes" placeholder="Notes" className="min-h-20 rounded-2xl border border-border bg-background px-4 py-3 font-semibold md:col-span-2" /><Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />{saving ? "Saving..." : "Create event"}</Button></form></Card><div className="grid gap-4">{loadingItems && <Card>Loading events...</Card>}{!loadingItems && events.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No events yet for this group.</p></Card>}{events.map((item) => <Card key={item.id}><div className="flex flex-wrap items-start justify-between gap-4"><div><Badge>{item.date} / {item.time}</Badge><h2 className="mt-3 text-2xl font-black">{item.title}</h2><p className="mt-1 text-muted-foreground">{item.meetingLocation}</p><p className="mt-3 text-sm text-muted-foreground">{item.description}</p></div><Button variant="ghost" size="sm" onClick={() => deleteEvent(item.id)}><Trash2 className="h-4 w-4" />Delete</Button></div><Progress value={readinessPercent(item, state.members)} className="mt-4" /><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => setReady(item.id, "ready")}><Check className="h-4 w-4" />Ready</Button><Button size="sm" variant="ghost" onClick={() => setReady(item.id, "not-ready")}>Not ready</Button><span className="px-2 py-2 text-sm font-black text-muted-foreground">{readinessPercent(item, state.members)}% ready</span></div></Card>)}</div></div>;
+      {canEdit && (
+        <Card>
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={createEvent}>
+            <input name="title" required placeholder="Event title" className={inputClass} />
+            <input name="location" placeholder="Location" className={inputClass} />
+            <input name="date" type="date" required className={inputClass} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input name="startTime" type="time" required className={inputClass} />
+              <input name="endTime" type="time" className={inputClass} />
+            </div>
+            <textarea name="description" placeholder="Description" className={`${textareaClass} md:col-span-2`} />
+            <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />{saving ? "Saving..." : "Create event"}</Button>
+          </form>
+        </Card>
+      )}
+
+      <div className="grid gap-4">
+        {loadingItems && <Card>Loading events...</Card>}
+        {!loadingItems && events.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No events yet for this group.</p></Card>}
+        {events.map((item) => {
+          const summary = summarizeAttendance(item, state.members.map((member) => member.userId || member.id));
+          return (
+            <Card key={item.id}>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <Badge>{item.date} / {item.startTime || item.time}{item.endTime ? `-${item.endTime}` : ""}</Badge>
+                  <h2 className="mt-3 text-2xl font-black">{item.title}</h2>
+                  <p className="mt-1 text-muted-foreground">{item.location || item.meetingLocation}</p>
+                  <p className="mt-3 text-sm text-muted-foreground">{item.description}</p>
+                </div>
+                {canEdit && <Button variant="ghost" size="sm" onClick={() => void deleteScheduleEvent(item.id).then(() => loadEvents(group.id))}><Trash2 className="h-4 w-4" />Delete</Button>}
+              </div>
+              <Progress value={attendancePercent(item, state.members)} className="mt-4" />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setAttendance(item.id, "ready")}><Check className="h-4 w-4" />Ready</Button>
+                <Button size="sm" variant="secondary" onClick={() => setAttendance(item.id, "late")}>Late</Button>
+                <Button size="sm" variant="ghost" onClick={() => setAttendance(item.id, "unavailable")}>Unavailable</Button>
+                <span className="px-2 py-2 text-sm font-black text-muted-foreground">
+                  {summary.ready} ready / {summary.late} late / {summary.unavailable} unavailable
+                </span>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function GroupPhotosPage() {
   const state = useActiveGroup();
-  const [photos, setPhotos] = useState<PhotoDoc[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState(false);
+  const canModerate = canModeratePhotos(state.currentMember?.role);
 
   async function loadPhotos(groupId = state.group?.id) {
     if (!groupId) return;
-    setPhotos(await listGroupDocs<PhotoDoc>("photos", groupId));
+    setPhotos((await listPhotos(groupId)).filter((photo) => photo.status !== "deleted"));
   }
 
   useEffect(() => { void loadPhotos(); }, [state.group?.id]);
@@ -114,7 +243,7 @@ export function GroupPhotosPage() {
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
   const group = state.group!;
-  const currentMember = state.members.find((member) => member.id === state.userId);
+  const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
 
   async function uploadPhoto(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,39 +251,75 @@ export function GroupPhotosPage() {
     setUploading(true);
     const form = new FormData(event.currentTarget);
     const file = form.get("photo");
-    if (!(file instanceof File) || !file.name) { setUploading(false); return; }
-    const [{ addDoc, collection, serverTimestamp }, { getDownloadURL, ref, uploadBytes }, { getFirebaseFirestore }, { getFirebaseStorage }] = await Promise.all([import("firebase/firestore"), import("firebase/storage"), import("@/firebase/firestore"), import("@/firebase/storage")]);
-    const storageRef = ref(getFirebaseStorage(), `groupPhotos/${group.id}/${state.userId}/${Date.now()}-${file.name}`);
-    await uploadBytes(storageRef, file);
-    await addDoc(collection(getFirebaseFirestore(), "photos"), { groupId: group.id, ownerId: state.userId, ownerName: currentMember?.username ?? "Group member", ownerAvatar: currentMember?.avatarUrl ?? "", imageUrl: await getDownloadURL(storageRef), caption: String(form.get("caption") ?? ""), reactionCounts: {}, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    if (!(file instanceof File) || !file.name) {
+      setUploading(false);
+      return;
+    }
+    await uploadGroupPhoto({
+      groupId: group.id,
+      ownerId: state.userId,
+      ownerName: memberName(currentMember),
+      ownerAvatar: currentMember?.avatarUrl,
+      file,
+      caption: String(form.get("caption") ?? "")
+    });
     event.currentTarget.reset();
     await loadPhotos(group.id);
     setUploading(false);
   }
 
-  async function react(photoId: string, reaction: string) {
-    const [{ doc, increment, serverTimestamp, updateDoc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await updateDoc(doc(getFirebaseFirestore(), "photos", photoId), { [`reactionCounts.${reaction}`]: increment(1), updatedAt: serverTimestamp() });
-    await loadPhotos(group.id);
-  }
-
-  async function deletePhoto(photoId: string) {
-    const [{ deleteDoc, doc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await deleteDoc(doc(getFirebaseFirestore(), "photos", photoId));
-    await loadPhotos(group.id);
-  }
-
-  return <div className="grid gap-6"><PageHero eyebrow="Private photo wall" title="Memories" description="Photos are stored with this group's ID only." group={group} /><Card><form className="grid gap-3" onSubmit={uploadPhoto}><input name="photo" type="file" accept="image/*" required className="rounded-2xl border border-dashed border-border bg-background px-4 py-5 font-semibold" /><input name="caption" placeholder="Caption" className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><Button type="submit" disabled={uploading}><Camera className="h-4 w-4" />{uploading ? "Uploading..." : "Upload to this group"}</Button></form></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{photos.length === 0 && <Card className="md:col-span-2 xl:col-span-3"><Badge>Empty</Badge><p className="mt-3 font-black">No photos yet for this group.</p></Card>}{photos.map((photo) => <Card key={photo.id} className="overflow-hidden"><img src={photo.imageUrl} alt={photo.caption} className="mb-4 h-56 w-full rounded-3xl object-cover" /><div className="flex items-center gap-3"><Avatar src={photo.ownerAvatar ?? ""} alt={photo.ownerName} /><div><p className="font-black">{photo.ownerName}</p><p className="text-sm text-muted-foreground">{photo.caption}</p></div></div><div className="mt-4 flex flex-wrap gap-2">{["funny", "legendary", "favorite"].map((reaction) => <Button key={reaction} size="sm" variant="secondary" onClick={() => react(photo.id, reaction)}>{reaction} {photo.reactionCounts?.[reaction] ?? 0}</Button>)}{photo.ownerId === state.userId && <Button size="sm" variant="ghost" onClick={() => deletePhoto(photo.id)}><Trash2 className="h-4 w-4" /></Button>}</div></Card>)}</div></div>;
+  return (
+    <div className="grid gap-6">
+      <PageHero eyebrow="Private gallery" title="Photos" description="Photos, reactions, and comments stay inside this group." group={group} />
+      <Card>
+        <form className="grid gap-3" onSubmit={uploadPhoto}>
+          <input name="photo" type="file" accept="image/*" required className="rounded-2xl border border-dashed border-border bg-background px-4 py-5 font-semibold" />
+          <input name="caption" placeholder="Caption" className={inputClass} />
+          <Button type="submit" disabled={uploading}><Camera className="h-4 w-4" />{uploading ? "Uploading..." : "Upload photo"}</Button>
+        </form>
+      </Card>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {photos.length === 0 && <Card className="md:col-span-2 xl:col-span-3"><Badge>Empty</Badge><p className="mt-3 font-black">No photos yet for this group.</p></Card>}
+        {photos.map((photo) => (
+          <Card key={photo.id} className="overflow-hidden">
+            <img src={photo.imageUrl} alt={photo.caption} className="mb-4 h-56 w-full rounded-3xl object-cover" />
+            <div className="flex items-center gap-3">
+              <Avatar src={photo.ownerAvatar ?? ""} alt={photo.ownerName} />
+              <div>
+                <p className="font-black">{photo.ownerName}</p>
+                <p className="text-sm text-muted-foreground">{photo.caption}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(["like", "funny", "favorite"] as const).map((reaction) => (
+                <Button key={reaction} size="sm" variant="secondary" onClick={() => void reactToPhoto({ groupId: group.id, photoId: photo.id, userId: state.userId ?? "", type: reaction }).then(() => loadPhotos(group.id))}>
+                  {reaction} {photo.reactionCounts?.[reaction] ?? 0}
+                </Button>
+              ))}
+              {canModerate && <Button size="sm" variant="secondary" onClick={() => void setPhotoFeatured(photo.id, !photo.featured).then(() => loadPhotos(group.id))}><Star className="h-4 w-4" />{photo.featured ? "Unfeature" : "Feature"}</Button>}
+              {(photo.ownerId === state.userId || canModerate) && <Button size="sm" variant="ghost" onClick={() => void deletePhoto(photo).then(() => loadPhotos(group.id))}><Trash2 className="h-4 w-4" /></Button>}
+            </div>
+            <form className="mt-3 flex gap-2" onSubmit={(event) => { event.preventDefault(); const body = String(new FormData(event.currentTarget).get("comment") ?? ""); if (state.userId && body.trim()) void addPhotoComment({ groupId: group.id, photoId: photo.id, userId: state.userId, userName: memberName(currentMember), body }).then(() => { event.currentTarget.reset(); return loadPhotos(group.id); }); }}>
+              <input name="comment" placeholder="Add comment" className={`${inputClass} min-w-0 flex-1`} />
+              <Button type="submit" variant="secondary">Send</Button>
+            </form>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function GroupChallengesPage() {
   const state = useActiveGroup();
-  const [challenges, setChallenges] = useState<ChallengeDoc[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [saving, setSaving] = useState(false);
+  const canEdit = canManageGames(state.currentMember?.role);
+  const canScore = canManageScores(state.currentMember?.role);
 
   async function loadChallenges(groupId = state.group?.id) {
     if (!groupId) return;
-    setChallenges(await listGroupDocs<ChallengeDoc>("challenges", groupId));
+    setChallenges(await listGroupDocs<Challenge>("challenges", groupId));
   }
 
   useEffect(() => { void loadChallenges(); }, [state.group?.id]);
@@ -165,24 +330,78 @@ export function GroupChallengesPage() {
 
   async function createChallenge(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canEdit) return;
     setSaving(true);
     const form = new FormData(event.currentTarget);
     const ownerId = String(form.get("ownerId") ?? "");
-    const owner = state.members.find((member) => member.id === ownerId);
+    const owner = state.members.find((member) => member.id === ownerId || member.userId === ownerId);
     const [{ addDoc, collection, serverTimestamp }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await addDoc(collection(getFirebaseFirestore(), "challenges"), { groupId: group.id, ownerId, ownerName: owner?.username ?? "Group member", title: String(form.get("title") ?? ""), description: String(form.get("description") ?? ""), difficulty: String(form.get("difficulty") ?? "Easy"), xpReward: Number(form.get("xpReward") ?? 50), status: "secret", createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    await addDoc(collection(getFirebaseFirestore(), "challenges"), {
+      groupId: group.id,
+      ownerId,
+      ownerName: memberName(owner),
+      title: String(form.get("title") ?? ""),
+      description: String(form.get("description") ?? ""),
+      difficulty: String(form.get("difficulty") ?? "Easy"),
+      xpReward: Number(form.get("xpReward") ?? 50),
+      scheduledFor: String(form.get("scheduledFor") ?? ""),
+      status: String(form.get("scheduledFor") ?? "") ? "scheduled" : "secret",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
     event.currentTarget.reset();
     await loadChallenges(group.id);
     setSaving(false);
   }
 
   async function updateChallenge(challengeId: string, data: Record<string, unknown>) {
-    const [{ doc, serverTimestamp, updateDoc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await updateDoc(doc(getFirebaseFirestore(), "challenges", challengeId), { ...data, updatedAt: serverTimestamp() });
+    await updateGroupDoc("challenges", challengeId, data);
     await loadChallenges(group.id);
   }
 
-  return <div className="grid gap-6"><PageHero eyebrow="Secret challenges" title="Secrets" description="Challenges are assigned inside this group only." group={group} /><Card><form className="grid gap-3 md:grid-cols-2" onSubmit={createChallenge}><input name="title" required placeholder="Challenge title" className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><select name="ownerId" required className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold"><option value="">Choose a friend</option>{state.members.map((member) => <option key={member.id} value={member.id}>{member.username ?? member.id}</option>)}</select><select name="difficulty" className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold"><option>Easy</option><option>Medium</option><option>Hard</option></select><input name="xpReward" type="number" defaultValue={50} className="rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><textarea name="description" required placeholder="Secret mission description" className="min-h-24 rounded-2xl border border-border bg-background px-4 py-3 font-semibold md:col-span-2" /><Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />{saving ? "Saving..." : "Create challenge"}</Button></form></Card><div className="grid gap-4">{challenges.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No challenges yet for this group.</p></Card>}{challenges.map((challenge) => <Card key={challenge.id}><div className="flex flex-wrap justify-between gap-3"><div><Badge>{challenge.difficulty} / {challenge.xpReward} XP / {challenge.status}</Badge><h2 className="mt-3 text-2xl font-black">{challenge.title}</h2><p className="mt-1 text-muted-foreground">For {challenge.ownerName}</p>{(challenge.ownerId === state.userId || challenge.status !== "secret") && <p className="mt-3 text-sm text-muted-foreground">{challenge.description}</p>}</div>{challenge.status === "submitted" && <Button variant="gold" onClick={() => updateChallenge(challenge.id, { status: "approved" })}>Approve</Button>}</div>{challenge.ownerId === state.userId && challenge.status === "secret" && <form className="mt-4 flex gap-2" onSubmit={(event) => { event.preventDefault(); const value = String(new FormData(event.currentTarget).get("proof") ?? ""); void updateChallenge(challenge.id, { status: "submitted", proof: { type: "description", value, submittedAt: new Date().toISOString() } }); }}><input name="proof" required placeholder="Proof description" className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 font-semibold" /><Button type="submit">Submit proof</Button></form>}</Card>)}</div></div>;
+  return (
+    <div className="grid gap-6">
+      <PageHero eyebrow="Secret challenges" title="Challenges" description="Reusable group challenges with proof and admin approval." group={group} />
+      {canEdit && (
+        <Card>
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={createChallenge}>
+            <input name="title" required placeholder="Challenge title" className={inputClass} />
+            <select name="ownerId" required className={inputClass}><option value="">Choose a participant</option>{state.members.map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}</select>
+            <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
+            <input name="xpReward" type="number" defaultValue={50} className={inputClass} />
+            <input name="scheduledFor" type="datetime-local" className={inputClass} />
+            <textarea name="description" required placeholder="Challenge description" className={`${textareaClass} md:col-span-2`} />
+            <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />{saving ? "Saving..." : "Create challenge"}</Button>
+          </form>
+        </Card>
+      )}
+      <div className="grid gap-4">
+        {challenges.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No challenges yet for this group.</p></Card>}
+        {challenges.map((challenge) => (
+          <Card key={challenge.id}>
+            <div className="flex flex-wrap justify-between gap-3">
+              <div>
+                <Badge>{challenge.difficulty} / {challenge.xpReward} XP / {challenge.status}</Badge>
+                <h2 className="mt-3 text-2xl font-black">{challenge.title}</h2>
+                <p className="mt-1 text-muted-foreground">For {challenge.ownerName}</p>
+                {(challenge.ownerId === state.userId || challenge.status !== "secret") && <p className="mt-3 text-sm text-muted-foreground">{challenge.description}</p>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {canScore && challenge.status === "submitted" && <Button variant="gold" onClick={() => updateChallenge(challenge.id, { status: "approved", approvedBy: state.userId, approvedAt: new Date().toISOString() })}>Approve</Button>}
+                {canEdit && <Button variant="ghost" size="sm" onClick={() => void deleteGroupDoc("challenges", challenge.id).then(() => loadChallenges(group.id))}><Trash2 className="h-4 w-4" />Delete</Button>}
+              </div>
+            </div>
+            {challenge.ownerId === state.userId && (challenge.status === "secret" || challenge.status === "scheduled") && (
+              <form className="mt-4 flex gap-2" onSubmit={(event) => { event.preventDefault(); const value = String(new FormData(event.currentTarget).get("proof") ?? ""); void updateChallenge(challenge.id, { status: "submitted", proof: { type: "description", value, submittedAt: new Date().toISOString() } }); }}>
+                <input name="proof" required placeholder="Proof description" className={`${inputClass} flex-1`} />
+                <Button type="submit">Submit proof</Button>
+              </form>
+            )}
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function GroupQuestlinePage() {
@@ -199,67 +418,292 @@ export function GroupQuestlinePage() {
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
   const group = state.group!;
-  const currentMember = state.members.find((member) => member.id === state.userId);
+  const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
   const mergedRelics = relicTemplates.map(([key, label]) => relics.find((relic) => relic.key === key) ?? { id: `${group.id}-${key}`, groupId: group.id, key, label, xpReward: 75 });
   const collected = mergedRelics.filter((relic) => relic.collectedBy).length;
 
   async function collectRelic(relic: RelicDoc) {
     if (!state.userId) return;
     const [{ doc, serverTimestamp, setDoc }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    await setDoc(doc(getFirebaseFirestore(), "questRelics", `${group.id}-${relic.key}`), { groupId: group.id, key: relic.key, label: relic.label, xpReward: relic.xpReward, collectedBy: state.userId, collectedByName: currentMember?.username ?? "Group member", collectedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
+    await setDoc(doc(getFirebaseFirestore(), "questRelics", `${group.id}-${relic.key}`), {
+      groupId: group.id,
+      key: relic.key,
+      label: relic.label,
+      xpReward: relic.xpReward,
+      collectedBy: state.userId,
+      collectedByName: memberName(currentMember),
+      collectedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
     await loadRelics(group.id);
   }
 
-  return <div className="grid gap-6"><PageHero eyebrow="Questline" title="Map" description="Relic progress is fresh for this group." group={group} /><Card><Badge>Progress</Badge><Progress value={(collected / relicTemplates.length) * 100} className="mt-4" /><p className="mt-2 font-black text-muted-foreground">{collected}/{relicTemplates.length} relics collected</p></Card><div className="grid gap-4 md:grid-cols-2">{mergedRelics.map((relic) => <Card key={relic.key}><Badge>{relic.xpReward} XP</Badge><h2 className="mt-3 text-2xl font-black">{relic.label}</h2><p className="mt-2 text-sm text-muted-foreground">{relic.collectedBy ? `Collected by ${relic.collectedByName}` : "Not collected in this group yet."}</p>{!relic.collectedBy && <Button className="mt-4" onClick={() => collectRelic(relic)}><Trophy className="h-4 w-4" />Collect</Button>}</Card>)}</div></div>;
+  return (
+    <div className="grid gap-6">
+      <PageHero eyebrow="Quest management" title="Quests" description="Reusable quest items for this group. Nothing is hardcoded to Istanbul." group={group} />
+      <Card><Badge>Progress</Badge><Progress value={(collected / relicTemplates.length) * 100} className="mt-4" /><p className="mt-2 font-black text-muted-foreground">{collected}/{relicTemplates.length} quest items collected</p></Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        {mergedRelics.map((relic) => (
+          <Card key={relic.key}>
+            <Badge>{relic.xpReward} XP</Badge>
+            <h2 className="mt-3 text-2xl font-black">{relic.label}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{relic.collectedBy ? `Collected by ${relic.collectedByName}` : "Not collected in this group yet."}</p>
+            {!relic.collectedBy && <Button className="mt-4" onClick={() => collectRelic(relic)}><Trophy className="h-4 w-4" />Collect</Button>}
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function GroupLeaderboardPage() {
   const state = useActiveGroup();
-  const [photos, setPhotos] = useState<PhotoDoc[]>([]);
-  const [challenges, setChallenges] = useState<ChallengeDoc[]>([]);
+  const [transactions, setTransactions] = useState<XpTransaction[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [relics, setRelics] = useState<RelicDoc[]>([]);
+  const [mode, setMode] = useState<"overall" | "weekly">("overall");
 
   useEffect(() => {
     if (!state.group) return;
     async function load() {
       const groupId = state.group!.id;
-      const [photoItems, challengeItems, relicItems] = await Promise.all([listGroupDocs<PhotoDoc>("photos", groupId), listGroupDocs<ChallengeDoc>("challenges", groupId), listGroupDocs<RelicDoc>("questRelics", groupId)]);
-      setPhotos(photoItems); setChallenges(challengeItems); setRelics(relicItems);
+      const [xpItems, photoItems, challengeItems, relicItems] = await Promise.all([
+        listXpTransactions(groupId),
+        listPhotos(groupId),
+        listGroupDocs<Challenge>("challenges", groupId),
+        listGroupDocs<RelicDoc>("questRelics", groupId)
+      ]);
+      setTransactions(xpItems);
+      setPhotos(photoItems);
+      setChallenges(challengeItems);
+      setRelics(relicItems);
     }
     void load();
   }, [state.group?.id]);
 
-  const rows = useMemo(() => state.members.map((member) => {
-    const photoXp = photos.filter((photo) => photo.ownerId === member.id).length * 10;
-    const challengeXp = challenges.filter((challenge) => challenge.ownerId === member.id && challenge.status === "approved").reduce((sum, challenge) => sum + challenge.xpReward, 0);
-    const relicXp = relics.filter((relic) => relic.collectedBy === member.id).reduce((sum, relic) => sum + relic.xpReward, 0);
-    return { member, xp: photoXp + challengeXp + relicXp, photos: photoXp / 10, relics: relicXp / 75 };
-  }).sort((a, b) => b.xp - a.xp), [state.members, photos, challenges, relics]);
+  const rows = useMemo(() => {
+    const weekKey = getWeekKey();
+    return state.members.map((member) => {
+      const memberId = member.userId || member.id;
+      const transactionXp = transactions
+        .filter((transaction) => transaction.userId === memberId && (mode === "overall" || transaction.weekKey === weekKey))
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+      const fallbackXp = mode === "weekly" ? 0 :
+        photos.filter((photo) => photo.ownerId === memberId && photo.status !== "deleted").length * 10 +
+        challenges.filter((challenge) => challenge.ownerId === memberId && challenge.status === "approved").reduce((sum, challenge) => sum + challenge.xpReward, 0) +
+        relics.filter((relic) => relic.collectedBy === memberId).reduce((sum, relic) => sum + relic.xpReward, 0);
+      const xp = transactionXp || fallbackXp;
+      return { member, xp, level: calculateLevel(xp) };
+    }).sort((a, b) => b.xp - a.xp);
+  }, [state.members, transactions, mode, photos, challenges, relics]);
 
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
   const group = state.group!;
 
-  return <div className="grid gap-6"><PageHero eyebrow="Group leaderboard" title="Guild Rank" description="Rankings are calculated from this group's photos, challenges, and relics only." group={group} /><div className="grid gap-4">{rows.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No members in this group yet.</p></Card>}{rows.map((row, index) => <Card key={row.member.id}><div className="flex items-center gap-4"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-accent font-black text-slate-950">#{index + 1}</span><Avatar src={row.member.avatarUrl ?? ""} alt={row.member.username ?? "Member"} /><div className="flex-1"><h2 className="text-xl font-black">{row.member.username ?? "Unnamed member"}</h2><p className="text-sm text-muted-foreground">{row.photos} photos / {row.relics} relics</p></div><p className="text-2xl font-black">{row.xp} XP</p></div></Card>)}</div></div>;
+  return (
+    <div className="grid gap-6">
+      <PageHero eyebrow="Group leaderboard" title="Leaderboard" description="Overall and weekly XP rankings for this group only." group={group} />
+      <Card className="flex flex-wrap gap-2">
+        <Button variant={mode === "overall" ? "primary" : "secondary"} onClick={() => setMode("overall")}>Overall ranking</Button>
+        <Button variant={mode === "weekly" ? "primary" : "secondary"} onClick={() => setMode("weekly")}>Weekly ranking</Button>
+      </Card>
+      <div className="grid gap-4">
+        {rows.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No members in this group yet.</p></Card>}
+        {rows.map((row, index) => (
+          <Card key={row.member.id}>
+            <div className="flex items-center gap-4">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-accent font-black text-slate-950">#{index + 1}</span>
+              <Avatar src={row.member.avatarUrl ?? ""} alt={memberName(row.member)} />
+              <div className="flex-1">
+                <h2 className="text-xl font-black">{memberName(row.member)}</h2>
+                <p className="text-sm text-muted-foreground">Level {row.level}</p>
+              </div>
+              <p className="text-2xl font-black">{row.xp} XP</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function GroupAdminPage() {
   const state = useActiveGroup();
-  const [counts, setCounts] = useState({ events: 0, photos: 0, challenges: 0, relics: 0 });
+  const [games, setGames] = useState<Game[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [quests, setQuests] = useState<RelicDoc[]>([]);
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [saving, setSaving] = useState(false);
+  const canAdmin = canManageGames(state.currentMember?.role) || canManageScores(state.currentMember?.role) || canManagePlanning(state.currentMember?.role);
 
-  useEffect(() => {
-    if (!state.group) return;
-    async function load() {
-      const groupId = state.group!.id;
-      const [events, photos, challenges, relics] = await Promise.all([listGroupDocs<ScheduleEventDoc>("scheduleEvents", groupId), listGroupDocs<PhotoDoc>("photos", groupId), listGroupDocs<ChallengeDoc>("challenges", groupId), listGroupDocs<RelicDoc>("questRelics", groupId)]);
-      setCounts({ events: events.length, photos: photos.length, challenges: challenges.length, relics: relics.length });
-    }
-    void load();
-  }, [state.group?.id]);
+  async function loadAdmin(groupId = state.group?.id) {
+    if (!groupId) return;
+    const [gameItems, photoItems, challengeItems, questItems, eventItems] = await Promise.all([
+      ensureDefaultGames(groupId),
+      listPhotos(groupId),
+      listGroupDocs<Challenge>("challenges", groupId),
+      listGroupDocs<RelicDoc>("questRelics", groupId),
+      listScheduleEvents(groupId)
+    ]);
+    setGames(gameItems);
+    setPhotos(photoItems);
+    setChallenges(challengeItems);
+    setQuests(questItems);
+    setEvents(eventItems);
+  }
+
+  useEffect(() => { void loadAdmin(); }, [state.group?.id]);
 
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
   const group = state.group!;
 
-  return <div className="grid gap-6"><PageHero eyebrow="Group admin" title="Admin" description="This admin overview only counts documents from the active group." group={group} /><section className="grid gap-4 md:grid-cols-5"><Card><Users className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{state.members.length}</p><p className="text-sm text-muted-foreground">members</p></Card><Card><CalendarDays className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{counts.events}</p><p className="text-sm text-muted-foreground">events</p></Card><Card><Camera className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{counts.photos}</p><p className="text-sm text-muted-foreground">photos</p></Card><Card><Check className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{counts.challenges}</p><p className="text-sm text-muted-foreground">challenges</p></Card><Card><Trophy className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{counts.relics}</p><p className="text-sm text-muted-foreground">relics</p></Card></section></div>;
+  if (!canAdmin) {
+    return (
+      <Card>
+        <Badge>Player access</Badge>
+        <h1 className="mt-3 text-3xl font-black">Admin panel is for owners and admins</h1>
+        <p className="mt-2 text-muted-foreground">You can still play games, upload photos, and view rankings.</p>
+      </Card>
+    );
+  }
+
+  async function handleCreateGame(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    const form = new FormData(event.currentTarget);
+    await createGame(group.id, {
+      title: String(form.get("title") ?? ""),
+      description: String(form.get("description") ?? ""),
+      icon: String(form.get("icon") ?? "Gamepad2"),
+      category: String(form.get("category") ?? "custom") as GameCategory
+    });
+    event.currentTarget.reset();
+    await loadAdmin(group.id);
+    setSaving(false);
+  }
+
+  async function handleXp(event: FormEvent<HTMLFormElement>, amountSign: 1 | -1) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const amount = Math.abs(Number(form.get("amount") ?? 0)) * amountSign;
+    const userId = String(form.get("userId") ?? "");
+    if (!state.userId || !userId || !amount) return;
+    await addXpTransaction({
+      groupId: group.id,
+      userId,
+      amount,
+      sourceType: "admin_adjustment",
+      reason: String(form.get("reason") ?? "Admin correction"),
+      createdBy: state.userId
+    });
+    event.currentTarget.reset();
+  }
+
+  const inviteLink = typeof window === "undefined" ? `/join/${group.inviteCode}` : `${window.location.origin}/join/${group.inviteCode}`;
+
+  return (
+    <div className="grid gap-6">
+      <PageHero eyebrow="Group admin" title="Admin Panel" description="Manage this trip's members, games, content, and score corrections." group={group} />
+
+      <section className="grid gap-4 md:grid-cols-5">
+        <Card><Users className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{state.members.length}</p><p className="text-sm text-muted-foreground">members</p></Card>
+        <Card><CalendarDays className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{events.length}</p><p className="text-sm text-muted-foreground">events</p></Card>
+        <Card><Camera className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{photos.length}</p><p className="text-sm text-muted-foreground">photos</p></Card>
+        <Card><Check className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{challenges.length}</p><p className="text-sm text-muted-foreground">challenges</p></Card>
+        <Card><Trophy className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{games.length}</p><p className="text-sm text-muted-foreground">games</p></Card>
+      </section>
+
+      <Card>
+        <Badge>Invitation</Badge>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="break-all text-lg font-black">{inviteLink}</p>
+          <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(inviteLink)}><Copy className="h-4 w-4" />Copy link</Button>
+        </div>
+      </Card>
+
+      <Card>
+        <Badge>Games management</Badge>
+        <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleCreateGame}>
+          <input name="title" required placeholder="Game title" className={inputClass} />
+          <input name="icon" placeholder="Icon name" defaultValue="Gamepad2" className={inputClass} />
+          <select name="category" className={inputClass}><option value="custom">Custom</option><option value="challenge">Challenge</option><option value="photo">Photo</option><option value="treasure">Treasure Hunt</option><option value="quiz">Quiz</option><option value="bingo">Bingo</option><option value="assassin">Assassin</option></select>
+          <input name="description" placeholder="Short description" className={inputClass} />
+          <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />Create game</Button>
+        </form>
+        <div className="mt-5 grid gap-3">
+          {games.map((game) => (
+            <div key={game.id} className="rounded-3xl border border-border bg-background p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <Badge>{game.category} / {game.status}</Badge>
+                  <h3 className="mt-2 text-xl font-black">{game.title}</h3>
+                  <p className="text-sm text-muted-foreground">{game.description}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => void setGameActive(game.id, !game.enabled).then(() => loadAdmin(group.id))}>{game.enabled ? "Deactivate" : "Activate"}</Button>
+                  <Button size="sm" variant="secondary" onClick={() => void updateGame(game.id, { visible: !game.visible }).then(() => loadAdmin(group.id))}>{game.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{game.visible ? "Hide" : "Show"}</Button>
+                  <Button size="sm" variant="secondary" onClick={() => void duplicateGame(game).then(() => loadAdmin(group.id))}><Copy className="h-4 w-4" />Duplicate</Button>
+                  <Button size="sm" variant="ghost" onClick={() => void archiveGame(game.id).then(() => loadAdmin(group.id))}><Archive className="h-4 w-4" />Archive</Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <Badge>Challenge and quest management</Badge>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-3xl border border-border bg-background p-4">
+            <h3 className="font-black">Challenges</h3>
+            <p className="text-sm text-muted-foreground">Create, schedule, approve, or delete challenges from the Challenges page.</p>
+            <p className="mt-3 text-2xl font-black">{challenges.filter((challenge) => challenge.status === "submitted").length} waiting approval</p>
+          </div>
+          <div className="rounded-3xl border border-border bg-background p-4">
+            <h3 className="font-black">Quests</h3>
+            <p className="text-sm text-muted-foreground">Quest items can be hidden by removing visibility from their game or archived with the game.</p>
+            <p className="mt-3 text-2xl font-black">{quests.length} collected items</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <Badge>Photo moderation</Badge>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {photos.slice(0, 6).map((photo) => (
+            <div key={photo.id} className="flex gap-3 rounded-3xl border border-border bg-background p-3">
+              <img src={photo.imageUrl} alt={photo.caption} className="h-20 w-20 rounded-2xl object-cover" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-black">{photo.caption || "Untitled photo"}</p>
+                <p className="text-sm text-muted-foreground">By {photo.ownerName}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => void setPhotoFeatured(photo.id, !photo.featured).then(() => loadAdmin(group.id))}><Star className="h-4 w-4" />{photo.featured ? "Unfeature" : "Feature"}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => void deletePhoto(photo).then(() => loadAdmin(group.id))}><Trash2 className="h-4 w-4" />Delete</Button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {photos.length === 0 && <p className="text-sm font-semibold text-muted-foreground">No photos to moderate yet.</p>}
+        </div>
+      </Card>
+
+      <Card>
+        <Badge>Leaderboard control</Badge>
+        <form className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto]" onSubmit={(event) => handleXp(event, 1)}>
+          <select name="userId" required className={inputClass}><option value="">Choose player</option>{state.members.map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}</select>
+          <input name="amount" type="number" min={1} required placeholder="XP" className={inputClass} />
+          <input name="reason" placeholder="Reason" className={inputClass} />
+          <Button type="submit"><Plus className="h-4 w-4" />Add XP</Button>
+          <Button type="button" variant="secondary" onClick={(event) => {
+            const form = event.currentTarget.closest("form");
+            if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);
+          }}><Minus className="h-4 w-4" />Remove XP</Button>
+        </form>
+      </Card>
+    </div>
+  );
 }

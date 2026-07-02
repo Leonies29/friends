@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, LogIn, UserRound } from "lucide-react";
 import { Badge, Button, Field, GameCard } from "@/components/ui";
@@ -19,9 +19,9 @@ type JoinableGroup = {
   plannedMembers?: PlannedMember[];
 };
 
-export function JoinGroupCard() {
+export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: string }) {
   const router = useRouter();
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(initialInviteCode);
   const [group, setGroup] = useState<JoinableGroup | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -51,7 +51,14 @@ export function JoinGroupCard() {
     }
   }
 
-  function selectNickname(nickname: string) {
+  useEffect(() => {
+    if (initialInviteCode) {
+      void findGroup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialInviteCode]);
+
+  function buildAuthHref(pathname: "/login" | "/register", nickname: string) {
     if (!group) return;
     const params = new URLSearchParams({
       group: group.id,
@@ -60,7 +67,12 @@ export function JoinGroupCard() {
       destination: group.destination ?? "",
       nickname
     });
-    router.push(`/register?${params.toString()}`);
+    return `${pathname}?${params.toString()}`;
+  }
+
+  function selectNickname(nickname: string) {
+    const href = buildAuthHref("/register", nickname);
+    if (href) router.push(href);
   }
 
   return (
@@ -83,12 +95,28 @@ export function JoinGroupCard() {
           <Badge>Group found</Badge>
           <h3 className="mt-2 text-2xl font-black">{group.name}</h3>
           <p className="text-sm text-muted-foreground">{group.destination}</p>
+          <p className="mt-4 font-black">Who are you in this trip?</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {(group.plannedMembers ?? []).length ? (group.plannedMembers ?? []).map((member) => (
-              <Button key={member.nickname} type="button" variant={member.claimedBy ? "secondary" : "primary"} disabled={Boolean(member.claimedBy)} onClick={() => selectNickname(member.nickname)}>
-                <UserRound className="h-4 w-4" />
-                {member.nickname}{member.claimedBy ? " (taken)" : ""}
-              </Button>
+              <div key={member.nickname} className="grid gap-2 rounded-2xl border border-border bg-background/70 p-3">
+                <p className="font-black">{member.nickname}{member.claimedBy ? " (taken)" : ""}</p>
+                {!member.claimedBy && (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button asChild type="button" size="sm">
+                      <Link href={buildAuthHref("/register", member.nickname) ?? "/register"}>
+                        <UserRound className="h-4 w-4" />
+                        Register
+                      </Link>
+                    </Button>
+                    <Button asChild type="button" variant="secondary" size="sm">
+                      <Link href={buildAuthHref("/login", member.nickname) ?? "/login"}>
+                        <LogIn className="h-4 w-4" />
+                        Login
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
             )) : (
               <Button type="button" onClick={() => selectNickname("")}>Continue without nickname</Button>
             )}

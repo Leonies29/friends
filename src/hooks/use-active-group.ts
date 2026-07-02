@@ -11,13 +11,19 @@ export type ActiveGroup = {
   gameStarted?: boolean;
   memberIds?: string[];
   plannedMembers?: Array<{ nickname: string; claimedBy?: string | null }>;
+  createdBy?: string | null;
+  ownerId?: string | null;
 };
 
 export type GroupMember = {
   id: string;
+  userId?: string;
   username?: string;
+  nickname?: string;
   email?: string;
   avatarUrl?: string | null;
+  role?: "OWNER" | "ADMIN" | "PLAYER";
+  status?: "pending" | "active" | "removed";
 };
 
 type ActiveGroupState = {
@@ -26,6 +32,7 @@ type ActiveGroupState = {
   userId: string | null;
   group: ActiveGroup | null;
   members: GroupMember[];
+  currentMember: GroupMember | null;
   reload: () => void;
 };
 
@@ -35,6 +42,7 @@ export function useActiveGroup(): ActiveGroupState {
   const [userId, setUserId] = useState<string | null>(null);
   const [group, setGroup] = useState<ActiveGroup | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
+  const [currentMember, setCurrentMember] = useState<GroupMember | null>(null);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -62,6 +70,7 @@ export function useActiveGroup(): ActiveGroupState {
               setUserId(null);
               setGroup(null);
               setMembers([]);
+              setCurrentMember(null);
               setLoading(false);
             }
             return;
@@ -75,6 +84,7 @@ export function useActiveGroup(): ActiveGroupState {
               setUserId(firebaseUser.uid);
               setGroup(null);
               setMembers([]);
+              setCurrentMember(null);
               setLoading(false);
             }
             return;
@@ -82,19 +92,24 @@ export function useActiveGroup(): ActiveGroupState {
 
           const groupSnapshot = await getDoc(doc(db, "friendGroups", activeGroupId));
           const groupData = groupSnapshot.exists() ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as ActiveGroup) : null;
+          const [{ getGroupMember, listGroupMembers }] = await Promise.all([import("@/services/member-service")]);
+          const membershipDocs = groupData ? await listGroupMembers(groupData.id) : [];
           const memberProfiles = await Promise.all(
             (groupData?.memberIds ?? []).map(async (memberId) => {
               const memberSnapshot = await getDoc(doc(db, "users", memberId));
+              const membership = membershipDocs.find((member) => member.userId === memberId);
               return memberSnapshot.exists()
-                ? ({ id: memberSnapshot.id, ...memberSnapshot.data() } as GroupMember)
-                : { id: memberId, username: memberId };
+                ? ({ id: memberSnapshot.id, ...memberSnapshot.data(), ...membership, username: membership?.nickname ?? memberSnapshot.data().username } as GroupMember)
+                : { id: memberId, userId: memberId, username: membership?.nickname ?? memberId, ...membership };
             })
           );
+          const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
 
           if (!cancelled) {
             setUserId(firebaseUser.uid);
             setGroup(groupData);
             setMembers(memberProfiles);
+            setCurrentMember(currentMembership);
             setLoading(false);
           }
         });
@@ -120,6 +135,7 @@ export function useActiveGroup(): ActiveGroupState {
     userId,
     group,
     members,
+    currentMember,
     reload: () => setVersion((value) => value + 1)
   };
 }

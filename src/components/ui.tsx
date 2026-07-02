@@ -17,13 +17,12 @@ export const Button = forwardRef<ElementRef<"button">, ButtonProps>(
       <Comp
         ref={ref}
         className={cn(
-          "group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full font-bold tracking-tight transition duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
-          "before:pointer-events-none before:absolute before:inset-0 before:translate-x-[-120%] before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent before:transition before:duration-700 hover:before:translate-x-[120%]",
+          "inline-flex items-center justify-center gap-2 rounded-full font-bold tracking-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
           {
-            "bg-primary text-primary-foreground shadow-xl shadow-primary/20 hover:shadow-2xl": variant === "primary",
-            "glass text-foreground hover:bg-white/55 dark:hover:bg-white/10": variant === "secondary",
+            "bg-primary text-primary-foreground hover:opacity-95": variant === "primary",
+            "border border-border bg-card text-foreground hover:bg-muted": variant === "secondary",
             "text-foreground hover:bg-muted": variant === "ghost",
-            "bg-rose-500 text-white shadow-lg shadow-rose-500/20 hover:bg-rose-600": variant === "danger",
+            "bg-rose-500 text-white hover:bg-rose-600": variant === "danger",
             "bg-accent text-slate-950 shadow-sm": variant === "gold",
             "h-9 px-4 text-sm": size === "sm",
             "h-11 px-5 text-sm": size === "md",
@@ -39,11 +38,11 @@ export const Button = forwardRef<ElementRef<"button">, ButtonProps>(
 Button.displayName = "Button";
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("glass rounded-[2rem] p-5 transition duration-300", className)} {...props} />;
+  return <div className={cn("rounded-[1.5rem] border border-border bg-card p-5 shadow-sm", className)} {...props} />;
 }
 
 export function GameCard({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("glass premium-border rounded-[2.25rem] p-5 transition duration-300 hover:-translate-y-1 hover:shadow-2xl", className)} {...props} />;
+  return <div className={cn("rounded-[1.75rem] border border-border bg-card p-5 shadow-sm", className)} {...props} />;
 }
 
 export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
@@ -89,7 +88,7 @@ export function Field({
       {label}
       <input
         className={cn(
-          "rounded-2xl border border-border bg-white/72 px-4 py-3 text-foreground shadow-inner outline-none transition placeholder:text-muted-foreground/70 focus:border-accent focus:ring-4 focus:ring-accent/15 dark:bg-white/10",
+          "rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-accent focus:ring-4 focus:ring-accent/15",
           className
         )}
         {...props}
@@ -108,7 +107,7 @@ export function TextArea({
       {label}
       <textarea
         className={cn(
-          "min-h-28 rounded-2xl border border-border bg-white/72 px-4 py-3 text-foreground shadow-inner outline-none transition placeholder:text-muted-foreground/70 focus:border-accent focus:ring-4 focus:ring-accent/15 dark:bg-white/10",
+          "min-h-28 rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-accent focus:ring-4 focus:ring-accent/15",
           className
         )}
         {...props}

@@ -13,6 +13,7 @@ import type {
 } from "@/types";
 
 const avatar = (seed: string) => `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+const mockGroupId = "istanbul-crew-2026";
 
 export const badges: Badge[] = [
   { id: "photographer", name: "Photographer", description: "Uploaded iconic Istanbul memories.", icon: "Camera", unlockedAt: "2026-06-28" },
@@ -110,14 +111,24 @@ export const users: User[] = [
 
 export const friendGroups: FriendGroup[] = [
   {
-    id: "istanbul-crew-2026",
+    id: mockGroupId,
     name: "Istanbul Crew 2026",
     inviteCode: "ISTANBUL-5",
     description: "Keira, Marko, Noah, Yaman and L\u00e9onie's private Istanbul adventure space.",
     destination: "Istanbul, Turkey",
     dates: "7 days",
     memberIds: users.map((user) => user.id),
-    createdBy: "u5"
+    createdBy: "u5",
+    ownerId: "u5",
+    status: "active",
+    plannedMembers: users.map((user, index) => ({
+      id: `${user.id}-slot`,
+      nickname: user.username,
+      claimedBy: user.id,
+      claimedAt: `2026-06-0${Math.min(index + 1, 9)}`
+    })),
+    gameStarted: true,
+    currentDay: 1
   }
 ];
 
@@ -126,6 +137,7 @@ export const currentUser = users[4];
 export const worldEvents: WorldEvent[] = [
   {
     id: "w1",
+    groupId: mockGroupId,
     title: "Double XP Day",
     description: "Every challenge completed today rewards double XP. Chaos is now financially encouraged.",
     effect: "2x XP for challenges and relics",
@@ -135,6 +147,7 @@ export const worldEvents: WorldEvent[] = [
   },
   {
     id: "w2",
+    groupId: mockGroupId,
     title: "Photo Frenzy",
     description: "All reactions grant bonus XP. Make those blurry ferry photos count.",
     effect: "+10 XP per reaction",
@@ -147,32 +160,44 @@ export const worldEvents: WorldEvent[] = [
 export const scheduleEvents: ScheduleEvent[] = [
   {
     id: "e1",
+    groupId: mockGroupId,
     title: "Sultanahmet Sunrise Sprint",
     description: "Blue Mosque, Hagia Sophia, and dramatic coffee poses before breakfast.",
     date: "2026-06-28",
+    startTime: "08:30",
     time: "08:30",
+    location: "Hotel lobby",
     meetingLocation: "Hotel lobby",
     notes: "Bring water, sunglasses, and one historically accurate fun fact.",
+    attendance: { u1: "ready", u2: "ready", u3: "unavailable", u4: "ready", u5: "ready" },
     readiness: { u1: "ready", u2: "ready", u3: "not-ready", u4: "ready", u5: "ready" }
   },
   {
     id: "e2",
+    groupId: mockGroupId,
     title: "Ferry Quest to Kadikoy",
     description: "Snacks, seagulls, and a mandatory sunset group selfie.",
     date: "2026-06-28",
+    startTime: "17:45",
     time: "17:45",
+    location: "Eminonu ferry pier",
     meetingLocation: "Eminonu ferry pier",
     notes: "Anyone late buys simit.",
+    attendance: { u1: "ready", u2: "late", u3: "ready", u4: "unavailable", u5: "ready" },
     readiness: { u1: "ready", u2: "not-ready", u3: "ready", u4: "not-ready", u5: "ready" }
   },
   {
     id: "e3",
+    groupId: mockGroupId,
     title: "Grand Bazaar Negotiation Arc",
     description: "Find the weirdest tiny treasure and bargain like a charming menace.",
     date: "2026-06-29",
+    startTime: "12:00",
     time: "12:00",
+    location: "Beyazit Gate",
     meetingLocation: "Beyazit Gate",
     notes: "Quest relic: Bazaar item.",
+    attendance: { u1: "unavailable", u2: "ready", u3: "ready", u4: "ready", u5: "late" },
     readiness: { u1: "not-ready", u2: "ready", u3: "ready", u4: "ready", u5: "not-ready" }
   }
 ];
@@ -180,11 +205,14 @@ export const scheduleEvents: ScheduleEvent[] = [
 export const photos: Photo[] = [
   {
     id: "p1",
+    groupId: mockGroupId,
     ownerId: "u3",
     ownerName: "Noah",
     ownerAvatar: users[2].avatarUrl,
     imageUrl: "https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?auto=format&fit=crop&w=900&q=80",
     caption: "Istanbul decided to be photogenic again. Rude.",
+    status: "visible",
+    featured: false,
     createdAt: "2026-06-28T10:00:00.000Z",
     reactions: [
       { id: "r1", userId: "u1", type: "favorite", xpGranted: 5 },
@@ -193,11 +221,14 @@ export const photos: Photo[] = [
   },
   {
     id: "p2",
+    groupId: mockGroupId,
     ownerId: "u2",
     ownerName: "Marko",
     ownerAvatar: users[1].avatarUrl,
     imageUrl: "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?auto=format&fit=crop&w=900&q=80",
     caption: "Ferry wind: 1. Hair: 0.",
+    status: "visible",
+    featured: false,
     createdAt: "2026-06-28T12:30:00.000Z",
     reactions: [
       { id: "r3", userId: "u4", type: "funny", xpGranted: 5 },
@@ -206,38 +237,44 @@ export const photos: Photo[] = [
   },
   {
     id: "p3",
+    groupId: mockGroupId,
     ownerId: "u5",
     ownerName: "L\u00e9onie",
     ownerAvatar: users[4].avatarUrl,
     imageUrl: "https://images.unsplash.com/photo-1589561454226-796a8aa89b05?auto=format&fit=crop&w=900&q=80",
     caption: "Evidence that cats own this city.",
+    status: "featured",
+    featured: true,
     createdAt: "2026-06-28T14:15:00.000Z",
     reactions: [{ id: "r5", userId: "u3", type: "favorite", xpGranted: 5 }]
   }
 ];
 
 export const challenges: Challenge[] = [
-  { id: "c1", ownerId: "u1", title: "Historical Drama", description: "Use \"This feels surprisingly historical\" three times.", difficulty: "Easy", xpReward: 80, status: "secret" },
-  { id: "c2", ownerId: "u2", title: "Cat Government", description: "Convince someone cats secretly run Istanbul.", difficulty: "Medium", xpReward: 160, status: "submitted", proof: { type: "description", value: "Yaman nodded seriously for 11 seconds.", submittedAt: "2026-06-28T13:00:00.000Z" } },
-  { id: "c3", ownerId: "u3", title: "Question Mode", description: "Have a conversation using only questions.", difficulty: "Medium", xpReward: 150, status: "secret" },
-  { id: "c4", ownerId: "u4", title: "Imaginary Invention", description: "Get a stranger to rate your imaginary invention.", difficulty: "Hard", xpReward: 260, status: "secret" }
+  { id: "c1", groupId: mockGroupId, ownerId: "u1", title: "Historical Drama", description: "Use \"This feels surprisingly historical\" three times.", difficulty: "Easy", xpReward: 80, status: "secret" },
+  { id: "c2", groupId: mockGroupId, ownerId: "u2", title: "Cat Government", description: "Convince someone cats secretly run Istanbul.", difficulty: "Medium", xpReward: 160, status: "submitted", proof: { type: "description", value: "Yaman nodded seriously for 11 seconds.", submittedAt: "2026-06-28T13:00:00.000Z" } },
+  { id: "c3", groupId: mockGroupId, ownerId: "u3", title: "Question Mode", description: "Have a conversation using only questions.", difficulty: "Medium", xpReward: 150, status: "secret" },
+  { id: "c4", groupId: mockGroupId, ownerId: "u4", title: "Imaginary Invention", description: "Get a stranger to rate your imaginary invention.", difficulty: "Hard", xpReward: 260, status: "secret" }
 ];
 
 export const assassinMissions: AssassinMission[] = [
-  { id: "m1", playerId: "u1", targetId: "u2", condition: "Get Marko to take a selfie with you.", status: "active", xpReward: 250 },
-  { id: "m2", playerId: "u2", targetId: "u3", condition: "Make Noah say the secret word: baklava.", status: "active", xpReward: 250 },
-  { id: "m3", playerId: "u3", targetId: "u4", condition: "Make Yaman hold your phone.", status: "active", xpReward: 250 },
-  { id: "m4", playerId: "u4", targetId: "u5", condition: "Make L\u00e9onie take a photo of a street musician.", status: "active", xpReward: 250 },
-  { id: "m5", playerId: "u5", targetId: "u1", condition: "Make Keira say the secret word: Bosphorus.", status: "active", xpReward: 250 }
+  { id: "m1", groupId: mockGroupId, playerId: "u1", targetId: "u2", condition: "Get Marko to take a selfie with you.", status: "active", xpReward: 250 },
+  { id: "m2", groupId: mockGroupId, playerId: "u2", targetId: "u3", condition: "Make Noah say the secret word: baklava.", status: "active", xpReward: 250 },
+  { id: "m3", groupId: mockGroupId, playerId: "u3", targetId: "u4", condition: "Make Yaman hold your phone.", status: "active", xpReward: 250 },
+  { id: "m4", groupId: mockGroupId, playerId: "u4", targetId: "u5", condition: "Make L\u00e9onie take a photo of a street musician.", status: "active", xpReward: 250 },
+  { id: "m5", groupId: mockGroupId, playerId: "u5", targetId: "u1", condition: "Make Keira say the secret word: Bosphorus.", status: "active", xpReward: 250 }
 ];
 
 export const eliminationHistory: EliminationRecord[] = [
-  { id: "x1", assassinId: "u2", targetId: "u4", condition: "Target said \"I am lost\" unprompted.", completedAt: "2026-06-27T21:00:00.000Z" }
+  { id: "x1", groupId: mockGroupId, assassinId: "u2", targetId: "u4", condition: "Target said \"I am lost\" unprompted.", completedAt: "2026-06-27T21:00:00.000Z" }
 ];
 
 export const quest: Quest = {
   id: "q1",
+  groupId: mockGroupId,
   name: "Istanbul Questline",
+  status: "visible",
+  visible: true,
   description: "Collect iconic relics across seven days and unlock the Legend of Constantinople badge.",
   completionBadgeId: "constantinople",
   relics: [
@@ -262,8 +299,8 @@ export const quest: Quest = {
 };
 
 export const funAwards: FunAward[] = [
-  { id: "fa1", title: "Most Likely To Get Lost", winnerId: "u4", reason: "Asked Google Maps for emotional support." },
-  { id: "fa2", title: "Human GPS", winnerId: "u1", reason: "Already knows every tram line and pretends it is normal." },
-  { id: "fa3", title: "Chaos Goblin", winnerId: "u2", reason: "Turned a snack run into an international side quest." },
-  { id: "fa4", title: "Most Dramatic Photo", winnerId: "u3", reason: "Made a ferry photo look like a movie poster." }
+  { id: "fa1", groupId: mockGroupId, title: "Most Likely To Get Lost", winnerId: "u4", reason: "Asked Google Maps for emotional support." },
+  { id: "fa2", groupId: mockGroupId, title: "Human GPS", winnerId: "u1", reason: "Already knows every tram line and pretends it is normal." },
+  { id: "fa3", groupId: mockGroupId, title: "Chaos Goblin", winnerId: "u2", reason: "Turned a snack run into an international side quest." },
+  { id: "fa4", groupId: mockGroupId, title: "Most Dramatic Photo", winnerId: "u3", reason: "Made a ferry photo look like a movie poster." }
 ];

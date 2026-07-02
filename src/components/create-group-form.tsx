@@ -52,6 +52,7 @@ export function CreateGroupForm() {
   }, [displayDestination, displayName, groupId, inviteCode]);
   const registerHref = `/register?${groupQuery}`;
   const loginHref = `/login?${groupQuery}`;
+  const joinHref = inviteCode ? `/join/${encodeURIComponent(inviteCode)}` : "";
 
   async function handleCreate(formData: FormData) {
     setSaving(true);
@@ -191,10 +192,13 @@ export function CreateGroupForm() {
             </p>
 
             <div className="mt-5 rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Invite Code</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Invitation link</p>
               <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-3xl font-black">{inviteCode}</p>
-                <Button type="button" variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(inviteCode)}>
+                <div className="min-w-0">
+                  <p className="text-3xl font-black">{inviteCode}</p>
+                  <p className="truncate text-sm font-semibold text-muted-foreground">{joinHref}</p>
+                </div>
+                <Button type="button" variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(`${window.location.origin}${joinHref}`)}>
                   <Copy className="h-4 w-4" />
                   Copy
                 </Button>

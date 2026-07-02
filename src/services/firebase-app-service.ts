@@ -2,6 +2,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -14,6 +15,15 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { getFirebaseStorage } from "@/firebase/storage";
+import {
+  claimParticipant,
+  createGroup,
+  findGroupIdByInviteCode as findNormalizedGroupIdByInviteCode,
+  getGroupByInviteCode as getNormalizedGroupByInviteCode,
+  GROUPS_COLLECTION,
+  GROUPS_SCHEMA_COLLECTION,
+  upsertGroupMember
+} from "@/services/group-service";
 
 export interface CreateGroupInput {
   name: string;
@@ -52,57 +62,28 @@ function buildInviteCode(groupName: string) {
 }
 
 export async function createFriendGroup(input: CreateGroupInput): Promise<CreatedGroup> {
-  const db = getFirebaseFirestore();
-  const inviteCode = buildInviteCode(input.name);
-  const id = `${slugify(input.name)}-${inviteCode.split("-").at(-1)}`;
-
-  await setDoc(doc(db, "friendGroups", id), {
-    name: input.name.trim() || "Untitled Quest Group",
-    inviteCode,
-    description: `Private quest space for ${input.destination.trim() || "a new destination"}.`,
-    destination: input.destination.trim(),
-    dates: [input.startDate, input.endDate].filter(Boolean).join(" to ") || "Custom dates",
+  const group = await createGroup({
+    name: input.name,
+    destination: input.destination,
     startDate: input.startDate,
     endDate: input.endDate,
-    invitees: input.invitees.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean),
+    description: `Private quest space for ${input.destination.trim() || "a new destination"}.`,
     vibe: input.vibe.trim(),
     gameModes: input.gameModes,
-    gameStarted: false,
-    status: "setup",
-    currentDay: 0,
-    memberIds: [],
-    createdBy: null,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
+    participantNicknames: input.friendNicknames
   });
 
-  await setDoc(doc(db, "appConfig", id), {
-    activeGroupId: id,
-    name: input.name.trim() || "Untitled Quest Group",
-    destination: input.destination.trim(),
-    inviteCode,
-    currentDay: 0,
-    totalDays: 7,
-    gameStarted: false,
-    status: "setup",
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-
   return {
-    id,
-    inviteCode,
-    name: input.name.trim() || "Untitled Quest Group",
-    destination: input.destination.trim()
+    id: group.id,
+    inviteCode: group.inviteCode,
+    name: group.name,
+    destination: group.destination
   };
 }
 
 
 export async function getGroupByInviteCode(inviteCode: string) {
-  const db = getFirebaseFirestore();
-  const snapshot = await getDocs(query(collection(db, "friendGroups"), where("inviteCode", "==", inviteCode)));
-  const group = snapshot.docs[0];
-  return group ? { id: group.id, ...group.data() } : null;
+  return getNormalizedGroupByInviteCode(inviteCode);
 }
 
 async function claimPlannedMember(groupId: string, nickname: string, userId: string) {
@@ -122,9 +103,7 @@ async function claimPlannedMember(groupId: string, nickname: string, userId: str
 }
 
 export async function findGroupIdByInviteCode(inviteCode: string) {
-  const db = getFirebaseFirestore();
-  const snapshot = await getDocs(query(collection(db, "friendGroups"), where("inviteCode", "==", inviteCode)));
-  return snapshot.docs[0]?.id ?? null;
+  return findNormalizedGroupIdByInviteCode(inviteCode);
 }
 
 async function uploadAvatar(userId: string, file?: File) {
@@ -136,6 +115,62 @@ async function uploadAvatar(userId: string, file?: File) {
   return getDownloadURL(avatarRef);
 }
 
+async function getOnlyGroupId() {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDocs(query(collection(db, "friendGroups")));
+  return snapshot.size === 1 ? snapshot.docs[0].id : null;
+}
+
+async function ensureUserDocument(userId: string, email: string, groupId?: string | null) {
+  const db = getFirebaseFirestore();
+  const userRef = doc(db, "users", userId);
+  const userSnapshot = await getDoc(userRef);
+  const existing = userSnapshot.exists() ? userSnapshot.data() : {};
+  const resolvedGroupId = existing.activeGroupId || groupId || await getOnlyGroupId();
+  const username = existing.username || email.split("@")[0] || "Quest Hero";
+
+  await setDoc(userRef, {
+    username,
+    email,
+    avatarUrl: existing.avatarUrl || "",
+    level: existing.level || 1,
+    totalXp: existing.totalXp || 0,
+    joinedAt: existing.joinedAt || new Date().toISOString(),
+    groupIds: resolvedGroupId ? arrayUnion(resolvedGroupId) : existing.groupIds || [],
+    activeGroupId: resolvedGroupId || existing.activeGroupId || "",
+    stats: {
+      challengesCompleted: existing.stats?.challengesCompleted || 0,
+      assassinations: existing.stats?.assassinations || 0,
+      photosUploaded: existing.stats?.photosUploaded || 0,
+      pointsEarned: existing.stats?.pointsEarned || 0,
+      relicsCollected: existing.stats?.relicsCollected || 0,
+      catsFound: existing.stats?.catsFound || 0
+    },
+    badges: Array.isArray(existing.badges) ? existing.badges : [],
+    achievements: Array.isArray(existing.achievements) ? existing.achievements : [],
+    repairedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  if (resolvedGroupId) {
+    const groupPatch: Record<string, unknown> = {
+      memberIds: arrayUnion(userId),
+      updatedAt: serverTimestamp()
+    };
+
+    if (existing.isAdmin) {
+      groupPatch.createdBy = userId;
+    }
+
+    await Promise.all([
+      setDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId), groupPatch, { merge: true }),
+      setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, resolvedGroupId), groupPatch, { merge: true })
+    ]);
+  }
+
+  return resolvedGroupId;
+}
+
 export async function registerUserAndJoinGroup(input: RegisterInput) {
   const auth = getFirebaseAuth();
   const db = getFirebaseFirestore();
@@ -143,9 +178,10 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
   const userId = credential.user.uid;
   const avatarUrl = await uploadAvatar(userId, input.avatarFile);
   const groupId = input.groupId || (await findGroupIdByInviteCode(input.inviteCode)) || input.inviteCode;
+  const username = input.username.trim() || input.email.split("@")[0] || "Trip member";
 
   await setDoc(doc(db, "users", userId), {
-    username: input.username,
+    username,
     email: input.email,
     avatarUrl,
     country: "",
@@ -170,13 +206,39 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  await setDoc(doc(db, "friendGroups", groupId), {
-    memberIds: arrayUnion(userId),
-    createdBy: userId,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+  const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+  const groupData = groupSnapshot.exists() ? groupSnapshot.data() : {};
+  const plannedMembers = Array.isArray(groupData.plannedMembers) ? groupData.plannedMembers as Array<{ nickname?: string; claimedBy?: string | null }> : [];
+  const matchingSlot = plannedMembers.find((member) => member.nickname?.toLowerCase() === username.toLowerCase());
 
-  await claimPlannedMember(groupId, input.username, userId);
+  if (matchingSlot) {
+    await claimParticipant({ groupId, userId, nickname: username, email: input.email, avatarUrl });
+  } else {
+    const role = groupData.createdBy ? "PLAYER" : "OWNER";
+    await Promise.all([
+      setDoc(doc(db, GROUPS_COLLECTION, groupId), {
+        memberIds: arrayUnion(userId),
+        createdBy: groupData.createdBy || userId,
+        ownerId: groupData.ownerId || userId,
+        updatedAt: serverTimestamp()
+      }, { merge: true }),
+      setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), {
+        memberIds: arrayUnion(userId),
+        createdBy: groupData.createdBy || userId,
+        ownerId: groupData.ownerId || userId,
+        updatedAt: serverTimestamp()
+      }, { merge: true }),
+      upsertGroupMember({
+        groupId,
+        userId,
+        role,
+        nickname: username,
+        email: input.email,
+        avatarUrl,
+        status: "active"
+      })
+    ]);
+  }
 
   return credential.user;
 }
@@ -185,15 +247,18 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
 export async function signInExistingAccount(email: string, password: string) {
   const auth = getFirebaseAuth();
   const credential = await signInWithEmailAndPassword(auth, email, password);
+  await ensureUserDocument(credential.user.uid, email);
   return credential.user;
 }
 
-export async function signInAndJoinGroup(email: string, password: string, groupId: string, inviteCode: string) {
+export async function signInAndJoinGroup(email: string, password: string, groupId: string, inviteCode: string, nickname?: string) {
   const auth = getFirebaseAuth();
   const db = getFirebaseFirestore();
   const credential = await signInWithEmailAndPassword(auth, email, password);
   const userId = credential.user.uid;
   const resolvedGroupId = groupId || (await findGroupIdByInviteCode(inviteCode)) || inviteCode;
+
+  await ensureUserDocument(userId, email, resolvedGroupId);
 
   await setDoc(doc(db, "users", userId), {
     email,
@@ -202,10 +267,28 @@ export async function signInAndJoinGroup(email: string, password: string, groupI
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  await setDoc(doc(db, "friendGroups", resolvedGroupId), {
-    memberIds: arrayUnion(userId),
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+  if (nickname?.trim()) {
+    await claimParticipant({ groupId: resolvedGroupId, userId, nickname: nickname.trim(), email });
+  } else {
+    await Promise.all([
+      setDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId), {
+        memberIds: arrayUnion(userId),
+        updatedAt: serverTimestamp()
+      }, { merge: true }),
+      setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, resolvedGroupId), {
+        memberIds: arrayUnion(userId),
+        updatedAt: serverTimestamp()
+      }, { merge: true }),
+      upsertGroupMember({
+        groupId: resolvedGroupId,
+        userId,
+        role: "PLAYER",
+        nickname: email.split("@")[0] || "Trip member",
+        email,
+        status: "active"
+      })
+    ]);
+  }
 
   return credential.user;
 }

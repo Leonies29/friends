@@ -5,7 +5,7 @@ const publicRoutes = new Set(["/", "/create-group", "/login", "/register", "/for
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = Boolean(request.cookies.get("istanbul_quest_session"));
-  const isPublic = publicRoutes.has(pathname);
+  const isPublic = publicRoutes.has(pathname) || pathname.startsWith("/join/");
 
   if (!hasSession && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));

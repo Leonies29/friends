@@ -88,7 +88,7 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
 
       if (mode === "login") {
         const user = selectedGroup
-          ? await firebaseService.signInAndJoinGroup(email, password, selectedGroup.id, selectedGroup.inviteCode)
+          ? await firebaseService.signInAndJoinGroup(email, password, selectedGroup.id, selectedGroup.inviteCode, selectedNickname)
           : await firebaseService.signInExistingAccount(email, password);
         authenticatedUserId = user.uid;
       }
