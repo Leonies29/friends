@@ -2,29 +2,19 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LogOut, Moon, MoreHorizontal, Sun } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { useTheme } from "next-themes";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { useActiveGroup } from "@/hooks/use-active-group";
+import { buildMobilePrimaryNav, buildNavigationFromGames, filterVisibleNavItems } from "@/lib/game-navigation";
 import { canManageGames } from "@/services/permissions";
+import { ensureDefaultGames } from "@/services/game-service";
 import { listXpTransactions } from "@/services/xp-service";
 import { cn, calculateLevel, getLevelProgress } from "@/lib/utils";
 import { Avatar, Badge, Button, Progress } from "@/components/ui";
-
-const navItems = [
-  { href: "/dashboard", label: "Home", emoji: "🏠" },
-  { href: "/leaderboard", label: "Ranking", emoji: "🏆" },
-  { href: "/schedule", label: "Planner", emoji: "📅" },
-  { href: "/questline", label: "Quests", emoji: "🗺️" },
-  { href: "/awards", label: "Awards", emoji: "🏅" },
-  { href: "/assassin", label: "Assassin", emoji: "🔪" },
-  { href: "/photos", label: "Travel Album", emoji: "📸" },
-  { href: "/admin", label: "Admin", emoji: "⚙️", adminOnly: true }
-];
-
-const mobilePrimary = ["/dashboard", "/questline", "/assassin", "/photos", "/leaderboard"];
+import type { Game } from "@/types";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -33,13 +23,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const state = useActiveGroup();
   const [showMore, setShowMore] = useState(false);
   const [totalXp, setTotalXp] = useState(0);
+  const [games, setGames] = useState<Game[]>([]);
   const canAdmin = canManageGames(state.currentMember?.role);
   const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
   const displayName = currentMember?.nickname || currentMember?.username || "Traveler";
   const level = calculateLevel(totalXp);
-  const visibleNavItems = navItems.filter((item) => !item.adminOnly || canAdmin);
-  const mobileNavItems = visibleNavItems.filter((item) => mobilePrimary.includes(item.href));
-  const overflowNavItems = visibleNavItems.filter((item) => !mobilePrimary.includes(item.href));
+
+  const navItems = useMemo(() => buildNavigationFromGames(games, canAdmin), [games, canAdmin]);
+  const visibleNavItems = useMemo(() => filterVisibleNavItems(navItems, canAdmin), [navItems, canAdmin]);
+  const mobileNavItems = useMemo(() => buildMobilePrimaryNav(visibleNavItems), [visibleNavItems]);
+  const overflowNavItems = useMemo(
+    () => visibleNavItems.filter((item) => !mobileNavItems.some((mobileItem) => mobileItem.href === item.href)),
+    [visibleNavItems, mobileNavItems]
+  );
 
   useEffect(() => {
     if (!state.group?.id || !state.userId) return;
@@ -48,6 +44,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setTotalXp(xp);
     });
   }, [state.group?.id, state.userId]);
+
+  useEffect(() => {
+    if (!state.group?.id) {
+      setGames([]);
+      return;
+    }
+    void ensureDefaultGames(state.group.id).then(setGames);
+  }, [state.group?.id, pathname]);
 
   async function logout() {
     await signOut(getFirebaseAuth()).catch(() => undefined);

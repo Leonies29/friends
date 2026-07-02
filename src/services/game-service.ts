@@ -165,12 +165,26 @@ export async function duplicateGame(game: Game) {
 }
 
 export async function setGameActive(gameId: string, active: boolean) {
+  if (active) {
+    await updateGame(gameId, {
+      enabled: true,
+      visible: true,
+      status: "active",
+      activatedAt: new Date().toISOString()
+    });
+    return;
+  }
+
   await updateGame(gameId, {
-    enabled: active,
-    status: active ? "active" : "inactive",
-    activatedAt: active ? new Date().toISOString() : undefined,
-    deactivatedAt: active ? undefined : new Date().toISOString()
+    enabled: false,
+    status: "inactive",
+    deactivatedAt: new Date().toISOString()
   });
+}
+
+export async function listNavGames(groupId: string) {
+  const games = await listGames(groupId);
+  return games.filter((game) => game.enabled && game.visible && !game.archived);
 }
 
 export async function archiveGame(gameId: string) {
