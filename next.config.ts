@@ -1,13 +1,14 @@
 import type { NextConfig } from "next";
 
 const isGitHubPages = process.env.GITHUB_PAGES === "true";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || (isGitHubPages ? "/friends" : "");
 
 const nextConfig: NextConfig = {
   devIndicators: false,
   output: isGitHubPages ? "export" : undefined,
-  basePath: isGitHubPages ? "/friends" : undefined,
-  assetPrefix: isGitHubPages ? "/friends/" : undefined,
-  trailingSlash: isGitHubPages,
+  basePath: basePath || undefined,
+  assetPrefix: basePath ? `${basePath}/` : undefined,
+  trailingSlash: Boolean(basePath),
   images: {
     unoptimized: isGitHubPages,
     remotePatterns: [

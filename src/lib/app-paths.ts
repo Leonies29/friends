@@ -5,9 +5,21 @@ export function getAppBasePath() {
   return process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 }
 
+function usesTrailingSlash() {
+  return Boolean(getAppBasePath());
+}
+
 export function appPath(path: string) {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${getAppBasePath()}${normalized}`;
+  const queryIndex = normalized.indexOf("?");
+  const pathname = queryIndex === -1 ? normalized : normalized.slice(0, queryIndex);
+  const query = queryIndex === -1 ? "" : normalized.slice(queryIndex);
+  const base = getAppBasePath();
+  const slashPath = usesTrailingSlash() && pathname !== "/" && !pathname.endsWith("/")
+    ? `${pathname}/`
+    : pathname;
+
+  return `${base}${slashPath}${query}`;
 }
 
 export function buildInviteLink(inviteCode: string) {

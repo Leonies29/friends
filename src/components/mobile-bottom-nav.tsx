@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
+import { appPath } from "@/lib/app-paths";
 import {
   MOBILE_BOTTOM_SLOTS,
   isMobileBottomSlotActive,
@@ -27,7 +28,7 @@ function NavSheetLink({
   const active = isNavItemActive(pathname, item.href);
   return (
     <Link
-      href={item.href}
+      href={appPath(item.href)}
       onClick={onClose}
       className={cn(
         "flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-sm font-black transition",
@@ -208,7 +209,7 @@ export function MobileBottomNav({
             return (
               <Link
                 key={slot.id}
-                href={slot.href!}
+                href={appPath(slot.href!)}
                 onClick={() => setSheet(null)}
                 className={cn(
                   "flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-[1.1rem] px-1 py-2 text-[11px] font-black leading-none transition",

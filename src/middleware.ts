@@ -13,7 +13,11 @@ function stripBasePath(pathname: string) {
 
 function appUrl(request: NextRequest, pathname: string) {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-  return new URL(`${basePath}${pathname}`, request.url);
+  const queryIndex = pathname.indexOf("?");
+  const path = queryIndex === -1 ? pathname : pathname.slice(0, queryIndex);
+  const query = queryIndex === -1 ? "" : pathname.slice(queryIndex);
+  const slashPath = basePath && path !== "/" && !path.endsWith("/") ? `${path}/` : path;
+  return new URL(`${basePath}${slashPath}${query}`, request.url);
 }
 
 export function middleware(request: NextRequest) {
