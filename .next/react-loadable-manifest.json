@@ -20,7 +20,7 @@
       "static/chunks/7134-fbd08b96d6b78b1f.js",
       "static/chunks/1032-3b906a2356755270.js",
       "static/chunks/5861-53f0bf97b83e034d.js",
-      "static/chunks/9996-9c9b7e4d1842eb34.js",
+      "static/chunks/9996-b55bba0f0c512a85.js",
       "static/chunks/4112.c966e8ab4174f217.js"
     ]
   },
@@ -33,7 +33,7 @@
       "static/chunks/7134-fbd08b96d6b78b1f.js",
       "static/chunks/1032-3b906a2356755270.js",
       "static/chunks/5861-53f0bf97b83e034d.js",
-      "static/chunks/9996-9c9b7e4d1842eb34.js",
+      "static/chunks/9996-b55bba0f0c512a85.js",
       "static/chunks/4112.c966e8ab4174f217.js"
     ]
   },
@@ -91,7 +91,7 @@
       "static/chunks/7134-fbd08b96d6b78b1f.js",
       "static/chunks/1032-3b906a2356755270.js",
       "static/chunks/5861-53f0bf97b83e034d.js",
-      "static/chunks/9996-9c9b7e4d1842eb34.js",
+      "static/chunks/9996-b55bba0f0c512a85.js",
       "static/chunks/4112.c966e8ab4174f217.js"
     ]
   },
@@ -109,13 +109,13 @@
   "hooks\\use-active-group.ts -> @/lib/istanbul-avatars": {
     "id": 7613,
     "files": [
-      "static/chunks/7613.bcf610f972cc2a63.js"
+      "static/chunks/7613.284cf23833445442.js"
     ]
   },
   "hooks\\use-active-group.ts -> @/services/member-service": {
-    "id": 1358,
+    "id": 8977,
     "files": [
-      "static/chunks/8977.efe3f4a38d16bfc4.js"
+      "static/chunks/8977.52551f8f6de1491e.js"
     ]
   },
   "hooks\\use-active-group.ts -> firebase/auth": {
@@ -126,6 +126,10 @@
     ]
   },
   "hooks\\use-active-group.ts -> firebase/firestore": {
+    "id": 9390,
+    "files": []
+  },
+  "services\\award-service.ts -> firebase/firestore": {
     "id": 9390,
     "files": []
   }

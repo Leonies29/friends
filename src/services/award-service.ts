@@ -77,9 +77,42 @@ export async function getAwardResults(groupId: string) {
 
 export async function countUserVotes(voterId: string, groupId: string) {
   const votes = await listVotes(groupId, voterId);
+  const categories = await listAwardCategories(groupId);
   return {
     voted: votes.filter((vote) => !vote.isWhiteVote && vote.targetUserId).length,
     white: votes.filter((vote) => vote.isWhiteVote).length,
-    total: AWARD_CATEGORIES.length
+    total: categories.length
   };
+}
+
+export async function listAwardCategories(groupId: string) {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDocs(query(collection(db, AWARD_CATEGORIES_COLLECTION), where("groupId", "==", groupId)));
+  if (!snapshot.size) return ensureAwardCategories(groupId);
+  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as AwardCategory & { groupId: string });
+}
+
+export async function createAwardCategory(groupId: string, input: { emoji: string; title: string; description: string }) {
+  const db = getFirebaseFirestore();
+  const id = `${groupId}_${Date.now()}`;
+  await setDoc(doc(db, AWARD_CATEGORIES_COLLECTION, id), {
+    id,
+    groupId,
+    emoji: input.emoji,
+    title: input.title,
+    description: input.description,
+    createdAt: serverTimestamp()
+  });
+  return id;
+}
+
+export async function updateAwardCategory(categoryId: string, data: Partial<Pick<AwardCategory, "emoji" | "title" | "description">>) {
+  const db = getFirebaseFirestore();
+  await setDoc(doc(db, AWARD_CATEGORIES_COLLECTION, categoryId), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function deleteAwardCategory(categoryId: string) {
+  const db = getFirebaseFirestore();
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, AWARD_CATEGORIES_COLLECTION, categoryId));
 }

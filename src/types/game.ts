@@ -26,6 +26,7 @@ export interface QuestDoc {
   isSecret: boolean;
   unlocked: boolean;
   completedBy: string[];
+  archived?: boolean;
 }
 
 export interface QuestCompletion {

@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { GameCustomizeModal } from "@/components/game-customize-modal";
+import { GameSetupModal } from "@/components/game-setup-modal";
 import { notifyGamesUpdated } from "@/lib/game-events";
 import { getGameNavTarget, isGameInMenu } from "@/lib/game-navigation";
 import {
@@ -61,6 +62,7 @@ export function GameManagementPanel({
 }) {
   const [saving, setSaving] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [setupGame, setSetupGame] = useState<Game | null>(null);
 
   const activeGames = useMemo(
     () => games.filter((game) => !game.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
@@ -103,10 +105,19 @@ export function GameManagementPanel({
         />
       )}
 
+      {setupGame && (
+        <GameSetupModal
+          game={setupGame}
+          groupId={groupId}
+          onClose={() => setSetupGame(null)}
+          onSaved={() => void refresh()}
+        />
+      )}
+
       <Card>
-        <Badge>Games management</Badge>
+        <Badge>Games</Badge>
         <p className="mt-2 text-sm text-muted-foreground">
-          🟢 = visible in menu · ⚪ = hidden · One toggle controls menu + activation together.
+          ⚙️ configure content · ▶️ show in menu · ✏️ edit title and XP
         </p>
 
         <form className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]" onSubmit={(event) => void handleCreateGame(event)}>
@@ -141,7 +152,8 @@ export function GameManagementPanel({
                   <p className="truncate text-sm text-muted-foreground">{game.description}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <EmojiControl emoji="✏️" label="Customize" onClick={() => setEditingGame(game)} />
+                  <EmojiControl emoji="⚙️" label="Configure game content" onClick={() => setSetupGame(game)} />
+                  <EmojiControl emoji="✏️" label="Edit title and XP rules" onClick={() => setEditingGame(game)} />
                   <EmojiControl
                     emoji={inMenu ? "⏸️" : "▶️"}
                     label={inMenu ? "Hide from menu" : "Show in menu"}

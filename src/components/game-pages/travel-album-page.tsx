@@ -2,14 +2,28 @@
 
 import { motion } from "framer-motion";
 import { ExternalLink, Images } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
-import { SHARED_ALBUM_URL } from "@/lib/game-data";
 import { PageShell } from "@/components/game-pages/page-shell";
+import { useActiveGroup } from "@/hooks/use-active-group";
+import { SHARED_ALBUM_URL } from "@/lib/game-data";
+import { listGames } from "@/services/game-service";
 
 export function TravelAlbumPage() {
+  const { group } = useActiveGroup();
+  const [albumUrl, setAlbumUrl] = useState(SHARED_ALBUM_URL);
+
+  useEffect(() => {
+    if (!group?.id) return;
+    void listGames(group.id).then((games) => {
+      const photoGame = games.find((game) => game.category === "photo" && !game.archived);
+      setAlbumUrl(photoGame?.settings?.albumUrl ?? SHARED_ALBUM_URL);
+    });
+  }, [group?.id]);
+
   function openAlbum() {
     if (typeof window === "undefined") return;
-    window.open(SHARED_ALBUM_URL, "_blank", "noopener,noreferrer");
+    window.open(albumUrl, "_blank", "noopener,noreferrer");
   }
 
   return (

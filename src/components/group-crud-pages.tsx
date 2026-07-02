@@ -14,14 +14,14 @@ import {
   Trophy,
   Users
 } from "lucide-react";
+import { AssassinEmergencyPanel } from "@/components/admin/assassin-emergency-panel";
+import { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
 import { GameManagementPanel } from "@/components/game-management-panel";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
 import { buildInviteLink } from "@/lib/app-paths";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManagePlanning, canManageScores, canModeratePhotos } from "@/services/permissions";
-import {
-  ensureDefaultGames
-} from "@/services/game-service";
+import { ensureDefaultGames } from "@/services/game-service";
 import {
   addPhotoComment,
   deletePhoto,
@@ -579,27 +579,15 @@ export function GroupLeaderboardPage() {
 export function GroupAdminPage() {
   const state = useActiveGroup();
   const [games, setGames] = useState<Game[]>([]);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [quests, setQuests] = useState<RelicDoc[]>([]);
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [loadingGames, setLoadingGames] = useState(true);
   const [inviteLink, setInviteLink] = useState("");
-  const canAdmin = canManageGames(state.currentMember?.role) || canManageScores(state.currentMember?.role) || canManagePlanning(state.currentMember?.role);
+  const canAdmin = canManageGames(state.currentMember?.role) || canManageScores(state.currentMember?.role);
 
   async function loadAdmin(groupId = state.group?.id) {
     if (!groupId) return;
-    const [gameItems, photoItems, challengeItems, questItems, eventItems] = await Promise.all([
-      ensureDefaultGames(groupId),
-      listPhotos(groupId),
-      listGroupDocs<Challenge>("challenges", groupId),
-      listGroupDocs<RelicDoc>("questRelics", groupId),
-      listScheduleEvents(groupId)
-    ]);
-    setGames(gameItems);
-    setPhotos(photoItems);
-    setChallenges(challengeItems);
-    setQuests(questItems);
-    setEvents(eventItems);
+    setLoadingGames(true);
+    setGames(await ensureDefaultGames(groupId));
+    setLoadingGames(false);
   }
 
   useEffect(() => { void loadAdmin(); }, [state.group?.id]);
@@ -645,15 +633,12 @@ export function GroupAdminPage() {
 
   return (
     <div className="grid gap-6">
-      <PageHero eyebrow="Group admin" title="Admin Panel" description="Manage this trip's members, games, content, and score corrections." group={group} />
-
-      <section className="grid gap-4 md:grid-cols-5">
-        <Card><Users className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{state.members.length}</p><p className="text-sm text-muted-foreground">members</p></Card>
-        <Card><CalendarDays className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{events.length}</p><p className="text-sm text-muted-foreground">events</p></Card>
-        <Card><Camera className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{photos.length}</p><p className="text-sm text-muted-foreground">photos</p></Card>
-        <Card><Check className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{challenges.length}</p><p className="text-sm text-muted-foreground">challenges</p></Card>
-        <Card><Trophy className="h-7 w-7 text-accent" /><p className="mt-4 text-3xl font-black">{games.length}</p><p className="text-sm text-muted-foreground">games</p></Card>
-      </section>
+      <PageHero
+        eyebrow="Admin"
+        title="Trip control center"
+        description="Invite friends, configure each game with ⚙️, then activate them in the menu. Adjust scores and reveal awards when ready."
+        group={group}
+      />
 
       <Card>
         <Badge>Invitation</Badge>
@@ -668,57 +653,35 @@ export function GroupAdminPage() {
         </div>
       </Card>
 
-      <GameManagementPanel groupId={group.id} games={games} onReload={async () => { await loadAdmin(group.id); }} />
+      {loadingGames ? (
+        <Card className="flex items-center gap-3">
+          <Loader2 className="h-5 w-5 animate-spin text-accent" />
+          <p className="font-semibold text-muted-foreground">Loading games...</p>
+        </Card>
+      ) : (
+        <GameManagementPanel groupId={group.id} games={games} onReload={async () => { await loadAdmin(group.id); }} />
+      )}
 
-      <Card>
-        <Badge>Challenge and quest management</Badge>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="rounded-3xl border border-border bg-background p-4">
-            <h3 className="font-black">Challenges</h3>
-            <p className="text-sm text-muted-foreground">Create, schedule, approve, or delete challenges from the Challenges page.</p>
-            <p className="mt-3 text-2xl font-black">{challenges.filter((challenge) => challenge.status === "submitted").length} waiting approval</p>
-          </div>
-          <div className="rounded-3xl border border-border bg-background p-4">
-            <h3 className="font-black">Quests</h3>
-            <p className="text-sm text-muted-foreground">Quest items can be hidden by removing visibility from their game or archived with the game.</p>
-            <p className="mt-3 text-2xl font-black">{quests.length} collected items</p>
-          </div>
-        </div>
-      </Card>
+      <AssassinEmergencyPanel groupId={group.id} />
 
-      <Card>
-        <Badge>Photo moderation</Badge>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {photos.slice(0, 6).map((photo) => (
-            <div key={photo.id} className="flex gap-3 rounded-3xl border border-border bg-background p-3">
-              <img src={photoSrc(photo)} alt={photo.caption} className="h-20 w-20 rounded-2xl object-cover" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-black">{photo.caption || "Untitled photo"}</p>
-                <p className="text-sm text-muted-foreground">By {photo.ownerName}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => void setPhotoFeatured(photo.id, !photo.featured).then(() => loadAdmin(group.id))}><Star className="h-4 w-4" />{photo.featured ? "Unfeature" : "Feature"}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => void deletePhoto(photo).then(() => loadAdmin(group.id))}><Trash2 className="h-4 w-4" />Delete</Button>
-                </div>
-              </div>
-            </div>
-          ))}
-          {photos.length === 0 && <p className="text-sm font-semibold text-muted-foreground">No photos to moderate yet.</p>}
-        </div>
-      </Card>
+      {canManageScores(state.currentMember?.role) && (
+        <Card>
+          <Badge>Score adjustments</Badge>
+          <p className="mt-2 text-sm text-muted-foreground">Manual XP corrections for disputes or bonus points.</p>
+          <form className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto]" onSubmit={(event) => handleXp(event, 1)}>
+            <select name="userId" required className={inputClass}><option value="">Choose player</option>{state.members.map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}</select>
+            <input name="amount" type="number" min={1} required placeholder="XP" className={inputClass} />
+            <input name="reason" placeholder="Reason" className={inputClass} />
+            <Button type="submit"><Plus className="h-4 w-4" />Add XP</Button>
+            <Button type="button" variant="secondary" onClick={(event) => {
+              const form = event.currentTarget.closest("form");
+              if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);
+            }}><Minus className="h-4 w-4" />Remove XP</Button>
+          </form>
+        </Card>
+      )}
 
-      <Card>
-        <Badge>Leaderboard control</Badge>
-        <form className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto]" onSubmit={(event) => handleXp(event, 1)}>
-          <select name="userId" required className={inputClass}><option value="">Choose player</option>{state.members.map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}</select>
-          <input name="amount" type="number" min={1} required placeholder="XP" className={inputClass} />
-          <input name="reason" placeholder="Reason" className={inputClass} />
-          <Button type="submit"><Plus className="h-4 w-4" />Add XP</Button>
-          <Button type="button" variant="secondary" onClick={(event) => {
-            const form = event.currentTarget.closest("form");
-            if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);
-          }}><Minus className="h-4 w-4" />Remove XP</Button>
-        </form>
-      </Card>
+      <AwardsRevealSection />
     </div>
   );
 }

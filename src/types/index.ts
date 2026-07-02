@@ -125,6 +125,19 @@ export interface Game extends GroupScopedEntity {
   duplicatedFromId?: string;
   activatedAt?: EntityTimestamp;
   deactivatedAt?: EntityTimestamp;
+  settings?: GameSettings;
+}
+
+export interface GameSettings {
+  albumUrl?: string;
+  checklistItems?: GameChecklistItem[];
+}
+
+export interface GameChecklistItem {
+  id: string;
+  title: string;
+  description: string;
+  xpReward: number;
 }
 
 export interface GameSession extends GroupScopedEntity {

@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { QUEST_TEMPLATES, SECRET_QUEST_TEMPLATES } from "@/lib/game-data";
 import { addXpTransaction } from "@/services/xp-service";
@@ -39,7 +39,9 @@ export async function ensureGroupQuests(groupId: string) {
 export async function listGroupQuests(groupId: string) {
   const db = getFirebaseFirestore();
   const snapshot = await getDocs(query(collection(db, QUESTS), where("groupId", "==", groupId)));
-  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuestDoc);
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }) as QuestDoc)
+    .filter((quest) => !quest.archived);
 }
 
 export async function completeQuest(input: {
@@ -132,4 +134,42 @@ export async function listQuestCompletions(groupId: string) {
   const db = getFirebaseFirestore();
   const snapshot = await getDocs(query(collection(db, QUEST_COMPLETIONS), where("groupId", "==", groupId)));
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuestCompletion);
+}
+
+export async function createGroupQuest(groupId: string, input: {
+  title: string;
+  description: string;
+  category: QuestDoc["category"];
+  difficulty: QuestDoc["difficulty"];
+  xpReward: number;
+  isSecret?: boolean;
+}) {
+  const db = getFirebaseFirestore();
+  const key = `custom-${Date.now()}`;
+  const id = `${groupId}_${key}`;
+  await setDoc(doc(db, QUESTS, id), {
+    groupId,
+    key,
+    title: input.title,
+    description: input.description,
+    category: input.category,
+    difficulty: input.difficulty,
+    xpReward: input.xpReward,
+    isSecret: input.isSecret ?? false,
+    unlocked: !(input.isSecret ?? false),
+    completedBy: [],
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  return id;
+}
+
+export async function updateGroupQuest(questId: string, data: Partial<Pick<QuestDoc, "title" | "description" | "category" | "difficulty" | "xpReward" | "isSecret" | "unlocked">>) {
+  const db = getFirebaseFirestore();
+  await setDoc(doc(db, QUESTS, questId), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function removeGroupQuest(questId: string) {
+  const db = getFirebaseFirestore();
+  await deleteDoc(doc(db, QUESTS, questId));
 }

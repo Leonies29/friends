@@ -1,5 +1,5 @@
-export { AdminAwardsPage } from "./admin-awards-page";
-export { AssassinAdminPage } from "./assassin-admin-page";
+export { AssassinEmergencyPanel } from "@/components/admin/assassin-emergency-panel";
+export { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
 export { AssassinPage } from "./assassin-page";
 export { AssassinTargetGraph } from "./assassin-target-graph";
 export { AwardsPage } from "./awards-page";
