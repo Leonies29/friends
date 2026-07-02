@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { LogOut, Moon, MoreHorizontal, Sun } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { signOut } from "firebase/auth";
 import { useTheme } from "next-themes";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { GAMES_UPDATED_EVENT } from "@/lib/game-events";
-import { buildNavigationFromGames, buildMobilePrimaryNav, filterVisibleNavItems } from "@/lib/game-navigation";
+import { buildNavigationFromGames, filterVisibleNavItems, isNavItemActive, splitMobileNavigation } from "@/lib/game-navigation";
 import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
 import { ensureDefaultGames } from "@/services/game-service";
 import { listXpTransactions } from "@/services/xp-service";
+import { appPath } from "@/lib/app-paths";
+import { clearActiveGroupCookie } from "@/lib/session-cookies";
 import { cn, calculateLevel, getLevelProgress } from "@/lib/utils";
 import { Avatar, Badge, Button, Progress } from "@/components/ui";
 import type { Game } from "@/types";
@@ -22,7 +25,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const state = useActiveGroup();
-  const [showMore, setShowMore] = useState(false);
   const [totalXp, setTotalXp] = useState(0);
   const [games, setGames] = useState<Game[]>([]);
   const canAdmin = canManageGames(resolveEffectiveRole(state.currentMember, state.group, state.userId));
@@ -32,11 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = useMemo(() => buildNavigationFromGames(games, canAdmin), [games, canAdmin]);
   const visibleNavItems = useMemo(() => filterVisibleNavItems(navItems, canAdmin), [navItems, canAdmin]);
-  const mobileNavItems = useMemo(() => buildMobilePrimaryNav(visibleNavItems), [visibleNavItems]);
-  const overflowNavItems = useMemo(
-    () => visibleNavItems.filter((item) => !mobileNavItems.some((mobileItem) => mobileItem.href === item.href)),
-    [visibleNavItems, mobileNavItems]
-  );
+  const mobileNavSplit = useMemo(() => splitMobileNavigation(visibleNavItems), [visibleNavItems]);
 
   useEffect(() => {
     if (!state.group?.id || !state.userId) return;
@@ -60,12 +58,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   async function logout() {
     await signOut(getFirebaseAuth()).catch(() => undefined);
     document.cookie = "istanbul_quest_session=; path=/; max-age=0; SameSite=Lax";
-    document.cookie = "istanbul_quest_active_group=; path=/; max-age=0; SameSite=Lax";
+    clearActiveGroupCookie();
     router.push("/");
   }
 
   return (
-    <div className="min-h-screen pb-28 lg:pb-0">
+    <div className="min-h-screen pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0">
       <aside className="fixed left-4 top-4 z-40 hidden h-[calc(100vh-2rem)] w-80 flex-col rounded-[1.75rem] border border-border bg-[#f6ead8] p-4 shadow-xl shadow-slate-950/10 lg:flex">
         <Link href="/dashboard" className="rounded-[1.5rem] bg-primary p-5 text-primary-foreground">
           <p className="text-xs font-black uppercase tracking-[0.35em] text-primary-foreground/70">Adventure Pass</p>
@@ -87,7 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1">
           {visibleNavItems.map((item) => {
-            const active = pathname === item.href;
+            const active = isNavItemActive(pathname, item.href);
             return (
               <Link
                 key={item.href}
@@ -102,18 +100,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          <Link
+            href={appPath("/select-group?switch=1")}
+            className="flex items-center gap-3 rounded-[1.25rem] border border-dashed border-border bg-card px-4 py-3.5 text-sm font-black text-muted-foreground transition hover:border-primary hover:text-foreground"
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-background text-xl">🔁</span>
+            <span>Switch group</span>
+          </Link>
         </nav>
       </aside>
 
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 py-3 backdrop-blur lg:ml-[21rem] lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Avatar src={currentMember?.avatarUrl ?? ""} alt={displayName} />
-            <div>
-              <p className="font-black">{displayName}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{state.group?.name ?? `Level ${level}`}</p>
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-3">
+            <Avatar src={currentMember?.avatarUrl ?? ""} alt={displayName} className="lg:hidden" />
+            <div className="min-w-0">
+              <p className="truncate font-black">{displayName}</p>
+              <p className="truncate text-xs font-semibold text-muted-foreground">{state.group?.name ?? `Level ${level}`}</p>
             </div>
-          </div>
+          </Link>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
               <Sun className="h-4 w-4 dark:hidden" />
@@ -127,49 +132,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 lg:ml-[21rem] lg:px-8">
+      <main className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6 lg:ml-[21rem] lg:px-8">
         {children}
       </main>
 
-      {showMore && (
-        <div className="fixed inset-x-3 bottom-24 z-50 rounded-[1.5rem] border border-border bg-[#f6ead8] p-3 shadow-xl lg:hidden">
-          <div className="grid grid-cols-2 gap-2">
-            {overflowNavItems.map((item) => (
-              <Link key={item.href} href={item.href} className="flex items-center gap-2 rounded-2xl bg-card px-3 py-3 text-sm font-black" onClick={() => setShowMore(false)}>
-                <span>{item.emoji}</span>
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <nav className="fixed inset-x-3 bottom-3 z-50 rounded-[1.5rem] border border-border bg-[#f6ead8] p-2 shadow-xl shadow-slate-950/15 lg:hidden">
-        <div className="grid grid-cols-5 gap-1">
-          {mobileNavItems.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "grid place-items-center gap-1 rounded-[1.1rem] px-2 py-2 text-[10px] font-black transition",
-                  active ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                )}
-              >
-                <span className="text-lg">{item.emoji}</span>
-                <span>{item.label.split(" ")[0]}</span>
-              </Link>
-            );
-          })}
-          {overflowNavItems.length > 0 && (
-            <button type="button" className="grid place-items-center gap-1 rounded-[1.1rem] px-2 py-2 text-[10px] font-black text-muted-foreground" onClick={() => setShowMore((value) => !value)}>
-              <MoreHorizontal className="h-5 w-5" />
-              More
-            </button>
-          )}
-        </div>
-      </nav>
+      <MobileBottomNav pathname={pathname} split={mobileNavSplit} />
     </div>
   );
 }
