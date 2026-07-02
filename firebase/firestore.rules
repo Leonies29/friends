@@ -1,0 +1,109 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isGroupMember(groupId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid))
+        && get(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid)).data.status == 'active';
+    }
+
+    function isGroupAdmin(groupId) {
+      return isGroupMember(groupId)
+        && get(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid)).data.role in ['OWNER', 'ADMIN'];
+    }
+
+    function isGroupOwner(groupId) {
+      return isSignedIn()
+        && (
+          get(/databases/$(database)/documents/friendGroups/$(groupId)).data.ownerId == request.auth.uid
+          || get(/databases/$(database)/documents/friendGroups/$(groupId)).data.createdBy == request.auth.uid
+        );
+    }
+
+    function canManageGroup(groupId) {
+      return isGroupAdmin(groupId) || isGroupOwner(groupId);
+    }
+
+    match /bingoChallenges/{challengeId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create: if canManageGroup(request.resource.data.groupId)
+        && request.resource.data.gameId is string
+        && request.resource.data.title is string
+        && request.resource.data.description is string;
+      allow update, delete: if canManageGroup(resource.data.groupId);
+    }
+
+    match /bingoSessions/{sessionId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if canManageGroup(request.resource.data.groupId);
+    }
+
+    match /bingoCards/{cardId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create: if canManageGroup(request.resource.data.groupId);
+      allow update: if canManageGroup(resource.data.groupId)
+        || (
+          isGroupMember(resource.data.groupId)
+          && request.auth.uid == resource.data.userId
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['cells', 'updatedAt'])
+        );
+    }
+
+    match /bingoSubmissions/{submissionId} {
+      allow read: if isGroupMember(resource.data.groupId)
+        && (canManageGroup(resource.data.groupId) || request.auth.uid == resource.data.userId);
+      allow create: if isGroupMember(request.resource.data.groupId)
+        && request.auth.uid == request.resource.data.userId
+        && request.resource.data.status == 'pending';
+      allow update: if canManageGroup(resource.data.groupId)
+        || (
+          request.auth.uid == resource.data.userId
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'pending'
+        );
+    }
+
+    match /bingoPlayers/{playerId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if canManageGroup(request.resource.data.groupId)
+        || isGroupMember(request.resource.data.groupId);
+    }
+
+    match /bingoLeaderboard/{entryId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if canManageGroup(request.resource.data.groupId)
+        || isGroupMember(request.resource.data.groupId);
+    }
+
+    match /quizQuestions/{questionId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update, delete: if canManageGroup(
+        request.resource != null ? request.resource.data.groupId : resource.data.groupId
+      );
+    }
+
+    match /quizSessions/{sessionId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create: if isGroupMember(request.resource.data.groupId)
+        && request.auth.uid == request.resource.data.userId;
+      allow update: if isGroupMember(resource.data.groupId)
+        && request.auth.uid == resource.data.userId;
+    }
+
+    match /quizAnswers/{answerId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create: if isGroupMember(request.resource.data.groupId)
+        && request.auth.uid == request.resource.data.userId;
+    }
+
+    match /quizLeaderboard/{entryId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if isGroupMember(request.resource.data.groupId);
+    }
+  }
+}

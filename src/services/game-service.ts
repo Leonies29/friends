@@ -65,8 +65,8 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     xpRules: [{ id: "quest-item", label: "Quest item collected", amount: 75, sourceType: "quest" }]
   },
   {
-    title: "Quiz",
-    description: "Create quick travel quizzes for the group.",
+    title: "Histoire d'Istanbul et de la Turquie",
+    description: "Quiz QCM chronométré sur Istanbul et la Turquie. +10 pts par bonne réponse, +5 bonus rapidité.",
     icon: "CircleHelp",
     category: "quiz",
     enabled: false,
@@ -74,11 +74,11 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     archived: false,
     status: "inactive",
     order: 50,
-    xpRules: [{ id: "quiz-answer", label: "Correct answer", amount: 25, sourceType: "game" }]
+    xpRules: [{ id: "quiz-answer", label: "Bonne réponse quiz", amount: 10, sourceType: "game" }]
   },
   {
-    title: "Bingo",
-    description: "A lightweight checklist game for funny trip moments.",
+    title: "Bingo Voyage",
+    description: "Grille 5×5 personnalisée, preuves texte uniquement et modération admin.",
     icon: "Grid3X3",
     category: "bingo",
     enabled: false,
@@ -86,7 +86,7 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     archived: false,
     status: "inactive",
     order: 60,
-    xpRules: [{ id: "bingo-cell", label: "Bingo item completed", amount: 20, sourceType: "game" }]
+    xpRules: [{ id: "bingo-cell", label: "Défi bingo validé", amount: 1, sourceType: "game" }]
   }
 ];
 

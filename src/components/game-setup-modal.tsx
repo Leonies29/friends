@@ -5,7 +5,9 @@ import { Badge, Button, Card } from "@/components/ui";
 import { isGameInMenu } from "@/lib/game-navigation";
 import { AssassinSetupPanel } from "@/components/game-setup/assassin-setup-panel";
 import { ChallengeSetupPanel } from "@/components/game-setup/challenge-setup-panel";
+import { BingoSetupPanel } from "@/components/game-setup/bingo-setup-panel";
 import { ChecklistSetupPanel } from "@/components/game-setup/checklist-setup-panel";
+import { QuizSetupPanel } from "@/components/game-setup/quiz-setup-panel";
 import { PhotoSetupPanel } from "@/components/game-setup/photo-setup-panel";
 import { QuestSetupPanel } from "@/components/game-setup/quest-setup-panel";
 import type { Game } from "@/types";
@@ -15,8 +17,8 @@ const SETUP_LABELS: Record<Game["category"], string> = {
   assassin: "Configure targets and missions before starting",
   challenge: "Configure secret challenges",
   photo: "Configure travel album link",
-  quiz: "Configure quiz items",
-  bingo: "Configure bingo items",
+  quiz: "Gérer les questions du quiz Histoire d'Istanbul",
+  bingo: "Configure le pool de défis et lance la partie",
   custom: "Configure game content"
 };
 
@@ -54,7 +56,9 @@ export function GameSetupModal({
           {game.category === "assassin" && <AssassinSetupPanel groupId={groupId} />}
           {game.category === "challenge" && <ChallengeSetupPanel groupId={groupId} />}
           {game.category === "photo" && <PhotoSetupPanel game={game} onSaved={onSaved} />}
-          {(game.category === "quiz" || game.category === "bingo" || game.category === "custom") && (
+          {game.category === "bingo" && <BingoSetupPanel game={game} groupId={groupId} />}
+          {game.category === "quiz" && <QuizSetupPanel game={game} groupId={groupId} />}
+          {game.category === "custom" && (
             <ChecklistSetupPanel game={game} onSaved={onSaved} />
           )}
         </div>

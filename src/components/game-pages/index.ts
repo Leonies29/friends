@@ -1,5 +1,7 @@
 export { AssassinEmergencyPanel } from "@/components/admin/assassin-emergency-panel";
 export { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
+export { QuizPage } from "./quiz-page";
+export { BingoPage } from "./bingo-page";
 export { AssassinPage } from "./assassin-page";
 export { AssassinTargetGraph } from "./assassin-target-graph";
 export { AwardsPage } from "./awards-page";

@@ -13,8 +13,8 @@ const CATEGORY_NAV: Record<GameCategory, { href: string; emoji: string; label: s
   challenge: { href: "/challenges", emoji: "✨", label: "Challenges" },
   photo: { href: "/photos", emoji: "📸", label: "Travel Album" },
   treasure: { href: "/questline", emoji: "🗺️", label: "Quests" },
-  quiz: { href: "/badges", emoji: "❓", label: "Quiz" },
-  bingo: { href: "/badges", emoji: "🎯", label: "Bingo" },
+  quiz: { href: "/quiz", emoji: "❓", label: "Quiz Istanbul" },
+  bingo: { href: "/bingo", emoji: "🎯", label: "Bingo Voyage" },
   custom: { href: "/challenges", emoji: "🎮", label: "Custom" }
 };
 
