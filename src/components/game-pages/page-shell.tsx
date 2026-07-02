@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
 import type { ActiveGroup } from "@/hooks/use-active-group";
-import { appPath } from "@/lib/app-paths";
 
 export function PageShell({
   eyebrow,
@@ -53,10 +52,10 @@ export function EmptyGroupCard() {
       <p className="mt-2 text-muted-foreground">Pick one of your trips, or join / create a new group.</p>
       <div className="mt-5 flex flex-wrap gap-3">
         <Button asChild>
-          <Link href={appPath("/select-group")}>Choose a group</Link>
+          <Link href="/select-group">Choose a group</Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link href={appPath("/join")}>Join with invite</Link>
+          <Link href="/join">Join with invite</Link>
         </Button>
       </div>
     </Card>

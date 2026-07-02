@@ -1,3 +1,4 @@
+/** Base path for static assets and absolute URLs. Do not use with Next.js Link/router — basePath is applied there automatically. */
 export function getAppBasePath() {
   if (typeof window !== "undefined" && window.location.pathname.startsWith("/friends")) {
     return "/friends";

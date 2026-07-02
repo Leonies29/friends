@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Loader2, MapPin, Plus, Users } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/auth";
-import { appPath } from "@/lib/app-paths";
 import { setActiveGroupCookie } from "@/lib/session-cookies";
 import { activateGroupForUser, listUserMembershipGroups } from "@/services/group-service";
 import type { Group } from "@/types";
@@ -30,7 +29,7 @@ export function SelectGroupPage() {
     try {
       await activateGroupForUser(currentUserId, groupId);
       setActiveGroupCookie(groupId);
-      router.replace(appPath("/dashboard"));
+      router.replace("/dashboard");
     } catch (chooseError) {
       setError(chooseError instanceof Error ? chooseError.message : "Unable to open this group.");
       setSubmittingId(null);
@@ -42,7 +41,7 @@ export function SelectGroupPage() {
     const auth = getFirebaseAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        router.replace(appPath("/login"));
+        router.replace("/login");
         return;
       }
 
@@ -151,13 +150,13 @@ export function SelectGroupPage() {
             </div>
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild variant="secondary">
-                <Link href={appPath("/create-group")}>
+                <Link href="/create-group">
                   <Plus className="h-4 w-4" />
                   Create a group
                 </Link>
               </Button>
               <Button asChild>
-                <Link href={appPath("/join")}>Join with invite code</Link>
+                <Link href="/join">Join with invite code</Link>
               </Button>
             </div>
           </Card>
@@ -172,10 +171,10 @@ export function SelectGroupPage() {
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end sm:self-end">
               <Button asChild variant="secondary" size="sm">
-                <Link href={appPath("/create-group")}>Create group</Link>
+                <Link href="/create-group">Create group</Link>
               </Button>
               <Button asChild size="sm">
-                <Link href={appPath("/join")}>Join group</Link>
+                <Link href="/join">Join group</Link>
               </Button>
             </div>
           </Card>

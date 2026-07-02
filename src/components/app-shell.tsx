@@ -10,7 +10,6 @@ import { useTheme } from "next-themes";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { GAMES_UPDATED_EVENT } from "@/lib/game-events";
-import { appPath } from "@/lib/app-paths";
 import { buildNavigationFromGames, filterVisibleNavItems, isNavItemActive, splitMobileNavigation } from "@/lib/game-navigation";
 import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
 import { ensureDefaultGames } from "@/services/game-service";
@@ -89,7 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             return (
               <Link
                 key={item.href}
-                href={appPath(item.href)}
+                href={item.href}
                 className={cn(
                   "flex items-center gap-3 rounded-[1.25rem] border px-4 py-3.5 text-sm font-black transition",
                   active ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-transparent bg-card text-foreground hover:border-border"
@@ -101,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
           <Link
-            href={appPath("/select-group?switch=1")}
+            href="/select-group?switch=1"
             className="flex items-center gap-3 rounded-[1.25rem] border border-dashed border-border bg-card px-4 py-3.5 text-sm font-black text-muted-foreground transition hover:border-primary hover:text-foreground"
           >
             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-background text-xl">🔁</span>

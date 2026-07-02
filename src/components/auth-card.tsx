@@ -7,7 +7,6 @@ import { useState } from "react";
 import { ArrowRight, Camera, ImagePlus, Loader2, Mail, UserPlus } from "lucide-react";
 import { Avatar, Badge, Button, Card, Field } from "@/components/ui";
 import { friendGroups } from "@/lib/mock-data";
-import { appPath } from "@/lib/app-paths";
 import { setActiveGroupCookie } from "@/lib/session-cookies";
 
 const copy = {
@@ -110,9 +109,9 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
       document.cookie = `istanbul_quest_session=${authenticatedUserId}; path=/; max-age=604800; SameSite=Lax`;
       if (selectedGroup) {
         setActiveGroupCookie(selectedGroup.id);
-        router.push(appPath("/dashboard"));
+        router.push("/dashboard");
       } else {
-        router.push(appPath("/select-group"));
+        router.push("/select-group");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Firebase action failed.";

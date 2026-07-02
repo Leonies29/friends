@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveGroup } from "@/hooks/use-active-group";
-import { appPath } from "@/lib/app-paths";
 import { LoadingCard } from "@/components/game-pages/page-shell";
 
 export function ActiveGroupGate({ children }: { children: React.ReactNode }) {
@@ -12,7 +11,7 @@ export function ActiveGroupGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (state.loading || !state.userId || state.group) return;
-    router.replace(appPath("/select-group"));
+    router.replace("/select-group");
   }, [state.loading, state.userId, state.group, router]);
 
   if (state.loading) {
