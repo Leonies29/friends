@@ -1,5 +1,7 @@
-import { GroupAdminPage } from "@/components/group-crud-pages";
+"use client";
+
+import { AdminDashboard } from "@/components/admin/admin-dashboard";
 
 export default function AdminRoute() {
-  return <GroupAdminPage />;
+  return <AdminDashboard />;
 }

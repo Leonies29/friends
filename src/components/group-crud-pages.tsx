@@ -5,23 +5,16 @@ import {
   CalendarDays,
   Camera,
   Check,
-  Copy,
   Loader2,
-  Minus,
   Plus,
   Star,
   Trash2,
   Trophy,
   Users
 } from "lucide-react";
-import { AssassinEmergencyPanel } from "@/components/admin/assassin-emergency-panel";
-import { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
-import { GameManagementPanel } from "@/components/game-management-panel";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
-import { buildInviteLink } from "@/lib/app-paths";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManagePlanning, canManageScores, canModeratePhotos } from "@/services/permissions";
-import { ensureDefaultGames } from "@/services/game-service";
 import {
   addPhotoComment,
   deletePhoto,
@@ -39,7 +32,7 @@ import {
   summarizeAttendance
 } from "@/services/schedule-service";
 import { addXpTransaction, getWeekKey, listXpTransactions } from "@/services/xp-service";
-import type { AttendanceStatus, Challenge, Game, Photo, ScheduleEvent, XpTransaction } from "@/types";
+import type { AttendanceStatus, Challenge, Photo, ScheduleEvent, XpTransaction } from "@/types";
 import { calculateLevel } from "@/lib/utils";
 
 type GroupState = ReturnType<typeof useActiveGroup>;
@@ -576,112 +569,3 @@ export function GroupLeaderboardPage() {
   );
 }
 
-export function GroupAdminPage() {
-  const state = useActiveGroup();
-  const [games, setGames] = useState<Game[]>([]);
-  const [loadingGames, setLoadingGames] = useState(true);
-  const [inviteLink, setInviteLink] = useState("");
-  const canAdmin = canManageGames(state.currentMember?.role) || canManageScores(state.currentMember?.role);
-
-  async function loadAdmin(groupId = state.group?.id) {
-    if (!groupId) return;
-    setLoadingGames(true);
-    setGames(await ensureDefaultGames(groupId));
-    setLoadingGames(false);
-  }
-
-  useEffect(() => { void loadAdmin(); }, [state.group?.id]);
-
-  useEffect(() => {
-    if (state.group?.inviteCode) {
-      setInviteLink(buildInviteLink(state.group.inviteCode));
-    }
-  }, [state.group?.inviteCode]);
-
-  const fallback = renderGroupState(state);
-  if (fallback) return fallback;
-  const group = state.group!;
-
-  if (!canAdmin) {
-    return (
-      <Card>
-        <Badge>Player access</Badge>
-        <h1 className="mt-3 text-3xl font-black">Admin panel is for owners and admins</h1>
-        <p className="mt-2 text-muted-foreground">You can still play games, upload photos, and view rankings.</p>
-      </Card>
-    );
-  }
-
-  async function handleXp(event: FormEvent<HTMLFormElement>, amountSign: 1 | -1) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const amount = Math.abs(Number(form.get("amount") ?? 0)) * amountSign;
-    const userId = String(form.get("userId") ?? "");
-    if (!state.userId || !userId || !amount) return;
-    await addXpTransaction({
-      groupId: group.id,
-      userId,
-      amount,
-      sourceType: "admin_adjustment",
-      reason: String(form.get("reason") ?? "Admin correction"),
-      createdBy: state.userId
-    });
-    event.currentTarget.reset();
-  }
-
-  const inviteCode = group.inviteCode ?? "";
-
-  return (
-    <div className="grid gap-6">
-      <PageHero
-        eyebrow="Admin"
-        title="Trip control center"
-        description="Invite friends, configure each game with ⚙️, then activate them in the menu. Adjust scores and reveal awards when ready."
-        group={group}
-      />
-
-      <Card>
-        <Badge>Invitation</Badge>
-        <p className="mt-2 text-sm text-muted-foreground">Share this link so friends can join with their prepared nickname.</p>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-wide text-muted-foreground">Invite code</p>
-            <p className="text-2xl font-black">{inviteCode}</p>
-            <p className="mt-2 break-all text-sm font-semibold text-muted-foreground">{inviteLink || buildInviteLink(inviteCode)}</p>
-          </div>
-          <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(inviteLink || buildInviteLink(inviteCode))}><Copy className="h-4 w-4" />Copy link</Button>
-        </div>
-      </Card>
-
-      {loadingGames ? (
-        <Card className="flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-accent" />
-          <p className="font-semibold text-muted-foreground">Loading games...</p>
-        </Card>
-      ) : (
-        <GameManagementPanel groupId={group.id} games={games} onReload={async () => { await loadAdmin(group.id); }} />
-      )}
-
-      <AssassinEmergencyPanel groupId={group.id} />
-
-      {canManageScores(state.currentMember?.role) && (
-        <Card>
-          <Badge>Score adjustments</Badge>
-          <p className="mt-2 text-sm text-muted-foreground">Manual XP corrections for disputes or bonus points.</p>
-          <form className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto]" onSubmit={(event) => handleXp(event, 1)}>
-            <select name="userId" required className={inputClass}><option value="">Choose player</option>{state.members.map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}</select>
-            <input name="amount" type="number" min={1} required placeholder="XP" className={inputClass} />
-            <input name="reason" placeholder="Reason" className={inputClass} />
-            <Button type="submit"><Plus className="h-4 w-4" />Add XP</Button>
-            <Button type="button" variant="secondary" onClick={(event) => {
-              const form = event.currentTarget.closest("form");
-              if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);
-            }}><Minus className="h-4 w-4" />Remove XP</Button>
-          </form>
-        </Card>
-      )}
-
-      <AwardsRevealSection />
-    </div>
-  );
-}

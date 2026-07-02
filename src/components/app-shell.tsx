@@ -10,7 +10,7 @@ import { getFirebaseAuth } from "@/firebase/auth";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { GAMES_UPDATED_EVENT } from "@/lib/game-events";
 import { buildNavigationFromGames, buildMobilePrimaryNav, filterVisibleNavItems } from "@/lib/game-navigation";
-import { canManageGames } from "@/services/permissions";
+import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
 import { ensureDefaultGames } from "@/services/game-service";
 import { listXpTransactions } from "@/services/xp-service";
 import { cn, calculateLevel, getLevelProgress } from "@/lib/utils";
@@ -25,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showMore, setShowMore] = useState(false);
   const [totalXp, setTotalXp] = useState(0);
   const [games, setGames] = useState<Game[]>([]);
-  const canAdmin = canManageGames(state.currentMember?.role);
+  const canAdmin = canManageGames(resolveEffectiveRole(state.currentMember, state.group, state.userId));
   const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
   const displayName = currentMember?.nickname || currentMember?.username || "Traveler";
   const level = calculateLevel(totalXp);

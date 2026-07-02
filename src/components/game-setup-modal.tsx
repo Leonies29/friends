@@ -34,8 +34,8 @@ export function GameSetupModal({
   const live = isGameInMenu(game);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
-      <Card className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden p-0">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 p-4" onClick={onClose}>
+      <Card className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden p-0" onClick={(event) => event.stopPropagation()}>
         <div className="border-b border-border p-5">
           <div className="flex items-start justify-between gap-3">
             <div>

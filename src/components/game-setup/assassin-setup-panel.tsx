@@ -19,6 +19,8 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
   const [templates, setTemplates] = useState<AssassinMissionTemplate[]>([]);
   const [gameStatus, setGameStatus] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const members = useMemo(() => state.members.map((member) => ({
     id: member.userId || member.id,
@@ -26,18 +28,28 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
     avatarUrl: resolveMemberAvatar(state.group, member)
   })), [state.group, state.members]);
 
+  const memberKey = members.map((member) => member.id).join("|");
+
   async function load() {
-    const [setup, missionTemplates, assassin] = await Promise.all([
-      getAssassinSetup(groupId),
-      ensureMissionLibrary(groupId),
-      loadAssassinState(groupId)
-    ]);
-    setTemplates(missionTemplates);
-    setAssignments(setup?.assignments ?? buildCycle(members));
-    setGameStatus(assassin.game?.status ?? "setup");
+    setLoading(true);
+    setError("");
+    try {
+      const [setup, missionTemplates, assassin] = await Promise.all([
+        getAssassinSetup(groupId),
+        ensureMissionLibrary(groupId),
+        loadAssassinState(groupId)
+      ]);
+      setTemplates(missionTemplates);
+      setAssignments(setup?.assignments ?? buildCycle(members));
+      setGameStatus(assassin.game?.status ?? "setup");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load assassin setup.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { void load(); }, [groupId, members.length]);
+  useEffect(() => { void load(); }, [groupId, memberKey]);
 
   async function handleAddMission(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,6 +66,8 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
 
   return (
     <div className="grid gap-4">
+      {loading && <p className="text-sm text-muted-foreground">Loading assassin setup...</p>}
+      {error && <p className="text-sm font-semibold text-rose-700">{error}</p>}
       {gameStatus === "active" && (
         <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Game already started. Live changes are available in Admin → Assassin live controls.</p>
       )}
@@ -62,7 +76,7 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
       <div className="flex flex-wrap gap-2">
         <Button size="sm" type="button" onClick={() => void generateRandomSetup(groupId, members, "random").then((next) => { setAssignments(next); setMessage("Random circle generated."); })}>🎲 Generate</Button>
         <Button size="sm" variant="secondary" type="button" onClick={() => void generateRandomSetup(groupId, members, "random", assignments).then((next) => { setAssignments(next); setMessage("Regenerated."); })}>🔁 Regenerate</Button>
-        <Button size="sm" type="button" disabled={gameStatus === "active"} onClick={() => void startAssassinGame(groupId, members.map((member) => ({ id: member.id, username: member.name, avatarUrl: member.avatarUrl }))).then(() => { setMessage("Assassin game started."); void load(); })}>▶️ Start assassin</Button>
+        <Button size="sm" type="button" disabled={gameStatus === "active"} onClick={() => void startAssassinGame(groupId, members.map((member) => ({ id: member.id, username: member.name, avatarUrl: member.avatarUrl }))).then(() => { setMessage("Assassin game started."); void load(); }).catch((err) => setError(err instanceof Error ? err.message : "Unable to start assassin game."))}>▶️ Start assassin</Button>
       </div>
 
       <AssassinTargetGraph assignments={assignments} />

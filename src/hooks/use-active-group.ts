@@ -110,6 +110,10 @@ export function useActiveGroup(): ActiveGroupState {
             avatarUrl: resolveMemberAvatar(groupData, member)
           }));
           const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
+          const effectiveRole = currentMembership?.role
+            ?? ((groupData?.ownerId === firebaseUser.uid || groupData?.createdBy === firebaseUser.uid) ? "OWNER" as const : undefined)
+            ?? membersWithAvatars.find((member) => member.userId === firebaseUser.uid || member.id === firebaseUser.uid)?.role
+            ?? "PLAYER";
 
           if (!cancelled) {
             setUserId(firebaseUser.uid);
@@ -117,13 +121,22 @@ export function useActiveGroup(): ActiveGroupState {
             setMembers(membersWithAvatars);
             setCurrentMember(currentMembership ? {
               ...currentMembership,
+              role: effectiveRole,
               avatarUrl: resolveMemberAvatar(groupData, {
                 nickname: currentMembership.nickname,
                 username: currentMembership.nickname,
                 email: currentMembership.email,
                 avatarUrl: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.avatarUrl
               })
-            } : null);
+            } : (groupData ? {
+              id: `${groupData.id}_${firebaseUser.uid}`,
+              userId: firebaseUser.uid,
+              role: effectiveRole,
+              nickname: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.nickname,
+              username: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.username,
+              avatarUrl: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.avatarUrl ?? null,
+              status: "active" as const
+            } : null));
             setLoading(false);
           }
         });

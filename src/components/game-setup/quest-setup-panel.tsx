@@ -11,12 +11,19 @@ const inputClass = "w-full rounded-2xl border border-border bg-background px-4 p
 export function QuestSetupPanel({ groupId }: { groupId: string }) {
   const [quests, setQuests] = useState<QuestDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   async function load() {
     setLoading(true);
-    const items = await ensureGroupQuests(groupId);
-    setQuests(items);
-    setLoading(false);
+    setError("");
+    try {
+      const items = await ensureGroupQuests(groupId);
+      setQuests(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load quests.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { void load(); }, [groupId]);
@@ -37,6 +44,7 @@ export function QuestSetupPanel({ groupId }: { groupId: string }) {
   }
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading quests...</p>;
+  if (error) return <p className="text-sm font-semibold text-rose-700">{error}</p>;
 
   return (
     <div className="grid gap-4">

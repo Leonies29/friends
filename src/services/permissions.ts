@@ -1,5 +1,15 @@
 import type { GroupMember, GroupRole, RolePermissions } from "@/types";
 
+export function resolveEffectiveRole(
+  member: { role?: GroupRole } | null | undefined,
+  group: { ownerId?: string | null; createdBy?: string | null } | null | undefined,
+  userId: string | null | undefined
+): GroupRole {
+  if (member?.role) return member.role;
+  if (userId && group && (group.ownerId === userId || group.createdBy === userId)) return "OWNER";
+  return "PLAYER";
+}
+
 export const rolePermissions: Record<GroupRole, RolePermissions> = {
   OWNER: {
     canDeleteGroup: true,
@@ -62,6 +72,10 @@ export function canModeratePhotos(role?: GroupRole) {
   return permissions.canManageGames || permissions.canManageSettings;
 }
 
-export function getMemberRole(member?: Pick<GroupMember, "role"> | null): GroupRole {
-  return member?.role ?? "PLAYER";
+export function getMemberRole(
+  member: { role?: GroupRole } | null | undefined,
+  group?: { ownerId?: string | null; createdBy?: string | null } | null,
+  userId?: string | null
+): GroupRole {
+  return resolveEffectiveRole(member, group, userId);
 }
