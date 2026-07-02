@@ -15,7 +15,6 @@ import { Avatar, Badge, Button, Progress } from "@/components/ui";
 
 const navItems = [
   { href: "/dashboard", label: "Home", emoji: "🏠" },
-  { href: "/profile", label: "Profile", emoji: "👤" },
   { href: "/leaderboard", label: "Ranking", emoji: "🏆" },
   { href: "/schedule", label: "Planner", emoji: "📅" },
   { href: "/questline", label: "Quests", emoji: "🗺️" },

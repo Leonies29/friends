@@ -109,13 +109,13 @@
   "hooks\\use-active-group.ts -> @/lib/istanbul-avatars": {
     "id": 7613,
     "files": [
-      "static/chunks/7613.72e2365991e4b777.js"
+      "static/chunks/7613.bcf610f972cc2a63.js"
     ]
   },
   "hooks\\use-active-group.ts -> @/services/member-service": {
-    "id": 8977,
+    "id": 1358,
     "files": [
-      "static/chunks/8977.52551f8f6de1491e.js"
+      "static/chunks/8977.efe3f4a38d16bfc4.js"
     ]
   },
   "hooks\\use-active-group.ts -> firebase/auth": {

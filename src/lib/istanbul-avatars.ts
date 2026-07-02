@@ -1,15 +1,9 @@
 import type { ActiveGroup } from "@/hooks/use-active-group";
 
-function getAppBasePath() {
-  if (typeof window !== "undefined" && window.location.pathname.startsWith("/friends")) {
-    return "/friends";
-  }
-  return process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-}
+import { appPath } from "@/lib/app-paths";
 
 function publicAsset(path: string) {
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${getAppBasePath()}${normalized}`;
+  return appPath(path.startsWith("/") ? path : `/${path}`);
 }
 
 function normalizeName(value: string) {

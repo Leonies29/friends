@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Copy, Loader2, LogIn, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { buildInviteLink, buildJoinPath } from "@/lib/app-paths";
 import { Badge, Button, Card, Field } from "@/components/ui";
 
 const gameModes = [
@@ -52,7 +53,7 @@ export function CreateGroupForm() {
   }, [displayDestination, displayName, groupId, inviteCode]);
   const registerHref = `/register?${groupQuery}`;
   const loginHref = `/login?${groupQuery}`;
-  const joinHref = inviteCode ? `/join?inviteCode=${encodeURIComponent(inviteCode)}` : "";
+  const joinHref = inviteCode ? buildJoinPath(inviteCode) : "";
 
   async function handleCreate(formData: FormData) {
     setSaving(true);
@@ -198,7 +199,7 @@ export function CreateGroupForm() {
                   <p className="text-3xl font-black">{inviteCode}</p>
                   <p className="truncate text-sm font-semibold text-muted-foreground">{joinHref}</p>
                 </div>
-                <Button type="button" variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(`${window.location.origin}${joinHref}`)}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => inviteCode && navigator.clipboard?.writeText(buildInviteLink(inviteCode))}>
                   <Copy className="h-4 w-4" />
                   Copy
                 </Button>

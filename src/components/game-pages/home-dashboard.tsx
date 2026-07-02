@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Camera, Crosshair, Crown, Map, Trophy } from "lucide-react";
+import { Camera, Crosshair, Crown, Map, Sparkles, Trophy } from "lucide-react";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { listRecentActivity } from "@/services/activity-service";
 import { countUserVotes } from "@/services/award-service";
 import { loadAssassinState } from "@/services/assassin-service";
-import { listGroupQuests, listQuestCompletions } from "@/services/quest-service";
+import { listQuestCompletions } from "@/services/quest-service";
 import { listXpTransactions } from "@/services/xp-service";
+import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
 import { calculateLevel, getLevelProgress } from "@/lib/utils";
 import type { ActivityItem } from "@/types/game";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
@@ -22,11 +23,13 @@ export function HomeDashboard() {
   const [rank, setRank] = useState(1);
   const [questsDone, setQuestsDone] = useState(0);
   const [awardsVoted, setAwardsVoted] = useState(0);
+  const [eliminations, setEliminations] = useState(0);
   const [assassinStatus, setAssassinStatus] = useState("Survivor");
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   const member = state.members.find((item) => item.id === state.userId || item.userId === state.userId);
   const displayName = member?.nickname || member?.username || "Traveler";
+  const avatarUrl = resolveMemberAvatar(state.group, member ?? {});
 
   useEffect(() => {
     if (!state.group?.id || !state.userId) return;
@@ -34,9 +37,8 @@ export function HomeDashboard() {
       setLoading(true);
       const groupId = state.group!.id;
       const userId = state.userId!;
-      const [transactions, quests, completions, votes, assassin, feed] = await Promise.all([
+      const [transactions, completions, votes, assassin, feed] = await Promise.all([
         listXpTransactions(groupId),
-        listGroupQuests(groupId),
         listQuestCompletions(groupId),
         countUserVotes(userId, groupId),
         loadAssassinState(groupId),
@@ -55,6 +57,7 @@ export function HomeDashboard() {
       setRank(position || 1);
       setQuestsDone(completions.filter((item) => item.userId === userId).length);
       setAwardsVoted(votes.voted);
+      setEliminations(player?.eliminationCount ?? 0);
       setAssassinStatus(player?.isAlive ? "Survivor" : "Eliminated");
       setActivity(feed);
       setLoading(false);
@@ -63,6 +66,12 @@ export function HomeDashboard() {
   }, [state.group?.id, state.userId, state.members]);
 
   const level = calculateLevel(xp);
+  const profileStats = useMemo(() => ([
+    { label: "Completed quests", value: questsDone, icon: Sparkles },
+    { label: "Assassin eliminations", value: eliminations, icon: Crosshair },
+    { label: "Awards voted", value: awardsVoted, icon: Crown }
+  ]), [questsDone, eliminations, awardsVoted]);
+
   const quickStats = useMemo(() => ([
     { label: "Ranking position", value: `#${rank}`, icon: Trophy },
     { label: "Completed quests", value: String(questsDone), icon: Map },
@@ -74,24 +83,40 @@ export function HomeDashboard() {
   if (!state.group) return <EmptyGroupCard />;
 
   return (
-    <PageShell eyebrow="Home" title="Istanbul Quest" description="Your central dashboard for the trip adventure." group={state.group}>
+    <PageShell eyebrow="Home" title="Istanbul Quest" description="Your profile and central dashboard for the trip adventure." group={state.group}>
       <Card>
         <div className="flex flex-wrap items-center gap-4">
-          <Avatar src={member?.avatarUrl ?? ""} alt={displayName} className="h-20 w-20" />
+          <Avatar src={avatarUrl} alt={displayName} className="h-24 w-24" />
           <div className="flex-1">
             <Badge>Level {level}</Badge>
             <h2 className="mt-2 text-3xl font-black">{displayName}</h2>
             <p className="text-sm font-semibold text-muted-foreground">{xp.toLocaleString()} XP</p>
+            <p className="mt-2 text-sm text-muted-foreground">Photo de profil fixe pour le groupe Istanbul.</p>
           </div>
         </div>
         <Progress value={getLevelProgress(xp)} className="mt-4" />
       </Card>
 
+      <section className="grid gap-4 md:grid-cols-3">
+        {profileStats.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <motion.div key={stat.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+              <Card>
+                <Icon className="h-6 w-6 text-accent" />
+                <p className="mt-4 text-3xl font-black">{stat.value}</p>
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {quickStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+            <motion.div key={`quick-${stat.label}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
               <Card>
                 <Icon className="h-6 w-6 text-accent" />
                 <p className="mt-4 text-2xl font-black">{stat.value}</p>

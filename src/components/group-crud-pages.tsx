@@ -18,7 +18,9 @@ import {
   Trophy,
   Users
 } from "lucide-react";
+import { GameCustomizeModal } from "@/components/game-customize-modal";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
+import { buildInviteLink } from "@/lib/app-paths";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManagePlanning, canManageScores, canModeratePhotos } from "@/services/permissions";
 import {
@@ -592,6 +594,8 @@ export function GroupAdminPage() {
   const [quests, setQuests] = useState<RelicDoc[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [saving, setSaving] = useState(false);
+  const [inviteLink, setInviteLink] = useState("");
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
   const canAdmin = canManageGames(state.currentMember?.role) || canManageScores(state.currentMember?.role) || canManagePlanning(state.currentMember?.role);
 
   async function loadAdmin(groupId = state.group?.id) {
@@ -611,6 +615,12 @@ export function GroupAdminPage() {
   }
 
   useEffect(() => { void loadAdmin(); }, [state.group?.id]);
+
+  useEffect(() => {
+    if (state.group?.inviteCode) {
+      setInviteLink(buildInviteLink(state.group.inviteCode));
+    }
+  }, [state.group?.inviteCode]);
 
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
@@ -658,10 +668,17 @@ export function GroupAdminPage() {
     event.currentTarget.reset();
   }
 
-  const inviteLink = typeof window === "undefined" ? `/join/${group.inviteCode}` : `${window.location.origin}/join/${group.inviteCode}`;
+  const inviteCode = group.inviteCode ?? "";
 
   return (
     <div className="grid gap-6">
+      {editingGame && (
+        <GameCustomizeModal
+          game={editingGame}
+          onClose={() => setEditingGame(null)}
+          onSaved={() => void loadAdmin(group.id)}
+        />
+      )}
       <PageHero eyebrow="Group admin" title="Admin Panel" description="Manage this trip's members, games, content, and score corrections." group={group} />
 
       <section className="grid gap-4 md:grid-cols-5">
@@ -674,9 +691,14 @@ export function GroupAdminPage() {
 
       <Card>
         <Badge>Invitation</Badge>
+        <p className="mt-2 text-sm text-muted-foreground">Share this link so friends can join with their prepared nickname.</p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="break-all text-lg font-black">{inviteLink}</p>
-          <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(inviteLink)}><Copy className="h-4 w-4" />Copy link</Button>
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-wide text-muted-foreground">Invite code</p>
+            <p className="text-2xl font-black">{inviteCode}</p>
+            <p className="mt-2 break-all text-sm font-semibold text-muted-foreground">{inviteLink || buildInviteLink(inviteCode)}</p>
+          </div>
+          <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(inviteLink || buildInviteLink(inviteCode))}><Copy className="h-4 w-4" />Copy link</Button>
         </div>
       </Card>
 
@@ -699,6 +721,10 @@ export function GroupAdminPage() {
                   <p className="text-sm text-muted-foreground">{game.description}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => setEditingGame(game)} title="Customize game">
+                    <Pencil className="h-4 w-4" />
+                    Customize
+                  </Button>
                   <Button size="sm" variant="secondary" onClick={() => void setGameActive(game.id, !game.enabled).then(() => loadAdmin(group.id))}>{game.enabled ? "Deactivate" : "Activate"}</Button>
                   <Button size="sm" variant="secondary" onClick={() => void updateGame(game.id, { visible: !game.visible }).then(() => loadAdmin(group.id))}>{game.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{game.visible ? "Hide" : "Show"}</Button>
                   <Button size="sm" variant="secondary" onClick={() => void duplicateGame(game).then(() => loadAdmin(group.id))}><Copy className="h-4 w-4" />Duplicate</Button>
