@@ -1,11 +1,10 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { JoinGroupCard } from "@/components/join-group-card";
 
-export default async function JoinInvitePage({ params }: { params: Promise<{ inviteCode: string }> }) {
-  const { inviteCode } = await params;
-
+export default function JoinPage() {
   return (
     <main className="min-h-screen px-4 py-8 md:px-8">
       <section className="mx-auto grid max-w-3xl gap-4">
@@ -15,7 +14,9 @@ export default async function JoinInvitePage({ params }: { params: Promise<{ inv
             Back
           </Link>
         </Button>
-        <JoinGroupCard initialInviteCode={decodeURIComponent(inviteCode)} />
+        <Suspense fallback={<Card>Loading invite...</Card>}>
+          <JoinGroupCard />
+        </Suspense>
       </section>
     </main>
   );

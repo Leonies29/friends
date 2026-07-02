@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, LogIn, UserRound } from "lucide-react";
 import { Badge, Button, Field, GameCard } from "@/components/ui";
 
@@ -21,7 +21,10 @@ type JoinableGroup = {
 
 export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: string }) {
   const router = useRouter();
-  const [inviteCode, setInviteCode] = useState(initialInviteCode);
+  const searchParams = useSearchParams();
+  const inviteCodeParam = searchParams.get("inviteCode") ?? "";
+  const resolvedInitialInviteCode = initialInviteCode || inviteCodeParam;
+  const [inviteCode, setInviteCode] = useState(resolvedInitialInviteCode);
   const [group, setGroup] = useState<JoinableGroup | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -52,11 +55,11 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
   }
 
   useEffect(() => {
-    if (initialInviteCode) {
+    if (resolvedInitialInviteCode) {
       void findGroup();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialInviteCode]);
+  }, [resolvedInitialInviteCode]);
 
   function buildAuthHref(pathname: "/login" | "/register", nickname: string) {
     if (!group) return;

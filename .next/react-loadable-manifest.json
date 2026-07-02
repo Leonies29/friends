@@ -21,7 +21,7 @@
       "static/chunks/5861-53f0bf97b83e034d.js",
       "static/chunks/1032-3b906a2356755270.js",
       "static/chunks/9996-9c9b7e4d1842eb34.js",
-      "static/chunks/4112.dbef07c26c351ab6.js"
+      "static/chunks/4112.30afdfae17ad923c.js"
     ]
   },
   "components\\create-group-form.tsx -> @/services/firebase-app-service": {
@@ -34,16 +34,16 @@
       "static/chunks/5861-53f0bf97b83e034d.js",
       "static/chunks/1032-3b906a2356755270.js",
       "static/chunks/9996-9c9b7e4d1842eb34.js",
-      "static/chunks/4112.dbef07c26c351ab6.js"
+      "static/chunks/4112.30afdfae17ad923c.js"
     ]
   },
   "components\\current-user-profile.tsx -> @/firebase/auth": {
-    "id": 6768,
+    "id": 2006,
     "files": [
       "static/chunks/a36bde72-bdd5ed72f5f43eee.js",
       "static/chunks/7134-fbd08b96d6b78b1f.js",
       "static/chunks/1032-3b906a2356755270.js",
-      "static/chunks/6768.397abbfdaaff78a4.js"
+      "static/chunks/4387.2a30b4af1fab3489.js"
     ]
   },
   "components\\current-user-profile.tsx -> @/firebase/firestore": {
@@ -75,12 +75,12 @@
     ]
   },
   "components\\dashboard-game-state.tsx -> @/firebase/auth": {
-    "id": 6768,
+    "id": 2006,
     "files": [
       "static/chunks/a36bde72-bdd5ed72f5f43eee.js",
       "static/chunks/7134-fbd08b96d6b78b1f.js",
       "static/chunks/1032-3b906a2356755270.js",
-      "static/chunks/6768.397abbfdaaff78a4.js"
+      "static/chunks/4387.2a30b4af1fab3489.js"
     ]
   },
   "components\\dashboard-game-state.tsx -> @/firebase/firestore": {
@@ -120,12 +120,12 @@
     "files": []
   },
   "components\\group-scoped-feature-page.tsx -> @/firebase/auth": {
-    "id": 6768,
+    "id": 2006,
     "files": [
       "static/chunks/a36bde72-bdd5ed72f5f43eee.js",
       "static/chunks/7134-fbd08b96d6b78b1f.js",
       "static/chunks/1032-3b906a2356755270.js",
-      "static/chunks/6768.397abbfdaaff78a4.js"
+      "static/chunks/4387.2a30b4af1fab3489.js"
     ]
   },
   "components\\group-scoped-feature-page.tsx -> @/firebase/firestore": {
@@ -166,14 +166,14 @@
       "static/chunks/5861-53f0bf97b83e034d.js",
       "static/chunks/1032-3b906a2356755270.js",
       "static/chunks/9996-9c9b7e4d1842eb34.js",
-      "static/chunks/4112.dbef07c26c351ab6.js"
+      "static/chunks/4112.30afdfae17ad923c.js"
     ]
   },
   "hooks\\use-active-group.ts -> @/firebase/auth": {
-    "id": 6768,
+    "id": 2006,
     "files": [
       "static/chunks/a36bde72-bdd5ed72f5f43eee.js",
-      "static/chunks/4387.0ddd4716634dc37a.js"
+      "static/chunks/6768.a2499a60f3754b29.js"
     ]
   },
   "hooks\\use-active-group.ts -> @/firebase/firestore": {

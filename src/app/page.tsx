@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Plus } from "lucide-react";
-import { Badge, Button } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { JoinGroupCard } from "@/components/join-group-card";
 
 export default function Home() {
@@ -23,7 +24,9 @@ export default function Home() {
           </div>
         </div>
 
-        <JoinGroupCard />
+        <Suspense fallback={<Card>Loading invite form...</Card>}>
+          <JoinGroupCard />
+        </Suspense>
       </section>
     </main>
   );

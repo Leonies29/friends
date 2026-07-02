@@ -52,7 +52,7 @@ export function CreateGroupForm() {
   }, [displayDestination, displayName, groupId, inviteCode]);
   const registerHref = `/register?${groupQuery}`;
   const loginHref = `/login?${groupQuery}`;
-  const joinHref = inviteCode ? `/join/${encodeURIComponent(inviteCode)}` : "";
+  const joinHref = inviteCode ? `/join?inviteCode=${encodeURIComponent(inviteCode)}` : "";
 
   async function handleCreate(formData: FormData) {
     setSaving(true);
