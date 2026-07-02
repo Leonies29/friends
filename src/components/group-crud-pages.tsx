@@ -36,6 +36,7 @@ import {
   listPhotos,
   reactToPhoto,
   setPhotoFeatured,
+  uploadChallengePhoto,
   uploadGroupPhoto
 } from "@/services/photo-service";
 import {
@@ -70,6 +71,10 @@ const textareaClass = `${inputClass} min-h-24`;
 
 function memberName(member?: GroupMember | null) {
   return member?.nickname || member?.username || "Group member";
+}
+
+function photoSrc(photo: Pick<Photo, "photoUrl" | "imageUrl">) {
+  return photo.photoUrl || photo.imageUrl || "";
 }
 
 function renderGroupState(state: GroupState) {
@@ -231,6 +236,7 @@ export function GroupPhotosPage() {
   const state = useActiveGroup();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const canModerate = canModeratePhotos(state.currentMember?.role);
 
   async function loadPhotos(groupId = state.group?.id) {
@@ -249,23 +255,29 @@ export function GroupPhotosPage() {
     event.preventDefault();
     if (!state.userId) return;
     setUploading(true);
+    setUploadError("");
     const form = new FormData(event.currentTarget);
     const file = form.get("photo");
     if (!(file instanceof File) || !file.name) {
       setUploading(false);
       return;
     }
-    await uploadGroupPhoto({
-      groupId: group.id,
-      ownerId: state.userId,
-      ownerName: memberName(currentMember),
-      ownerAvatar: currentMember?.avatarUrl,
-      file,
-      caption: String(form.get("caption") ?? "")
-    });
-    event.currentTarget.reset();
-    await loadPhotos(group.id);
-    setUploading(false);
+    try {
+      await uploadGroupPhoto({
+        groupId: group.id,
+        ownerId: state.userId,
+        ownerName: memberName(currentMember),
+        ownerAvatar: currentMember?.avatarUrl,
+        file,
+        caption: String(form.get("caption") ?? "")
+      });
+      event.currentTarget.reset();
+      await loadPhotos(group.id);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Impossible d'uploader la photo.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -275,6 +287,7 @@ export function GroupPhotosPage() {
         <form className="grid gap-3" onSubmit={uploadPhoto}>
           <input name="photo" type="file" accept="image/*" required className="rounded-2xl border border-dashed border-border bg-background px-4 py-5 font-semibold" />
           <input name="caption" placeholder="Caption" className={inputClass} />
+          {uploadError && <p className="rounded-2xl bg-rose-500/10 p-3 text-sm font-semibold text-rose-600">{uploadError}</p>}
           <Button type="submit" disabled={uploading}><Camera className="h-4 w-4" />{uploading ? "Uploading..." : "Upload photo"}</Button>
         </form>
       </Card>
@@ -282,7 +295,7 @@ export function GroupPhotosPage() {
         {photos.length === 0 && <Card className="md:col-span-2 xl:col-span-3"><Badge>Empty</Badge><p className="mt-3 font-black">No photos yet for this group.</p></Card>}
         {photos.map((photo) => (
           <Card key={photo.id} className="overflow-hidden">
-            <img src={photo.imageUrl} alt={photo.caption} className="mb-4 h-56 w-full rounded-3xl object-cover" />
+            <img src={photoSrc(photo)} alt={photo.caption} className="mb-4 h-56 w-full rounded-3xl object-cover" />
             <div className="flex items-center gap-3">
               <Avatar src={photo.ownerAvatar ?? ""} alt={photo.ownerName} />
               <div>
@@ -314,6 +327,7 @@ export function GroupChallengesPage() {
   const state = useActiveGroup();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [saving, setSaving] = useState(false);
+  const [proofError, setProofError] = useState("");
   const canEdit = canManageGames(state.currentMember?.role);
   const canScore = canManageScores(state.currentMember?.role);
 
@@ -359,6 +373,42 @@ export function GroupChallengesPage() {
     await loadChallenges(group.id);
   }
 
+  async function submitChallengeProof(event: FormEvent<HTMLFormElement>, challengeId: string) {
+    event.preventDefault();
+    if (!state.userId) return;
+
+    setProofError("");
+    const form = new FormData(event.currentTarget);
+    const description = String(form.get("proof") ?? "");
+    const file = form.get("photo");
+
+    try {
+      if (file instanceof File && file.name) {
+        const uploaded = await uploadChallengePhoto(file, state.userId, challengeId);
+        await updateChallenge(challengeId, {
+          status: "submitted",
+          proof: {
+            type: "photo",
+            value: uploaded.photoUrl,
+            submittedAt: new Date().toISOString()
+          }
+        });
+      } else {
+        await updateChallenge(challengeId, {
+          status: "submitted",
+          proof: {
+            type: "description",
+            value: description,
+            submittedAt: new Date().toISOString()
+          }
+        });
+      }
+      event.currentTarget.reset();
+    } catch (error) {
+      setProofError(error instanceof Error ? error.message : "Impossible d'envoyer la preuve.");
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <PageHero eyebrow="Secret challenges" title="Challenges" description="Reusable group challenges with proof and admin approval." group={group} />
@@ -391,9 +441,14 @@ export function GroupChallengesPage() {
                 {canEdit && <Button variant="ghost" size="sm" onClick={() => void deleteGroupDoc("challenges", challenge.id).then(() => loadChallenges(group.id))}><Trash2 className="h-4 w-4" />Delete</Button>}
               </div>
             </div>
+            {challenge.proof?.type === "photo" && (
+              <img src={challenge.proof.value} alt={`Proof for ${challenge.title}`} className="mt-4 h-48 w-full rounded-3xl object-cover" />
+            )}
             {challenge.ownerId === state.userId && (challenge.status === "secret" || challenge.status === "scheduled") && (
-              <form className="mt-4 flex gap-2" onSubmit={(event) => { event.preventDefault(); const value = String(new FormData(event.currentTarget).get("proof") ?? ""); void updateChallenge(challenge.id, { status: "submitted", proof: { type: "description", value, submittedAt: new Date().toISOString() } }); }}>
-                <input name="proof" required placeholder="Proof description" className={`${inputClass} flex-1`} />
+              <form className="mt-4 grid gap-2" onSubmit={(event) => void submitChallengeProof(event, challenge.id)}>
+                <input name="photo" type="file" accept="image/*" className="rounded-2xl border border-dashed border-border bg-background px-4 py-4 font-semibold" />
+                <input name="proof" placeholder="Or describe your proof" className={inputClass} />
+                {proofError && <p className="rounded-2xl bg-rose-500/10 p-3 text-sm font-semibold text-rose-600">{proofError}</p>}
                 <Button type="submit">Submit proof</Button>
               </form>
             )}
@@ -676,7 +731,7 @@ export function GroupAdminPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {photos.slice(0, 6).map((photo) => (
             <div key={photo.id} className="flex gap-3 rounded-3xl border border-border bg-background p-3">
-              <img src={photo.imageUrl} alt={photo.caption} className="h-20 w-20 rounded-2xl object-cover" />
+              <img src={photoSrc(photo)} alt={photo.caption} className="h-20 w-20 rounded-2xl object-cover" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-black">{photo.caption || "Untitled photo"}</p>
                 <p className="text-sm text-muted-foreground">By {photo.ownerName}</p>

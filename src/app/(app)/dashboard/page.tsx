@@ -1,5 +1,5 @@
-import { DashboardGameState } from "@/components/dashboard-game-state";
+import { HomeDashboard } from "@/components/game-pages/home-dashboard";
 
 export default function DashboardPage() {
-  return <DashboardGameState />;
+  return <HomeDashboard />;
 }

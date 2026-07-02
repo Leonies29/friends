@@ -1,14 +1,5 @@
-import { GroupScopedFeaturePage } from "@/components/group-scoped-feature-page";
+import { AssassinPage } from "@/components/game-pages/assassin-page";
 
-export default function AssassinPage() {
-  return (
-    <GroupScopedFeaturePage
-      title="Assassin"
-      eyebrow="Assassin mode"
-      description="Targets and eliminations belong only to this group."
-      emptyTitle="No assassin game yet"
-      emptyDescription="Start the assassin game later to generate group-specific missions."
-      showMembers={true}
-    />
-  );
+export default function AssassinRoute() {
+  return <AssassinPage />;
 }

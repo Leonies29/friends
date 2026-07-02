@@ -179,12 +179,18 @@ export interface Relic {
 }
 
 export interface Photo extends GroupScopedEntity {
+  userId?: string;
+  challengeId?: string;
   ownerId: string;
   ownerName: string;
   ownerAvatar: string;
-  imageUrl: string;
+  photoUrl?: string;
+  imageUrl?: string;
+  fileName?: string;
   storagePath?: string;
   caption: string;
+  uploadedAt?: EntityTimestamp;
+  validated?: boolean;
   status: PhotoStatus;
   featured: boolean;
   commentCount?: number;

@@ -1,5 +1,5 @@
-import { GroupPhotosPage } from "@/components/group-crud-pages";
+import { TravelAlbumPage } from "@/components/game-pages/travel-album-page";
 
-export default function GroupPhotosPageRoute() {
-  return <GroupPhotosPage />;
+export default function PhotosRoute() {
+  return <TravelAlbumPage />;
 }

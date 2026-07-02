@@ -1,5 +1,5 @@
-import { GroupSchedulePage } from "@/components/group-crud-pages";
+import { PlannerPage } from "@/components/game-pages/planner-page";
 
-export default function GroupSchedulePageRoute() {
-  return <GroupSchedulePage />;
+export default function ScheduleRoute() {
+  return <PlannerPage />;
 }

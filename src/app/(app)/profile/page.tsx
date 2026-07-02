@@ -1,5 +1,5 @@
-import { CurrentUserProfile } from "@/components/current-user-profile";
+import { ProfilePage } from "@/components/game-pages/profile-page";
 
-export default function ProfilePage() {
-  return <CurrentUserProfile />;
+export default function ProfileRoute() {
+  return <ProfilePage />;
 }

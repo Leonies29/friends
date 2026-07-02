@@ -1,5 +1,5 @@
-import { GroupQuestlinePage } from "@/components/group-crud-pages";
+import { QuestsPage } from "@/components/game-pages/quests-page";
 
-export default function GroupQuestlinePageRoute() {
-  return <GroupQuestlinePage />;
+export default function QuestlineRoute() {
+  return <QuestsPage />;
 }
