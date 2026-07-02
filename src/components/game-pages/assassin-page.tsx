@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Crosshair, Skull, Target } from "lucide-react";
 import { Avatar, Badge, Button, Card } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
-import { claimElimination, ensureAssassinGame, loadAssassinState, respondElimination } from "@/services/assassin-service";
+import { claimElimination, loadAssassinState, respondElimination } from "@/services/assassin-service";
 import type { AssassinElimination, AssassinMission, AssassinPlayer } from "@/types/game";
 import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
@@ -21,16 +21,13 @@ export function AssassinPage() {
   const [missions, setMissions] = useState<AssassinMission[]>([]);
   const [eliminations, setEliminations] = useState<AssassinElimination[]>([]);
 
+  const [gameStatus, setGameStatus] = useState<"setup" | "active" | "finished" | null>(null);
+
   async function load() {
     if (!state.group?.id) return;
     setLoading(true);
-    const members = state.members.map((member) => ({
-      id: member.userId || member.id,
-      username: member.nickname || member.username || "Player",
-      avatarUrl: member.avatarUrl
-    }));
-    await ensureAssassinGame(state.group.id, members);
     const data = await loadAssassinState(state.group.id);
+    setGameStatus(data.game?.status ?? null);
     setPlayers(data.players);
     setMissions(data.missions);
     setEliminations(data.eliminations.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
@@ -54,6 +51,18 @@ export function AssassinPage() {
 
   if (state.loading || loading) return <LoadingCard />;
   if (!state.group) return <EmptyGroupCard />;
+
+  if (gameStatus !== "active") {
+    return (
+      <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="The game has not started yet." group={state.group}>
+        <Card>
+          <Badge>Waiting for admin</Badge>
+          <p className="mt-3 text-lg font-black">The assassin game is not active yet.</p>
+          <p className="mt-2 text-muted-foreground">An admin must configure targets and missions in Admin, then press Start Game.</p>
+        </Card>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="Only you can see your mission. Public page never reveals secret missions." group={state.group}>

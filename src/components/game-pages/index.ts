@@ -1,5 +1,7 @@
 export { AdminAwardsPage } from "./admin-awards-page";
+export { AssassinAdminPage } from "./assassin-admin-page";
 export { AssassinPage } from "./assassin-page";
+export { AssassinTargetGraph } from "./assassin-target-graph";
 export { AwardsPage } from "./awards-page";
 export { CeremonyPage } from "./ceremony-page";
 export { HomeDashboard } from "./home-dashboard";

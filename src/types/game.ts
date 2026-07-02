@@ -59,8 +59,42 @@ export interface AssassinGame {
   id: string;
   groupId: string;
   status: "setup" | "active" | "finished";
+  setupMode?: AssassinSetupMode;
   startedAt?: string;
   endedAt?: string;
+}
+
+export type AssassinSetupMode = "random" | "designer" | "hybrid";
+export type AssassinMissionCategory = "Speech" | "Photo" | "Object" | "Location" | "Social" | "Funny";
+export type AssassinMissionDifficulty = "Easy" | "Medium" | "Hard" | "Legendary";
+
+export interface AssassinMissionTemplate {
+  id: string;
+  groupId: string;
+  title: string;
+  text: string;
+  difficulty: AssassinMissionDifficulty;
+  category: AssassinMissionCategory;
+  active: boolean;
+  archived?: boolean;
+}
+
+export interface AssassinAssignmentDraft {
+  playerId: string;
+  playerName: string;
+  targetId: string;
+  targetName: string;
+  missionText: string;
+  templateId?: string | null;
+  locked?: boolean;
+}
+
+export interface AssassinSetupDoc {
+  id: string;
+  groupId: string;
+  mode: AssassinSetupMode;
+  assignments: AssassinAssignmentDraft[];
+  updatedAt?: string;
 }
 
 export interface AssassinPlayer {
@@ -80,6 +114,8 @@ export interface AssassinMission {
   playerId: string;
   targetId: string;
   missionText: string;
+  templateId?: string | null;
+  skipped?: boolean;
   assignedAt?: string;
 }
 
