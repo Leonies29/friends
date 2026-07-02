@@ -38,7 +38,7 @@ export const Button = forwardRef<ElementRef<"button">, ButtonProps>(
 Button.displayName = "Button";
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-[1.5rem] border border-border bg-card p-5 shadow-sm", className)} {...props} />;
+  return <div className={cn("rounded-[1.25rem] border border-border bg-card p-4 shadow-sm sm:rounded-[1.5rem] sm:p-5", className)} {...props} />;
 }
 
 export function GameCard({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -57,13 +57,27 @@ export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) 
   );
 }
 
-export function Avatar({ src, alt, className }: { src: string; alt: string; className?: string }) {
+export function Avatar({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
+  const avatarClass = cn(
+    "grid h-11 w-11 place-items-center rounded-full border-2 border-white/70 bg-muted object-cover text-sm font-black text-muted-foreground shadow-lg shadow-slate-950/10",
+    className
+  );
+
+  if (src?.trim()) {
+    return <img src={src} alt={alt} className={avatarClass} />;
+  }
+
+  const initials = alt
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={cn("h-11 w-11 rounded-full border-2 border-white/70 bg-muted object-cover shadow-lg shadow-slate-950/10", className)}
-    />
+    <div className={avatarClass} aria-label={alt}>
+      {initials || "?"}
+    </div>
   );
 }
 

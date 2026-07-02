@@ -43,14 +43,16 @@ export function CreateGroupForm() {
   const displayName = groupName.trim() || "Your new quest group";
   const displayDestination = destination.trim() || "your destination";
   const groupQuery = useMemo(() => {
+    const ownerNickname = friendNicknames.map((item) => item.trim()).find(Boolean) ?? "";
     const params = new URLSearchParams({
       group: groupId || "new-group",
       inviteCode: inviteCode || "new-group",
       groupName: displayName,
       destination: displayDestination
     });
+    if (ownerNickname) params.set("nickname", ownerNickname);
     return params.toString();
-  }, [displayDestination, displayName, groupId, inviteCode]);
+  }, [displayDestination, displayName, friendNicknames, groupId, inviteCode]);
   const registerHref = `/register?${groupQuery}`;
   const loginHref = `/login?${groupQuery}`;
   const joinHref = inviteCode ? buildJoinPath(inviteCode) : "";

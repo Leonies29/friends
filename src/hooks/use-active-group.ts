@@ -92,6 +92,14 @@ export function useActiveGroup(): ActiveGroupState {
 
           const groupSnapshot = await getDoc(doc(db, "friendGroups", activeGroupId));
           const groupData = groupSnapshot.exists() ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as ActiveGroup) : null;
+          if (groupData) {
+            const [{ ensureGroupOwnership }] = await Promise.all([import("@/services/group-service")]);
+            await ensureGroupOwnership(groupData.id, firebaseUser.uid);
+            const refreshedGroupSnapshot = await getDoc(doc(db, "friendGroups", activeGroupId));
+            if (refreshedGroupSnapshot.exists()) {
+              Object.assign(groupData, refreshedGroupSnapshot.data());
+            }
+          }
           const [{ getGroupMember, listGroupMembers }] = await Promise.all([import("@/services/member-service")]);
           const membershipDocs = groupData ? await listGroupMembers(groupData.id) : [];
           const memberProfiles = await Promise.all(
@@ -110,10 +118,8 @@ export function useActiveGroup(): ActiveGroupState {
             avatarUrl: resolveMemberAvatar(groupData, member)
           }));
           const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
-          const effectiveRole = currentMembership?.role
-            ?? ((groupData?.ownerId === firebaseUser.uid || groupData?.createdBy === firebaseUser.uid) ? "OWNER" as const : undefined)
-            ?? membersWithAvatars.find((member) => member.userId === firebaseUser.uid || member.id === firebaseUser.uid)?.role
-            ?? "PLAYER";
+          const [{ resolveEffectiveRole }] = await Promise.all([import("@/services/permissions")]);
+          const effectiveRole = resolveEffectiveRole(currentMembership, groupData, firebaseUser.uid);
 
           if (!cancelled) {
             setUserId(firebaseUser.uid);

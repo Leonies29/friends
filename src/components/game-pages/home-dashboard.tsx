@@ -85,13 +85,12 @@ export function HomeDashboard() {
   return (
     <PageShell eyebrow="Home" title="Istanbul Quest" description="Your profile and central dashboard for the trip adventure." group={state.group}>
       <Card>
-        <div className="flex flex-wrap items-center gap-4">
-          <Avatar src={avatarUrl} alt={displayName} className="h-24 w-24" />
-          <div className="flex-1">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <Avatar src={avatarUrl} alt={displayName} className="h-20 w-20 shrink-0 sm:h-24 sm:w-24" />
+          <div className="min-w-0 flex-1">
             <Badge>Level {level}</Badge>
-            <h2 className="mt-2 text-3xl font-black">{displayName}</h2>
+            <h2 className="mt-2 break-words text-2xl font-black sm:text-3xl">{displayName}</h2>
             <p className="text-sm font-semibold text-muted-foreground">{xp.toLocaleString()} XP</p>
-            <p className="mt-2 text-sm text-muted-foreground">Photo de profil fixe pour le groupe Istanbul.</p>
           </div>
         </div>
         <Progress value={getLevelProgress(xp)} className="mt-4" />
@@ -104,7 +103,7 @@ export function HomeDashboard() {
             <motion.div key={stat.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
               <Card>
                 <Icon className="h-6 w-6 text-accent" />
-                <p className="mt-4 text-3xl font-black">{stat.value}</p>
+                <p className="mt-3 text-2xl font-black sm:mt-4 sm:text-3xl">{stat.value}</p>
                 <p className="text-sm text-muted-foreground">{stat.label}</p>
               </Card>
             </motion.div>

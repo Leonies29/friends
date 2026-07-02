@@ -159,15 +159,71 @@ export async function createGroup(payload: CreateGroupPayload) {
   return group;
 }
 
+export function resolveJoinRole(
+  group: Pick<Group, "createdBy" | "ownerId">,
+  userId: string
+): GroupRole {
+  if (!group.createdBy && !group.ownerId) return "OWNER";
+  if (group.createdBy === userId || group.ownerId === userId) return "OWNER";
+  return "PLAYER";
+}
+
+export async function ensureGroupOwnership(groupId: string, userId: string) {
+  const db = getFirebaseFirestore();
+  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+  const schemaGroupRef = doc(db, GROUPS_SCHEMA_COLLECTION, groupId);
+  const groupSnapshot = await getDoc(groupRef);
+  if (!groupSnapshot.exists()) return;
+
+  const groupData = groupSnapshot.data() as Group;
+  const member = await getCurrentGroupMember(groupId, userId);
+  const isListedOwner = groupData.ownerId === userId || groupData.createdBy === userId;
+  const isSoleMember = (groupData.memberIds?.length ?? 0) === 1 && groupData.memberIds?.[0] === userId;
+  const shouldOwn = isListedOwner || ((!groupData.ownerId && !groupData.createdBy) && (isSoleMember || Boolean(member)));
+
+  if (!shouldOwn) return;
+
+  const patch = {
+    createdBy: groupData.createdBy || userId,
+    ownerId: groupData.ownerId || userId,
+    updatedAt: serverTimestamp()
+  };
+
+  await Promise.all([
+    setDoc(groupRef, patch, { merge: true }),
+    setDoc(schemaGroupRef, patch, { merge: true }),
+    member
+      ? upsertGroupMember({
+          groupId,
+          userId,
+          role: "OWNER",
+          nickname: member.nickname,
+          status: "active",
+          email: member.email ?? "",
+          avatarUrl: member.avatarUrl ?? ""
+        })
+      : Promise.resolve()
+  ]);
+}
+
 export async function upsertGroupMember(member: Pick<GroupMember, "groupId" | "userId" | "role" | "nickname" | "status"> & Partial<GroupMember>) {
   const db = getFirebaseFirestore();
   const memberId = `${member.groupId}_${member.userId}`;
-  await setDoc(doc(db, GROUP_MEMBERS_COLLECTION, memberId), {
-    ...member,
+  const payload = {
+    groupId: member.groupId,
+    userId: member.userId,
+    role: member.role,
+    nickname: member.nickname,
+    status: member.status,
     id: memberId,
+    email: member.email ?? "",
+    avatarUrl: member.avatarUrl ?? "",
+    participantSlotId: member.participantSlotId ?? null,
     joinedAt: member.joinedAt ?? serverTimestamp(),
     updatedAt: serverTimestamp()
-  }, { merge: true });
+  };
+
+  await setDoc(doc(db, GROUP_MEMBERS_COLLECTION, memberId), payload, { merge: true });
 }
 
 export async function getCurrentGroupMember(groupId: string, userId: string) {
@@ -260,4 +316,54 @@ export async function setActiveGroupForUser(userId: string, groupId: string) {
     activeGroupId: groupId,
     updatedAt: serverTimestamp()
   });
+}
+
+export async function listUserMembershipGroups(userId: string) {
+  const db = getFirebaseFirestore();
+  const userSnapshot = await getDoc(doc(db, "users", userId));
+  const userData = userSnapshot.exists() ? userSnapshot.data() : {};
+  const groupIdsFromUser = Array.isArray(userData.groupIds) ? (userData.groupIds as string[]) : [];
+
+  const membersSnapshot = await getDocs(
+    query(collection(db, GROUP_MEMBERS_COLLECTION), where("userId", "==", userId), where("status", "==", "active"))
+  );
+  const groupIdsFromMembers = membersSnapshot.docs.map((item) => String(item.data().groupId ?? ""));
+
+  const uniqueGroupIds = [...new Set([...groupIdsFromUser, ...groupIdsFromMembers].filter(Boolean))];
+  const groups = await Promise.all(
+    uniqueGroupIds.map(async (groupId) => {
+      const snapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+      return snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as Group) : null;
+    })
+  );
+
+  return groups
+    .filter((group): group is Group => Boolean(group))
+    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+}
+
+export async function activateGroupForUser(userId: string, groupId: string) {
+  const db = getFirebaseFirestore();
+  const [member, userSnapshot, groupSnapshot] = await Promise.all([
+    getCurrentGroupMember(groupId, userId),
+    getDoc(doc(db, "users", userId)),
+    getDoc(doc(db, GROUPS_COLLECTION, groupId))
+  ]);
+
+  if (!groupSnapshot.exists()) {
+    throw new Error("This group no longer exists.");
+  }
+
+  const groupData = groupSnapshot.data() as Group;
+  const groupIds = Array.isArray(userSnapshot.data()?.groupIds) ? (userSnapshot.data()?.groupIds as string[]) : [];
+  const isMember = member?.status === "active"
+    || groupData.memberIds?.includes(userId)
+    || groupIds.includes(groupId);
+
+  if (!isMember) {
+    throw new Error("You are not a member of this group.");
+  }
+
+  await setActiveGroupForUser(userId, groupId);
+  return { ...groupData, id: groupSnapshot.id } as Group;
 }

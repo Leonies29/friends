@@ -23,7 +23,7 @@ export function QuizQuestionCard({
   const urgent = remainingSeconds <= 5;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-border bg-background p-5 shadow-sm">
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm sm:rounded-[2rem] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
           <Badge>{category.emoji} {category.label}</Badge>
@@ -34,7 +34,7 @@ export function QuizQuestionCard({
         </div>
       </div>
 
-      <h2 className="mt-5 text-2xl font-black leading-tight md:text-3xl">{item.question.question}</h2>
+      <h2 className="mt-4 break-words text-xl font-black leading-snug sm:mt-5 sm:text-2xl md:text-3xl">{item.question.question}</h2>
 
       <div className="mt-5 grid gap-2">
         {item.shuffledAnswers.map((answer, index) => {

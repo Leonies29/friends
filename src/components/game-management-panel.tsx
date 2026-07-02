@@ -142,16 +142,18 @@ export function GameManagementPanel({
             const nav = getGameNavTarget(game.category);
             const inMenu = isGameInMenu(game);
             return (
-              <div key={game.id} className="flex items-center gap-3 rounded-2xl border border-border bg-background px-3 py-3">
-                <span className="text-xl" title={inMenu ? "In menu" : "Hidden"}>{gameStatusEmoji(game)}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-black">{game.title}</p>
-                    <span className="text-xs font-semibold text-muted-foreground">{nav.emoji} {nav.label}</span>
+              <div key={game.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-background px-3 py-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span className="shrink-0 text-xl" title={inMenu ? "In menu" : "Hidden"}>{gameStatusEmoji(game)}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="break-words font-black">{game.title}</p>
+                      <span className="text-xs font-semibold text-muted-foreground">{nav.emoji} {nav.label}</span>
+                    </div>
+                    <p className="line-clamp-2 text-sm text-muted-foreground">{game.description}</p>
                   </div>
-                  <p className="truncate text-sm text-muted-foreground">{game.description}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                   <EmojiControl emoji="⚙️" label="Configure game content" onClick={() => setSetupGame(game)} />
                   <EmojiControl emoji="✏️" label="Edit title and XP rules" onClick={() => setEditingGame(game)} />
                   <EmojiControl

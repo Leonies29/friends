@@ -167,18 +167,18 @@ export function QuizPage() {
         <QuizProgressBar current={session.answeredQuestionIds.length} total={session.questionOrder.length} />
       )}
 
-      <Card className="grid gap-2 sm:grid-cols-3">
-        <div className="rounded-2xl bg-emerald-50 p-3 text-center">
-          <p className="text-xs font-black uppercase text-emerald-700">Correct answer</p>
-          <p className="text-2xl font-black text-emerald-900">+{QUIZ_BASE_POINTS}</p>
+      <Card className="grid grid-cols-3 gap-2">
+        <div className="rounded-2xl bg-emerald-50 p-2 text-center sm:p-3">
+          <p className="text-[10px] font-black uppercase text-emerald-700 sm:text-xs">Correct</p>
+          <p className="text-lg font-black text-emerald-900 sm:text-2xl">+{QUIZ_BASE_POINTS}</p>
         </div>
-        <div className="rounded-2xl bg-amber-50 p-3 text-center">
-          <p className="text-xs font-black uppercase text-amber-700">Speed bonus</p>
-          <p className="text-2xl font-black text-amber-900">+{QUIZ_SPEED_BONUS}</p>
+        <div className="rounded-2xl bg-amber-50 p-2 text-center sm:p-3">
+          <p className="text-[10px] font-black uppercase text-amber-700 sm:text-xs">Speed</p>
+          <p className="text-lg font-black text-amber-900 sm:text-2xl">+{QUIZ_SPEED_BONUS}</p>
         </div>
-        <div className="rounded-2xl bg-sky-50 p-3 text-center">
-          <p className="text-xs font-black uppercase text-sky-700">Your score</p>
-          <p className="text-2xl font-black text-sky-900">{session?.score ?? 0}</p>
+        <div className="rounded-2xl bg-sky-50 p-2 text-center sm:p-3">
+          <p className="text-[10px] font-black uppercase text-sky-700 sm:text-xs">Score</p>
+          <p className="text-lg font-black text-sky-900 sm:text-2xl">{session?.score ?? 0}</p>
         </div>
       </Card>
 

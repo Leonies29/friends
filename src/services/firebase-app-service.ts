@@ -22,6 +22,7 @@ import {
   getGroupByInviteCode as getNormalizedGroupByInviteCode,
   GROUPS_COLLECTION,
   GROUPS_SCHEMA_COLLECTION,
+  resolveJoinRole,
   upsertGroupMember
 } from "@/services/group-service";
 
@@ -115,18 +116,12 @@ async function uploadAvatar(userId: string, file?: File) {
   return getDownloadURL(avatarRef);
 }
 
-async function getOnlyGroupId() {
-  const db = getFirebaseFirestore();
-  const snapshot = await getDocs(query(collection(db, "friendGroups")));
-  return snapshot.size === 1 ? snapshot.docs[0].id : null;
-}
-
 async function ensureUserDocument(userId: string, email: string, groupId?: string | null) {
   const db = getFirebaseFirestore();
   const userRef = doc(db, "users", userId);
   const userSnapshot = await getDoc(userRef);
   const existing = userSnapshot.exists() ? userSnapshot.data() : {};
-  const resolvedGroupId = existing.activeGroupId || groupId || await getOnlyGroupId();
+  const resolvedGroupId = groupId || existing.activeGroupId || null;
   const username = existing.username || email.split("@")[0] || "Quest Hero";
 
   await setDoc(userRef, {
@@ -214,7 +209,7 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
   if (matchingSlot) {
     await claimParticipant({ groupId, userId, nickname: username, email: input.email, avatarUrl });
   } else {
-    const role = groupData.createdBy ? "PLAYER" : "OWNER";
+    const role = resolveJoinRole(groupData as import("@/types").Group, userId);
     await Promise.all([
       setDoc(doc(db, GROUPS_COLLECTION, groupId), {
         memberIds: arrayUnion(userId),
@@ -270,20 +265,29 @@ export async function signInAndJoinGroup(email: string, password: string, groupI
   if (nickname?.trim()) {
     await claimParticipant({ groupId: resolvedGroupId, userId, nickname: nickname.trim(), email });
   } else {
+    const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId));
+    const groupData = groupSnapshot.exists() ? groupSnapshot.data() : {};
+    const role = resolveJoinRole(groupData as import("@/types").Group, userId);
+    const displayName = email.split("@")[0] || "Trip member";
+
     await Promise.all([
       setDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId), {
         memberIds: arrayUnion(userId),
+        createdBy: groupData.createdBy || (role === "OWNER" ? userId : null),
+        ownerId: groupData.ownerId || (role === "OWNER" ? userId : null),
         updatedAt: serverTimestamp()
       }, { merge: true }),
       setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, resolvedGroupId), {
         memberIds: arrayUnion(userId),
+        createdBy: groupData.createdBy || (role === "OWNER" ? userId : null),
+        ownerId: groupData.ownerId || (role === "OWNER" ? userId : null),
         updatedAt: serverTimestamp()
       }, { merge: true }),
       upsertGroupMember({
         groupId: resolvedGroupId,
         userId,
-        role: "PLAYER",
-        nickname: email.split("@")[0] || "Trip member",
+        role,
+        nickname: displayName,
         email,
         status: "active"
       })

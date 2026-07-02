@@ -23,8 +23,8 @@ function AdminHero({ group }: { group: ActiveGroup }) {
   return (
     <Card className="bg-primary text-primary-foreground">
       <Badge className="border-white/20 bg-white/10 text-primary-foreground/80">Admin</Badge>
-      <h1 className="mt-4 font-display text-4xl font-black leading-none md:text-5xl">Trip control center</h1>
-      <p className="mt-4 max-w-2xl text-primary-foreground/75">
+      <h1 className="mt-3 break-words font-display text-2xl font-black leading-tight sm:mt-4 sm:text-3xl md:text-5xl">Trip control center</h1>
+      <p className="mt-3 text-sm text-primary-foreground/75 sm:mt-4 sm:text-base">
         Invite friends, configure each game with ⚙️, activate with ▶️, then adjust scores or reveal awards.
       </p>
       <p className="mt-4 text-sm font-black text-primary-foreground/70">{group.name ?? "Active group"}</p>
@@ -155,26 +155,30 @@ export function AdminDashboard() {
       {canManageScores(role) && (
         <Card>
           <Badge>Score adjustments</Badge>
-          <form className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto]" onSubmit={(event) => void handleXp(event, 1)}>
-            <select name="userId" required className={inputClass}>
+          <form className="mt-4 grid gap-3" onSubmit={(event) => void handleXp(event, 1)}>
+            <select name="userId" required className={`${inputClass} w-full`}>
               <option value="">Choose player</option>
               {state.members.map((member) => (
                 <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>
               ))}
             </select>
-            <input name="amount" type="number" min={1} required placeholder="XP" className={inputClass} />
-            <input name="reason" placeholder="Reason" className={inputClass} />
-            <Button type="submit"><Plus className="h-4 w-4" />Add XP</Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={(event) => {
-                const form = event.currentTarget.closest("form");
-                if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);
-              }}
-            >
-              <Minus className="h-4 w-4" />Remove XP
-            </Button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input name="amount" type="number" min={1} required placeholder="XP" className={inputClass} />
+              <input name="reason" placeholder="Reason" className={inputClass} />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button type="submit"><Plus className="h-4 w-4" />Add XP</Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={(event) => {
+                  const form = event.currentTarget.closest("form");
+                  if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);
+                }}
+              >
+                <Minus className="h-4 w-4" />Remove XP
+              </Button>
+            </div>
           </form>
         </Card>
       )}

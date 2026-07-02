@@ -74,9 +74,9 @@ export function BingoCellModal({
               required
             />
             {error && <p className="text-sm font-semibold text-rose-700">{error}</p>}
-            <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={onClose}>Annuler</Button>
-              <Button type="submit" disabled={saving}>{saving ? "Envoi..." : "Soumettre"}</Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Annuler</Button>
+              <Button type="submit" className="flex-1" disabled={saving}>{saving ? "Envoi..." : "Soumettre"}</Button>
             </div>
           </form>
         )}

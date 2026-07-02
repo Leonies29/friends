@@ -54,12 +54,12 @@ export function GameCustomizeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
-      <Card className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
+    <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/40 sm:place-items-center sm:p-4">
+      <Card className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-b-none sm:rounded-[1.5rem]">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <Badge>Customize game</Badge>
-            <h2 className="mt-3 text-3xl font-black">{game.title}</h2>
+            <h2 className="mt-2 break-words text-2xl font-black sm:mt-3 sm:text-3xl">{game.title}</h2>
             <p className="mt-1 text-sm text-muted-foreground">Edit rules, XP rewards, and presentation for this game.</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
@@ -81,13 +81,15 @@ export function GameCustomizeModal({
             <p className="mb-2 text-sm font-black">XP rules</p>
             <div className="grid gap-2">
               {xpRules.map((rule, index) => (
-                <div key={rule.id} className="grid gap-2 rounded-2xl border border-border bg-background p-3 md:grid-cols-[1fr_120px_140px_auto]">
+                <div key={rule.id} className="grid gap-2 rounded-2xl border border-border bg-background p-3 lg:grid-cols-[1fr_120px_140px_auto]">
                   <input className={inputClass} value={rule.label} onChange={(event) => updateRule(index, { label: event.target.value })} placeholder="Rule label" />
-                  <input className={inputClass} type="number" value={rule.amount} onChange={(event) => updateRule(index, { amount: Number(event.target.value) })} placeholder="XP" />
-                  <select className={inputClass} value={rule.sourceType} onChange={(event) => updateRule(index, { sourceType: event.target.value as XpSourceType })}>
-                    {sourceTypes.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setXpRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index))}>Remove</Button>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:contents">
+                    <input className={inputClass} type="number" value={rule.amount} onChange={(event) => updateRule(index, { amount: Number(event.target.value) })} placeholder="XP" />
+                    <select className={inputClass} value={rule.sourceType} onChange={(event) => updateRule(index, { sourceType: event.target.value as XpSourceType })}>
+                      {sourceTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => setXpRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index))}>Remove</Button>
                 </div>
               ))}
             </div>

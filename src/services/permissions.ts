@@ -5,8 +5,13 @@ export function resolveEffectiveRole(
   group: { ownerId?: string | null; createdBy?: string | null } | null | undefined,
   userId: string | null | undefined
 ): GroupRole {
+  if (userId && group && (group.ownerId === userId || group.createdBy === userId)) {
+    return "OWNER";
+  }
+  if (member?.role === "OWNER" || member?.role === "ADMIN") {
+    return member.role;
+  }
   if (member?.role) return member.role;
-  if (userId && group && (group.ownerId === userId || group.createdBy === userId)) return "OWNER";
   return "PLAYER";
 }
 

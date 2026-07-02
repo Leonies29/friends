@@ -7,6 +7,8 @@ import { useState } from "react";
 import { ArrowRight, Camera, ImagePlus, Loader2, Mail, UserPlus } from "lucide-react";
 import { Avatar, Badge, Button, Card, Field } from "@/components/ui";
 import { friendGroups } from "@/lib/mock-data";
+import { appPath } from "@/lib/app-paths";
+import { setActiveGroupCookie } from "@/lib/session-cookies";
 
 const copy = {
   login: {
@@ -107,9 +109,11 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
 
       document.cookie = `istanbul_quest_session=${authenticatedUserId}; path=/; max-age=604800; SameSite=Lax`;
       if (selectedGroup) {
-        document.cookie = `istanbul_quest_active_group=${selectedGroup.id}; path=/; max-age=604800; SameSite=Lax`;
+        setActiveGroupCookie(selectedGroup.id);
+        router.push(appPath("/dashboard"));
+      } else {
+        router.push(appPath("/select-group"));
       }
-      router.push("/dashboard");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Firebase action failed.";
       const friendlyMessage = message.includes("auth/configuration-not-found")
@@ -136,28 +140,28 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10">
+    <main className="grid min-h-screen place-items-center px-3 py-6 sm:px-4 sm:py-10">
       <Card className="grid w-full max-w-5xl overflow-hidden p-0 md:grid-cols-[1fr_1.1fr]">
-        <section className="turkish-tile bg-primary p-8 text-primary-foreground md:p-12">
-          <div className="grid h-full content-between gap-12">
+        <section className="turkish-tile bg-primary p-5 text-primary-foreground sm:p-8 md:p-12">
+          <div className="grid h-full content-between gap-8 sm:gap-12">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.35em] text-primary-foreground/70">Private Vacation Platform</p>
-              <h1 className="mt-4 font-display text-5xl font-black leading-tight">ISTANBUL QUEST</h1>
-              <p className="mt-4 max-w-sm text-lg text-primary-foreground/80">7 Days. 1 City. Endless Memories.</p>
+              <h1 className="mt-3 font-display text-3xl font-black leading-tight sm:mt-4 sm:text-5xl">ISTANBUL QUEST</h1>
+              <p className="mt-3 text-base text-primary-foreground/80 sm:mt-4 sm:text-lg">7 Days. 1 City. Endless Memories.</p>
             </div>
-            <div className="rounded-[2rem] border border-white/15 bg-white/10 p-5 backdrop-blur">
+            <div className="rounded-[1.5rem] border border-white/15 bg-white/10 p-4 backdrop-blur sm:rounded-[2rem] sm:p-5">
               <p className="text-sm font-semibold">Current friend space</p>
-              <p className="mt-2 text-2xl font-black">{selectedGroup?.name ?? "Your existing group"}</p>
-              <p className="mt-2 text-primary-foreground/75">{selectedGroup?.description ?? "Log in to access the group already linked to your account."}</p>
+              <p className="mt-2 break-words text-xl font-black sm:text-2xl">{selectedGroup?.name ?? "Your existing group"}</p>
+              <p className="mt-2 text-sm text-primary-foreground/75 sm:text-base">{selectedGroup?.description ?? "Log in to access the group already linked to your account."}</p>
             </div>
           </div>
         </section>
 
-        <section className="p-8 md:p-12">
-          <div className="mb-8 inline-grid h-14 w-14 place-items-center rounded-2xl bg-accent/15 text-accent">
+        <section className="p-5 sm:p-8 md:p-12">
+          <div className="mb-6 inline-grid h-14 w-14 place-items-center rounded-2xl bg-accent/15 text-accent sm:mb-8">
             <Icon className="h-7 w-7" />
           </div>
-          <h2 className="font-display text-4xl font-black">{content.title}</h2>
+          <h2 className="font-display text-2xl font-black sm:text-4xl">{content.title}</h2>
           <p className="mt-3 text-muted-foreground">{content.description}</p>
 
           <form className="mt-8 grid gap-4" onSubmit={handleSubmit}>

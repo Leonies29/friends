@@ -36,13 +36,13 @@ export function GameSetupModal({
   const live = isGameInMenu(game);
 
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/40 p-4" onClick={onClose}>
-      <Card className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden p-0" onClick={(event) => event.stopPropagation()}>
-        <div className="border-b border-border p-5">
+    <div className="fixed inset-0 z-[100] grid place-items-end bg-slate-950/40 sm:place-items-center sm:p-4" onClick={onClose}>
+      <Card className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-b-none p-0 sm:rounded-[1.5rem]" onClick={(event) => event.stopPropagation()}>
+        <div className="border-b border-border p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <Badge>{live ? "Live game" : "Setup before start"}</Badge>
-              <h2 className="mt-3 text-3xl font-black">{game.title}</h2>
+              <h2 className="mt-2 break-words text-2xl font-black sm:mt-3 sm:text-3xl">{game.title}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{SETUP_LABELS[game.category]}</p>
             </div>
             <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
@@ -51,7 +51,7 @@ export function GameSetupModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
           {game.category === "treasure" && <QuestSetupPanel groupId={groupId} />}
           {game.category === "assassin" && <AssassinSetupPanel groupId={groupId} />}
           {game.category === "challenge" && <ChallengeSetupPanel groupId={groupId} />}

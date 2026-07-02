@@ -48,7 +48,7 @@ export function RankingPage() {
     <PageShell eyebrow="Ranking" title="XP Leaderboard" description="Overall ranking based on total XP." group={state.group}>
       <Card>
         <Badge>Podium</Badge>
-        <div className="mt-6 grid items-end gap-4 md:grid-cols-3">
+        <div className="mt-6 grid items-end gap-3 sm:gap-4 md:grid-cols-3">
           {[1, 0, 2].map((index) => {
             const row = podium[index];
             if (!row) return <div key={index} />;
@@ -59,13 +59,13 @@ export function RankingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.08 }}
-                className={`rounded-[2rem] border border-border bg-background p-5 text-center ${index === 0 ? "md:-translate-y-4" : ""}`}
+                className={`rounded-[1.5rem] border border-border bg-background p-4 text-center sm:rounded-[2rem] sm:p-5 ${index === 0 ? "md:-translate-y-4" : ""}`}
               >
-                <p className="text-4xl">{medals[index]}</p>
-                <Avatar src={row.avatarUrl} alt={row.name} className="mx-auto mt-4 h-20 w-20" />
-                <p className="mt-3 text-xl font-black">{row.name}</p>
-                <p className="text-sm text-muted-foreground">Level {row.level}</p>
-                <p className="mt-2 text-2xl font-black">{row.xp} XP</p>
+                <p className="text-3xl sm:text-4xl">{medals[index]}</p>
+                <Avatar src={row.avatarUrl} alt={row.name} className="mx-auto mt-3 h-16 w-16 sm:mt-4 sm:h-20 sm:w-20" />
+                <p className="mt-2 truncate px-1 text-lg font-black sm:mt-3 sm:text-xl">{row.name}</p>
+                <p className="text-xs text-muted-foreground sm:text-sm">Level {row.level}</p>
+                <p className="mt-1 text-xl font-black sm:mt-2 sm:text-2xl">{row.xp} XP</p>
               </motion.div>
             );
           })}
@@ -75,14 +75,14 @@ export function RankingPage() {
       <div className="grid gap-3">
         {rows.map((row, index) => (
           <Card key={row.id}>
-            <div className="flex items-center gap-4">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-muted font-black">#{index + 1}</span>
-              <Avatar src={row.avatarUrl} alt={row.name} />
-              <div className="flex-1">
-                <p className="font-black">{row.name}</p>
+            <div className="flex items-center gap-3 sm:gap-4">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-muted text-sm font-black sm:h-10 sm:w-10">#{index + 1}</span>
+              <Avatar src={row.avatarUrl} alt={row.name} className="shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-black">{row.name}</p>
                 <p className="text-sm text-muted-foreground">Level {row.level}</p>
               </div>
-              <p className="text-xl font-black">{row.xp} XP</p>
+              <p className="shrink-0 text-lg font-black sm:text-xl">{row.xp} XP</p>
             </div>
           </Card>
         ))}
