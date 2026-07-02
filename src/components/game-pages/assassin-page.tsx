@@ -7,6 +7,7 @@ import { Avatar, Badge, Button, Card } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { claimElimination, ensureAssassinGame, loadAssassinState, respondElimination } from "@/services/assassin-service";
 import type { AssassinElimination, AssassinMission, AssassinPlayer } from "@/types/game";
+import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
 
 function findMember(members: ReturnType<typeof useActiveGroup>["members"], id?: string | null) {
@@ -60,7 +61,7 @@ export function AssassinPage() {
         <Card>
           <Badge>Your mission</Badge>
           <div className="mt-4 flex flex-wrap items-center gap-4">
-            <Avatar src={myTarget?.avatarUrl ?? ""} alt={myTarget?.nickname || myTarget?.username || "Target"} className="h-16 w-16" />
+            <Avatar src={resolveMemberAvatar(state.group, myTarget ?? {})} alt={myTarget?.nickname || myTarget?.username || "Target"} className="h-16 w-16" />
             <div>
               <p className="text-sm font-black uppercase tracking-wide text-muted-foreground">Current target</p>
               <h2 className="text-2xl font-black">{myTarget?.nickname || myTarget?.username}</h2>
@@ -90,24 +91,30 @@ export function AssassinPage() {
         <Card>
           <Badge>Survivors</Badge>
           <div className="mt-4 grid gap-3">
-            {survivors.map((player) => (
+            {survivors.map((player) => {
+              const member = findMember(state.members, player.uid);
+              const avatar = resolveMemberAvatar(state.group, member ?? { username: player.displayName, avatarUrl: player.avatarUrl });
+              return (
               <div key={player.id} className="flex items-center gap-3 rounded-2xl bg-background p-3">
-                <Avatar src={player.avatarUrl} alt={player.displayName} />
+                <Avatar src={avatar} alt={player.displayName} />
                 <p className="font-black">{player.displayName}</p>
               </div>
-            ))}
+            );})}
           </div>
         </Card>
         <Card>
           <Badge>Eliminated</Badge>
           <div className="mt-4 grid gap-3">
-            {eliminated.map((player) => (
+            {eliminated.map((player) => {
+              const member = findMember(state.members, player.uid);
+              const avatar = resolveMemberAvatar(state.group, member ?? { username: player.displayName, avatarUrl: player.avatarUrl });
+              return (
               <div key={player.id} className="flex items-center gap-3 rounded-2xl bg-background p-3 opacity-70">
                 <Skull className="h-5 w-5" />
-                <Avatar src={player.avatarUrl} alt={player.displayName} />
+                <Avatar src={avatar} alt={player.displayName} />
                 <p className="font-black">{player.displayName}</p>
               </div>
-            ))}
+            );})}
           </div>
         </Card>
       </section>

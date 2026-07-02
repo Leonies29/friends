@@ -3,7 +3,6 @@ import {
   collection,
   doc,
   getDocs,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -92,8 +91,10 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
 
 export async function listGames(groupId: string) {
   const db = getFirebaseFirestore();
-  const snapshot = await getDocs(query(collection(db, GAMES_COLLECTION), where("groupId", "==", groupId), orderBy("order", "asc")));
-  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Game);
+  const snapshot = await getDocs(query(collection(db, GAMES_COLLECTION), where("groupId", "==", groupId)));
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }) as Game)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export async function ensureDefaultGames(groupId: string) {

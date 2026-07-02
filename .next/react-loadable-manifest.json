@@ -106,6 +106,12 @@
     "id": 8183,
     "files": []
   },
+  "hooks\\use-active-group.ts -> @/lib/istanbul-avatars": {
+    "id": 7613,
+    "files": [
+      "static/chunks/7613.72e2365991e4b777.js"
+    ]
+  },
   "hooks\\use-active-group.ts -> @/services/member-service": {
     "id": 8977,
     "files": [

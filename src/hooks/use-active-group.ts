@@ -98,18 +98,32 @@ export function useActiveGroup(): ActiveGroupState {
             (groupData?.memberIds ?? []).map(async (memberId) => {
               const memberSnapshot = await getDoc(doc(db, "users", memberId));
               const membership = membershipDocs.find((member) => member.userId === memberId);
-              return memberSnapshot.exists()
+              const profile = memberSnapshot.exists()
                 ? ({ id: memberSnapshot.id, ...memberSnapshot.data(), ...membership, username: membership?.nickname ?? memberSnapshot.data().username } as GroupMember)
                 : { id: memberId, userId: memberId, username: membership?.nickname ?? memberId, ...membership };
+              return profile;
             })
           );
+          const [{ resolveMemberAvatar }] = await Promise.all([import("@/lib/istanbul-avatars")]);
+          const membersWithAvatars = memberProfiles.map((member) => ({
+            ...member,
+            avatarUrl: resolveMemberAvatar(groupData, member)
+          }));
           const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
 
           if (!cancelled) {
             setUserId(firebaseUser.uid);
             setGroup(groupData);
-            setMembers(memberProfiles);
-            setCurrentMember(currentMembership);
+            setMembers(membersWithAvatars);
+            setCurrentMember(currentMembership ? {
+              ...currentMembership,
+              avatarUrl: resolveMemberAvatar(groupData, {
+                nickname: currentMembership.nickname,
+                username: currentMembership.nickname,
+                email: currentMembership.email,
+                avatarUrl: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.avatarUrl
+              })
+            } : null);
             setLoading(false);
           }
         });
