@@ -22,7 +22,9 @@ import {
   getGroupByInviteCode as getNormalizedGroupByInviteCode,
   GROUPS_COLLECTION,
   GROUPS_SCHEMA_COLLECTION,
+  buildOwnerPatch,
   resolveJoinRole,
+  setActiveGroupForUser,
   upsertGroupMember
 } from "@/services/group-service";
 
@@ -63,7 +65,7 @@ function buildInviteCode(groupName: string) {
   return `${base || "QUEST"}-${Math.floor(100 + Math.random() * 900)}`;
 }
 
-export async function createFriendGroup(input: CreateGroupInput): Promise<CreatedGroup> {
+export async function createFriendGroup(input: CreateGroupInput, ownerId?: string | null): Promise<CreatedGroup> {
   const ownerNickname = input.ownerNickname.trim();
   const friendNicknames = input.friendNicknames.map((item) => item.trim()).filter(Boolean);
   const group = await createGroup({
@@ -74,8 +76,13 @@ export async function createFriendGroup(input: CreateGroupInput): Promise<Create
     description: `Private quest space for ${input.destination.trim() || "a new destination"}.`,
     vibe: input.vibe.trim(),
     gameModes: input.gameModes,
-    participantNicknames: [ownerNickname, ...friendNicknames]
+    participantNicknames: [ownerNickname, ...friendNicknames],
+    ownerId: ownerId ?? null
   });
+
+  if (ownerId) {
+    await setActiveGroupForUser(ownerId, group.id);
+  }
 
   return {
     id: group.id,
@@ -212,18 +219,18 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
   if (matchingSlot) {
     await claimParticipant({ groupId, userId, nickname: username, email: input.email, avatarUrl });
   } else {
-    const role = resolveJoinRole(groupData as import("@/types").Group, userId);
+    const group = groupData as import("@/types").Group;
+    const role = resolveJoinRole(group, userId, username);
+    const ownerPatch = buildOwnerPatch(group, userId, role);
     await Promise.all([
       setDoc(doc(db, GROUPS_COLLECTION, groupId), {
         memberIds: arrayUnion(userId),
-        createdBy: groupData.createdBy || userId,
-        ownerId: groupData.ownerId || userId,
+        ...ownerPatch,
         updatedAt: serverTimestamp()
       }, { merge: true }),
       setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), {
         memberIds: arrayUnion(userId),
-        createdBy: groupData.createdBy || userId,
-        ownerId: groupData.ownerId || userId,
+        ...ownerPatch,
         updatedAt: serverTimestamp()
       }, { merge: true }),
       upsertGroupMember({
@@ -270,20 +277,19 @@ export async function signInAndJoinGroup(email: string, password: string, groupI
   } else {
     const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId));
     const groupData = groupSnapshot.exists() ? groupSnapshot.data() : {};
-    const role = resolveJoinRole(groupData as import("@/types").Group, userId);
+    const group = groupData as import("@/types").Group;
     const displayName = email.split("@")[0] || "Trip member";
-
+    const role = resolveJoinRole(group, userId, displayName);
+    const ownerPatch = buildOwnerPatch(group, userId, role);
     await Promise.all([
       setDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId), {
         memberIds: arrayUnion(userId),
-        createdBy: groupData.createdBy || (role === "OWNER" ? userId : null),
-        ownerId: groupData.ownerId || (role === "OWNER" ? userId : null),
+        ...ownerPatch,
         updatedAt: serverTimestamp()
       }, { merge: true }),
       setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, resolvedGroupId), {
         memberIds: arrayUnion(userId),
-        createdBy: groupData.createdBy || (role === "OWNER" ? userId : null),
-        ownerId: groupData.ownerId || (role === "OWNER" ? userId : null),
+        ...ownerPatch,
         updatedAt: serverTimestamp()
       }, { merge: true }),
       upsertGroupMember({

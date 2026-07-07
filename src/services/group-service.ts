@@ -71,6 +71,41 @@ export function buildParticipantSlots(nicknames: string[]): ParticipantSlot[] {
     }));
 }
 
+export function getCreatorNickname(group: Pick<Group, "creatorNickname" | "plannedMembers">) {
+  return group.creatorNickname?.trim() || group.plannedMembers?.[0]?.nickname?.trim() || "";
+}
+
+export function isCreatorNickname(
+  group: Pick<Group, "creatorNickname" | "plannedMembers">,
+  nickname?: string | null
+) {
+  const creatorNickname = getCreatorNickname(group);
+  if (!creatorNickname || !nickname?.trim()) return false;
+  return nickname.trim().toLowerCase() === creatorNickname.toLowerCase();
+}
+
+export function resolveJoinRole(
+  group: Pick<Group, "createdBy" | "ownerId" | "creatorNickname" | "plannedMembers">,
+  userId: string,
+  nickname?: string | null
+): GroupRole {
+  if (group.createdBy === userId || group.ownerId === userId) return "OWNER";
+  if (isCreatorNickname(group, nickname)) return "OWNER";
+  return "PLAYER";
+}
+
+export function buildOwnerPatch(
+  group: Pick<Group, "createdBy" | "ownerId">,
+  userId: string,
+  role: GroupRole
+) {
+  if (role !== "OWNER") return {};
+  return {
+    createdBy: group.createdBy || userId,
+    ownerId: group.ownerId || userId
+  };
+}
+
 export async function getGroupByInviteCode(inviteCode: string): Promise<Group | null> {
   const db = getFirebaseFirestore();
   const normalized = inviteCode.trim().toUpperCase();
@@ -102,6 +137,7 @@ export async function createGroup(payload: CreateGroupPayload) {
 
   const id = `${slugify(payload.name)}-${inviteCode.split("-").at(-1)?.toLowerCase()}`;
   const participantSlots = buildParticipantSlots(payload.participantNicknames);
+  const creatorNickname = participantSlots[0]?.nickname ?? "";
   const dates = [payload.startDate, payload.endDate].filter(Boolean).join(" to ") || "Custom dates";
   const group: Omit<Group, "createdAt" | "updatedAt"> = {
     id,
@@ -114,6 +150,7 @@ export async function createGroup(payload: CreateGroupPayload) {
     endDate: payload.endDate,
     createdBy: payload.ownerId ?? null,
     ownerId: payload.ownerId ?? null,
+    creatorNickname,
     status: "setup",
     memberIds: payload.ownerId ? [payload.ownerId] : [],
     plannedMembers: participantSlots,
@@ -160,15 +197,6 @@ export async function createGroup(payload: CreateGroupPayload) {
   return group;
 }
 
-export function resolveJoinRole(
-  group: Pick<Group, "createdBy" | "ownerId">,
-  userId: string
-): GroupRole {
-  if (!group.createdBy && !group.ownerId) return "OWNER";
-  if (group.createdBy === userId || group.ownerId === userId) return "OWNER";
-  return "PLAYER";
-}
-
 export async function ensureGroupOwnership(groupId: string, userId: string) {
   const db = getFirebaseFirestore();
   const groupRef = doc(db, GROUPS_COLLECTION, groupId);
@@ -178,32 +206,49 @@ export async function ensureGroupOwnership(groupId: string, userId: string) {
 
   const groupData = groupSnapshot.data() as Group;
   const member = await getCurrentGroupMember(groupId, userId);
+  const creatorNickname = getCreatorNickname(groupData);
+  const creatorSlot = groupData.plannedMembers?.[0];
   const isListedOwner = groupData.ownerId === userId || groupData.createdBy === userId;
-  const isSoleMember = (groupData.memberIds?.length ?? 0) === 1 && groupData.memberIds?.[0] === userId;
-  const shouldOwn = isListedOwner || ((!groupData.ownerId && !groupData.createdBy) && (isSoleMember || Boolean(member)));
+  const isCreatorByNickname = Boolean(member?.nickname && isCreatorNickname(groupData, member.nickname));
+  const isCreatorBySlot = creatorSlot?.claimedBy === userId;
+  const shouldOwn = isListedOwner || isCreatorByNickname || isCreatorBySlot;
 
   if (!shouldOwn) return;
 
+  const shouldFixOwner = isCreatorByNickname || isCreatorBySlot;
   const patch = {
-    createdBy: groupData.createdBy || userId,
-    ownerId: groupData.ownerId || userId,
+    createdBy: shouldFixOwner ? userId : (groupData.createdBy || userId),
+    ownerId: shouldFixOwner ? userId : (groupData.ownerId || userId),
+    ...(creatorNickname && !groupData.creatorNickname ? { creatorNickname } : {}),
     updatedAt: serverTimestamp()
   };
+
+  const memberSnapshot = await getDocs(query(collection(db, GROUP_MEMBERS_COLLECTION), where("groupId", "==", groupId)));
+  const demoteWrongOwners = memberSnapshot.docs
+    .filter((item) => item.data().role === "OWNER" && item.data().userId !== userId)
+    .map((item) => upsertGroupMember({
+      groupId,
+      userId: String(item.data().userId ?? ""),
+      role: "PLAYER",
+      nickname: String(item.data().nickname ?? "Group member"),
+      status: (item.data().status as GroupMember["status"]) ?? "active",
+      email: String(item.data().email ?? ""),
+      avatarUrl: (item.data().avatarUrl as string | null | undefined) ?? ""
+    }));
 
   await Promise.all([
     setDoc(groupRef, patch, { merge: true }),
     setDoc(schemaGroupRef, patch, { merge: true }),
-    member
-      ? upsertGroupMember({
-          groupId,
-          userId,
-          role: "OWNER",
-          nickname: member.nickname,
-          status: "active",
-          email: member.email ?? "",
-          avatarUrl: member.avatarUrl ?? ""
-        })
-      : Promise.resolve()
+    upsertGroupMember({
+      groupId,
+      userId,
+      role: "OWNER",
+      nickname: member?.nickname ?? creatorNickname ?? "Trip owner",
+      status: "active",
+      email: member?.email ?? "",
+      avatarUrl: member?.avatarUrl ?? ""
+    }),
+    ...demoteWrongOwners
   ]);
 }
 
@@ -334,21 +379,20 @@ export async function claimParticipant(payload: ClaimParticipantPayload) {
         ? { ...member, claimedBy: payload.userId, claimedAt }
         : member
     );
-    const isOwner = !groupData.createdBy || groupData.createdBy === payload.userId;
-    const role = payload.role ?? (isOwner ? "OWNER" : "PLAYER");
+    const isCreator = isCreatorNickname(groupData, payload.nickname);
+    const role = payload.role ?? (isCreator ? "OWNER" : "PLAYER");
+    const ownerPatch = buildOwnerPatch(groupData, payload.userId, role);
 
     transaction.set(groupRef, {
       plannedMembers: nextMembers,
       memberIds: arrayUnion(payload.userId),
-      createdBy: groupData.createdBy || payload.userId,
-      ownerId: groupData.ownerId || payload.userId,
+      ...ownerPatch,
       updatedAt: serverTimestamp()
     }, { merge: true });
     transaction.set(schemaGroupRef, {
       plannedMembers: nextMembers,
       memberIds: arrayUnion(payload.userId),
-      createdBy: groupData.createdBy || payload.userId,
-      ownerId: groupData.ownerId || payload.userId,
+      ...ownerPatch,
       updatedAt: serverTimestamp()
     }, { merge: true });
     transaction.set(memberRef, {

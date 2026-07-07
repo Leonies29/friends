@@ -71,6 +71,7 @@ export interface Group extends BaseEntity {
   endDate?: string;
   createdBy: string | null;
   ownerId?: string | null;
+  creatorNickname?: string;
   status: GroupStatus;
   memberIds: string[];
   plannedMembers: ParticipantSlot[];

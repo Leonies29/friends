@@ -5,6 +5,7 @@ import { Copy, Loader2, Minus, Plus } from "lucide-react";
 import { AssassinEmergencySection } from "@/components/admin/assassin-emergency-panel";
 import { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
+import { GroupDangerZone } from "@/components/admin/group-danger-zone";
 import { MembersManagementPanel } from "@/components/admin/members-management-panel";
 import { GameManagementPanel } from "@/components/game-management-panel";
 import { Badge, Button, Card } from "@/components/ui";
@@ -183,6 +184,16 @@ export function AdminDashboard() {
           </Button>
         </div>
       </AdminCollapsibleSection>
+
+      {state.userId && (
+        <GroupDangerZone
+          groupId={group.id}
+          groupName={group.name ?? "Active group"}
+          userId={state.userId}
+          role={role}
+          onResetComplete={async () => { await loadAdmin(group.id); }}
+        />
+      )}
 
       {canManageScores(role) && (
         <AdminCollapsibleSection
