@@ -43,6 +43,7 @@ export interface AwardCategory {
   emoji: string;
   title: string;
   description: string;
+  visible?: boolean;
 }
 
 export interface AwardVote {
@@ -60,9 +61,11 @@ export interface AssassinGame {
   id: string;
   groupId: string;
   status: "setup" | "active" | "finished";
+  phase?: "normal" | "duel";
   setupMode?: AssassinSetupMode;
   startedAt?: string;
   endedAt?: string;
+  winnerId?: string;
 }
 
 export type AssassinSetupMode = "random" | "designer" | "hybrid";
@@ -125,8 +128,9 @@ export interface AssassinElimination {
   groupId: string;
   killerId: string;
   victimId: string;
-  status: "pending" | "confirmed" | "contested";
+  status: "pending" | "confirmed" | "contested" | "rejected";
   createdAt: string;
+  resolvedAt?: string;
 }
 
 export interface ActivityItem {

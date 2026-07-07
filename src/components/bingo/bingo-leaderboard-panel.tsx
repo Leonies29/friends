@@ -5,12 +5,12 @@ import type { BingoLeaderboardEntry } from "@/types/bingo";
 
 export function BingoLeaderboardPanel({ entries }: { entries: BingoLeaderboardEntry[] }) {
   if (!entries.length) {
-    return <Card><p className="text-sm text-muted-foreground">Le classement apparaîtra quand la partie sera lancée.</p></Card>;
+    return <Card><p className="text-sm text-muted-foreground">The leaderboard will appear once the game is launched.</p></Card>;
   }
 
   return (
     <Card>
-      <Badge>Classement Bingo</Badge>
+      <Badge>Bingo Leaderboard</Badge>
       <div className="mt-4 grid gap-2">
         {entries.map((entry, index) => (
           <div key={entry.id} className="flex items-center gap-3 rounded-2xl border border-border bg-background px-3 py-3">
@@ -21,7 +21,7 @@ export function BingoLeaderboardPanel({ entries }: { entries: BingoLeaderboardEn
             <div className="min-w-0 flex-1">
               <p className="truncate font-black">{entry.displayName}</p>
               <p className="text-xs font-semibold text-muted-foreground">
-                {entry.validatedCount} défis · {entry.bingoCount} bingos
+                {entry.validatedCount} challenges · {entry.bingoCount} bingos
               </p>
             </div>
             <p className="text-xl font-black">{entry.totalPoints} pts</p>

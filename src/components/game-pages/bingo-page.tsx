@@ -92,23 +92,23 @@ export function BingoPage() {
     await load();
   }
 
-  if (state.loading || loading) return <LoadingCard label="Chargement du bingo..." />;
+  if (state.loading || loading) return <LoadingCard label="Loading bingo..." />;
   if (!state.group) return <EmptyGroupCard />;
 
   if (!bingoGame) {
     return (
-      <PageShell eyebrow="Bingo Voyage" title="Bingo Voyage" description="Le bingo n'est pas encore activé pour ce voyage." group={state.group}>
-        <Card><p className="text-sm text-muted-foreground">Demande à un admin d'activer le jeu Bingo dans Admin → Games.</p></Card>
+      <PageShell eyebrow="Travel Bingo" title="Travel Bingo" description="Bingo is not enabled for this trip yet." group={state.group}>
+        <Card><p className="text-sm text-muted-foreground">Ask an admin to enable Bingo in Admin → Games.</p></Card>
       </PageShell>
     );
   }
 
   if (sessionStatus !== "active" || !card) {
     return (
-      <PageShell eyebrow="Bingo Voyage" title={bingoGame.title} description="Ta grille sera disponible dès que l'admin lancera la partie." group={state.group}>
+      <PageShell eyebrow="Travel Bingo" title={bingoGame.title} description="Your grid will be available once the admin launches the game." group={state.group}>
         <Card>
-          <Badge>En attente</Badge>
-          <p className="mt-3 text-sm text-muted-foreground">L'admin doit configurer les défis puis appuyer sur « Générer les grilles ».</p>
+          <Badge>Waiting</Badge>
+          <p className="mt-3 text-sm text-muted-foreground">The admin must configure challenges then press Generate grids.</p>
         </Card>
         <BingoLeaderboardPanel entries={leaderboard} />
       </PageShell>
@@ -116,17 +116,17 @@ export function BingoPage() {
   }
 
   return (
-    <PageShell eyebrow="Bingo Voyage" title={bingoGame.title} description="Complète ta grille, décris tes preuves en texte et vise le BINGO !" group={state.group}>
+    <PageShell eyebrow="Travel Bingo" title={bingoGame.title} description="Complete your grid, describe your proofs in text, and go for BINGO!" group={state.group}>
       <BingoCelebration visible={Boolean(celebration)} lines={celebration?.lines ?? []} points={celebration?.points ?? 0} />
       <BingoStatsBar card={card} />
       <Card>
         <div className="mb-4 flex items-center justify-between gap-3">
-          <Badge>Ta grille 5×5</Badge>
-          <Button size="sm" variant="secondary" onClick={() => void load()}>Actualiser</Button>
+          <Badge>Your 5×5 grid</Badge>
+          <Button size="sm" variant="secondary" onClick={() => void load()}>Refresh</Button>
         </div>
         <BingoGrid cells={card.cells} onCellClick={setSelectedCell} />
         <p className="mt-4 text-center text-xs font-semibold text-muted-foreground">
-          🟢 Commun 1pt · 🟠 Rare 3pt · 🔴 Légendaire 5pt · BINGO +10pt
+          🟢 Common 1pt · 🟠 Rare 3pt · 🔴 Legendary 5pt · BINGO +10pt
         </p>
       </Card>
       <BingoLeaderboardPanel entries={leaderboard} />

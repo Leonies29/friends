@@ -28,11 +28,11 @@ export function BingoCellModal({
     setSaving(true);
     setError("");
     try {
-      if (!proofText.trim()) throw new Error("Décris comment tu as réalisé ce défi.");
+      if (!proofText.trim()) throw new Error("Describe how you completed this challenge.");
       await onSubmit(proofText.trim());
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Envoi impossible.");
+      setError(err instanceof Error ? err.message : "Unable to submit.");
     } finally {
       setSaving(false);
     }
@@ -51,38 +51,43 @@ export function BingoCellModal({
 
         {cell.status === "pending" && (
           <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-            Ta preuve est en attente de validation par un admin.
+            Your proof is pending admin validation.
           </p>
         )}
 
         {cell.status === "validated" && (
           <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-            Défi validé !
+            Challenge validated!
           </p>
         )}
 
         {(cell.status === "open" || cell.status === "rejected") && (
           <form className="mt-5 grid gap-3" onSubmit={(event) => void handleSubmit(event)}>
+            {cell.status === "rejected" && cell.rejectionNote && (
+              <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+                Previous proof rejected: {cell.rejectionNote}
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">
-              Aucune photo ni vidéo sur le site — décris ta preuve en texte.
+              No photos or videos on the site — describe your proof in text.
             </p>
             <textarea
               className={`${inputClass} min-h-32`}
               value={proofText}
               onChange={(event) => setProofText(event.target.value)}
-              placeholder="Ex : On a fait rire le serveur du resto près de Galata..."
+              placeholder="E.g. We made the server laugh at the restaurant near Galata..."
               required
             />
             {error && <p className="text-sm font-semibold text-rose-700">{error}</p>}
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Annuler</Button>
-              <Button type="submit" className="flex-1" disabled={saving}>{saving ? "Envoi..." : "Soumettre"}</Button>
+              <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
+              <Button type="submit" className="flex-1" disabled={saving}>{saving ? "Submitting..." : "Submit"}</Button>
             </div>
           </form>
         )}
 
         {(cell.status === "pending" || cell.status === "validated") && (
-          <Button className="mt-4" variant="secondary" onClick={onClose}>Fermer</Button>
+          <Button className="mt-4" variant="secondary" onClick={onClose}>Close</Button>
         )}
       </Card>
     </div>

@@ -2,37 +2,49 @@
 
 import { useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
-import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
-import type { GroupMember } from "@/hooks/use-active-group";
+import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
+import { useActiveGroup, type GroupMember } from "@/hooks/use-active-group";
+import type { AssassinElimination } from "@/types/game";
 import {
   emergencyChangeMission,
   emergencyChangeTarget,
   emergencyReplaceMission,
   emergencySkipMission,
   loadAssassinState,
-  resetAssassinGame
+  resetAssassinGame,
+  resolveContestedElimination
 } from "@/services/assassin-service";
 
 const inputClass = "max-w-xs rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold";
 
 export function AssassinEmergencyPanel({
   groupId,
-  members: groupMembers
+  members: groupMembers,
+  embedded = false
 }: {
   groupId: string;
   members: GroupMember[];
+  embedded?: boolean;
 }) {
+  const state = useActiveGroup();
   const [active, setActive] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [contested, setContested] = useState<AssassinElimination[]>([]);
 
   const members = groupMembers.map((member) => ({
     id: member.userId || member.id,
     name: member.nickname || member.username || "Player"
   }));
 
+  async function refresh() {
+    const assassin = await loadAssassinState(groupId);
+    setActive(assassin.game?.status === "active");
+    setContested(assassin.eliminations.filter((item) => item.status === "contested"));
+  }
+
   useEffect(() => {
-    void loadAssassinState(groupId).then((assassin) => setActive(assassin.game?.status === "active"));
+    void refresh();
   }, [groupId]);
 
   if (!active) return null;
@@ -41,17 +53,55 @@ export function AssassinEmergencyPanel({
     setError("");
     try {
       await action();
+      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Action failed.");
     }
   }
 
-  return (
-    <Card>
-      <Badge>Assassin · live controls</Badge>
-      <p className="mt-2 text-sm text-muted-foreground">Only while the assassin game is running.</p>
-      {message && <p className="mt-3 text-sm font-semibold text-emerald-700">{message}</p>}
+  function memberName(id: string) {
+    return members.find((member) => member.id === id)?.name ?? id;
+  }
+
+  const body = (
+    <>
+      {!embedded && (
+        <>
+          <Badge>Assassin · live controls</Badge>
+          <p className="mt-2 text-sm text-muted-foreground">Only while the assassin game is running.</p>
+        </>
+      )}
+      {message && <p className={`text-sm font-semibold text-emerald-700 ${embedded ? "mb-3" : "mt-3"}`}>{message}</p>}
       {error && <p className="mt-3 text-sm font-semibold text-rose-700">{error}</p>}
+
+      {contested.length > 0 && (
+        <div className="mt-4 grid gap-3">
+          <p className="font-black">Contested eliminations — admin review</p>
+          {contested.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
+              <p className="font-black">{memberName(item.killerId)} claims to have eliminated {memberName(item.victimId)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">The victim refused. Confirm or reject the elimination.</p>
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" disabled={!state.userId} onClick={() => void runAction(async () => {
+                  if (!state.userId) return;
+                  await resolveContestedElimination(item.id, true, state.userId);
+                  setMessage(`Elimination confirmed: ${memberName(item.killerId)} → ${memberName(item.victimId)}`);
+                })}>
+                  Confirm
+                </Button>
+                <Button size="sm" variant="secondary" disabled={!state.userId} onClick={() => void runAction(async () => {
+                  if (!state.userId) return;
+                  await resolveContestedElimination(item.id, false, state.userId);
+                  setMessage(`Elimination rejected: ${memberName(item.killerId)} → ${memberName(item.victimId)}`);
+                })}>
+                  Contest rejected
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mt-4 grid gap-3">
         {members.map((member) => (
           <div key={member.id} className="rounded-2xl border border-border bg-background p-4">
@@ -82,6 +132,36 @@ export function AssassinEmergencyPanel({
       <Button className="mt-4" variant="ghost" size="sm" onClick={() => void runAction(() => resetAssassinGame(groupId).then(() => setActive(false)))}>
         Reset assassin to setup
       </Button>
-    </Card>
+    </>
+  );
+
+  return embedded ? body : <Card>{body}</Card>;
+}
+
+export function AssassinEmergencySection({
+  groupId,
+  members
+}: {
+  groupId: string;
+  members: GroupMember[];
+}) {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    void loadAssassinState(groupId).then((assassin) => {
+      setActive(assassin.game?.status === "active");
+    });
+  }, [groupId]);
+
+  if (!active) return null;
+
+  return (
+    <AdminCollapsibleSection
+      title="Assassin live controls"
+      emoji="🔪"
+      summary="Emergency actions while the assassin game is running."
+    >
+      <AssassinEmergencyPanel groupId={groupId} members={members} embedded />
+    </AdminCollapsibleSection>
   );
 }

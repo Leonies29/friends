@@ -3,22 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import { QUIZ_TIMER_SECONDS } from "@/lib/quiz-logic";
 
-export function useQuizTimer(active: boolean, onTimeout: () => void) {
-  const [remaining, setRemaining] = useState(QUIZ_TIMER_SECONDS);
+export function useQuizTimer(active: boolean, onTimeout: () => void, timerSeconds = QUIZ_TIMER_SECONDS) {
+  const [remaining, setRemaining] = useState(timerSeconds);
   const callbackRef = useRef(onTimeout);
   callbackRef.current = onTimeout;
 
   useEffect(() => {
     if (!active) {
-      setRemaining(QUIZ_TIMER_SECONDS);
+      setRemaining(timerSeconds);
       return;
     }
 
-    setRemaining(QUIZ_TIMER_SECONDS);
+    setRemaining(timerSeconds);
     const startedAt = Date.now();
     const timer = window.setInterval(() => {
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const next = Math.max(QUIZ_TIMER_SECONDS - elapsed, 0);
+      const next = Math.max(timerSeconds - elapsed, 0);
       setRemaining(next);
       if (next === 0) {
         window.clearInterval(timer);
@@ -27,7 +27,7 @@ export function useQuizTimer(active: boolean, onTimeout: () => void) {
     }, 250);
 
     return () => window.clearInterval(timer);
-  }, [active]);
+  }, [active, timerSeconds]);
 
   return remaining;
 }

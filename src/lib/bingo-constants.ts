@@ -12,15 +12,15 @@ export const BINGO_POINTS: Record<BingoDifficulty, number> = {
 };
 
 export const BINGO_DIFFICULTY_META: Record<BingoDifficulty, { emoji: string; label: string; color: string }> = {
-  common: { emoji: "🟢", label: "Commun", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  common: { emoji: "🟢", label: "Common", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
   rare: { emoji: "🟠", label: "Rare", color: "bg-amber-100 text-amber-800 border-amber-200" },
-  legendary: { emoji: "🔴", label: "Légendaire", color: "bg-rose-100 text-rose-800 border-rose-200" }
+  legendary: { emoji: "🔴", label: "Legendary", color: "bg-rose-100 text-rose-800 border-rose-200" }
 };
 
 export const BINGO_CATEGORY_META: Record<BingoCategory, { emoji: string; label: string }> = {
   social: { emoji: "🗣️", label: "Social" },
-  travel: { emoji: "✈️", label: "Voyage" },
-  group: { emoji: "👥", label: "Groupe" },
+  travel: { emoji: "✈️", label: "Travel" },
+  group: { emoji: "👥", label: "Group" },
   istanbul: { emoji: "🕌", label: "Istanbul" },
   custom: { emoji: "✨", label: "Custom" }
 };
@@ -31,30 +31,30 @@ export const DEFAULT_BINGO_CHALLENGES: Array<{
   category: BingoCategory;
   difficulty: BingoDifficulty;
 }> = [
-  { title: "Faire rire un serveur", description: "Fais rire quelqu'un qui te sert.", category: "social", difficulty: "common" },
-  { title: "Prénom d'un inconnu", description: "Obtiens le prénom d'une personne que tu ne connaissais pas.", category: "social", difficulty: "rare" },
-  { title: "Compliment sincère", description: "Fais un compliment à quelqu'un.", category: "social", difficulty: "common" },
-  { title: "Coucher de soleil", description: "Admire un coucher de soleil en photo.", category: "travel", difficulty: "common" },
-  { title: "Transport inhabituel", description: "Prends un moyen de transport original.", category: "travel", difficulty: "rare" },
-  { title: "Objet couleur imposée", description: "Trouve un objet d'une couleur choisie par le groupe.", category: "travel", difficulty: "common" },
-  { title: "Selfie de groupe", description: "Prends un selfie avec au moins 3 amis du voyage.", category: "group", difficulty: "common" },
-  { title: "Chant surprise", description: "Fais chanter un membre du groupe en public.", category: "group", difficulty: "rare" },
-  { title: "Mot codé", description: "Fais dire un mot précis à un ami sans qu'il comprenne le piège.", category: "group", difficulty: "legendary" },
-  { title: "Thé turc", description: "Boire un thé turc authentique.", category: "istanbul", difficulty: "common" },
-  { title: "Traverser le Bosphore", description: "Traverse le Bosphore en ferry ou pont.", category: "istanbul", difficulty: "rare" },
-  { title: "Chat dormeur", description: "Photographie un chat istanbulite en pleine sieste.", category: "istanbul", difficulty: "common" },
-  { title: "Lokum tasting", description: "Goûter un lokum local.", category: "istanbul", difficulty: "common" },
-  { title: "Marché local", description: "Achète quelque chose dans un marché.", category: "istanbul", difficulty: "common" },
-  { title: "Mosquée majeure", description: "Visite une mosquée historique.", category: "istanbul", difficulty: "rare" },
-  { title: "Street food", description: "Goûte un street food local.", category: "istanbul", difficulty: "common" },
-  { title: "Panorama rooftop", description: "Trouve une vue panoramique sur la ville.", category: "travel", difficulty: "rare" },
-  { title: "Photo miroir", description: "Photo créative avec reflet ou miroir.", category: "travel", difficulty: "common" },
-  { title: "Danse spontanée", description: "Danse 10 secondes dans un lieu public.", category: "social", difficulty: "legendary" },
-  { title: "Carte postale", description: "Envoie ou achète une carte postale du voyage.", category: "travel", difficulty: "common" },
-  { title: "Blague locale", description: "Raconte une blague avec un accent local.", category: "group", difficulty: "rare" },
-  { title: "Souvenir insolite", description: "Trouve le souvenir le plus bizarre possible.", category: "travel", difficulty: "rare" },
-  { title: "Douceur orientale", description: "Goûte une pâtisserie orientale.", category: "istanbul", difficulty: "common" },
-  { title: "Bateau du Bosphore", description: "Prends une photo depuis un bateau.", category: "istanbul", difficulty: "legendary" },
-  { title: "High five étranger", description: "Fais un high five à un inconnu.", category: "social", difficulty: "rare" },
-  { title: "Menu en turc", description: "Commande quelque chose en montrant un menu turc.", category: "istanbul", difficulty: "legendary" }
+  { title: "Make a server laugh", description: "Make someone serving you laugh.", category: "social", difficulty: "common" },
+  { title: "Stranger's first name", description: "Get the first name of someone you did not know before.", category: "social", difficulty: "rare" },
+  { title: "Sincere compliment", description: "Give someone a genuine compliment.", category: "social", difficulty: "common" },
+  { title: "Sunset photo", description: "Capture a sunset in a photo.", category: "travel", difficulty: "common" },
+  { title: "Unusual transport", description: "Take an original mode of transport.", category: "travel", difficulty: "rare" },
+  { title: "Assigned color object", description: "Find an object in a color chosen by the group.", category: "travel", difficulty: "common" },
+  { title: "Group selfie", description: "Take a selfie with at least 3 trip friends.", category: "group", difficulty: "common" },
+  { title: "Surprise song", description: "Get a group member to sing in public.", category: "group", difficulty: "rare" },
+  { title: "Code word", description: "Make a friend say a specific word without them realizing the trap.", category: "group", difficulty: "legendary" },
+  { title: "Turkish tea", description: "Drink an authentic Turkish tea.", category: "istanbul", difficulty: "common" },
+  { title: "Cross the Bosphorus", description: "Cross the Bosphorus by ferry or bridge.", category: "istanbul", difficulty: "rare" },
+  { title: "Sleeping cat", description: "Photograph an Istanbul cat taking a nap.", category: "istanbul", difficulty: "common" },
+  { title: "Lokum tasting", description: "Try a local lokum.", category: "istanbul", difficulty: "common" },
+  { title: "Local market", description: "Buy something at a market.", category: "istanbul", difficulty: "common" },
+  { title: "Major mosque", description: "Visit a historic mosque.", category: "istanbul", difficulty: "rare" },
+  { title: "Street food", description: "Try local street food.", category: "istanbul", difficulty: "common" },
+  { title: "Rooftop panorama", description: "Find a panoramic view of the city.", category: "travel", difficulty: "rare" },
+  { title: "Mirror photo", description: "Take a creative photo with a reflection or mirror.", category: "travel", difficulty: "common" },
+  { title: "Spontaneous dance", description: "Dance for 10 seconds in a public place.", category: "social", difficulty: "legendary" },
+  { title: "Postcard", description: "Send or buy a trip postcard.", category: "travel", difficulty: "common" },
+  { title: "Local joke", description: "Tell a joke with a local accent.", category: "group", difficulty: "rare" },
+  { title: "Unusual souvenir", description: "Find the weirdest souvenir possible.", category: "travel", difficulty: "rare" },
+  { title: "Oriental pastry", description: "Try an oriental pastry.", category: "istanbul", difficulty: "common" },
+  { title: "Bosphorus boat", description: "Take a photo from a boat.", category: "istanbul", difficulty: "legendary" },
+  { title: "Stranger high five", description: "Give a high five to a stranger.", category: "social", difficulty: "rare" },
+  { title: "Turkish menu order", description: "Order something by pointing at a Turkish menu.", category: "istanbul", difficulty: "legendary" }
 ];

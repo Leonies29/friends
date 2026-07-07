@@ -1,4 +1,5 @@
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   doc,
@@ -238,6 +239,69 @@ export async function listGroupMembers(groupId: string) {
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as GroupMember);
 }
 
+export async function listAllGroupMembers(groupId: string) {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDocs(query(collection(db, GROUP_MEMBERS_COLLECTION), where("groupId", "==", groupId)));
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }) as GroupMember)
+    .filter((member) => member.status !== "removed");
+}
+
+function slugifyNickname(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "guest";
+}
+
+export async function addPlannedMemberSlot(groupId: string, nickname: string) {
+  const db = getFirebaseFirestore();
+  const normalized = nickname.trim();
+  if (!normalized) throw new Error("Nickname is required.");
+
+  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+  const groupSnapshot = await getDoc(groupRef);
+  if (!groupSnapshot.exists()) throw new Error("This group no longer exists.");
+
+  const groupData = groupSnapshot.data() as Group;
+  const plannedMembers = Array.isArray(groupData.plannedMembers) ? [...groupData.plannedMembers] : [];
+  if (plannedMembers.some((member) => member.nickname.toLowerCase() === normalized.toLowerCase())) {
+    throw new Error("This nickname is already planned for the trip.");
+  }
+
+  const nextMembers = [
+    ...plannedMembers,
+    {
+      id: `${slugifyNickname(normalized)}-${plannedMembers.length + 1}`,
+      nickname: normalized,
+      claimedBy: null
+    }
+  ];
+
+  const patch = { plannedMembers: nextMembers, updatedAt: serverTimestamp() };
+  await Promise.all([
+    updateDoc(groupRef, patch),
+    setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), patch, { merge: true })
+  ]);
+}
+
+export async function removePlannedMemberSlot(groupId: string, slotId: string) {
+  const db = getFirebaseFirestore();
+  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+  const groupSnapshot = await getDoc(groupRef);
+  if (!groupSnapshot.exists()) throw new Error("This group no longer exists.");
+
+  const groupData = groupSnapshot.data() as Group;
+  const plannedMembers = Array.isArray(groupData.plannedMembers) ? groupData.plannedMembers : [];
+  const slot = plannedMembers.find((member) => member.id === slotId);
+  if (!slot) throw new Error("Participant slot not found.");
+  if (slot.claimedBy) throw new Error("This participant already joined. Deactivate them instead.");
+
+  const nextMembers = plannedMembers.filter((member) => member.id !== slotId);
+  const patch = { plannedMembers: nextMembers, updatedAt: serverTimestamp() };
+  await Promise.all([
+    updateDoc(groupRef, patch),
+    setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), patch, { merge: true })
+  ]);
+}
+
 export async function claimParticipant(payload: ClaimParticipantPayload) {
   const db = getFirebaseFirestore();
   const memberId = `${payload.groupId}_${payload.userId}`;
@@ -318,11 +382,12 @@ export async function setActiveGroupForUser(userId: string, groupId: string) {
   });
 }
 
-export async function listUserMembershipGroups(userId: string) {
+async function loadUserGroupIds(userId: string) {
   const db = getFirebaseFirestore();
   const userSnapshot = await getDoc(doc(db, "users", userId));
   const userData = userSnapshot.exists() ? userSnapshot.data() : {};
   const groupIdsFromUser = Array.isArray(userData.groupIds) ? (userData.groupIds as string[]) : [];
+  const archivedGroupIds = Array.isArray(userData.archivedGroupIds) ? (userData.archivedGroupIds as string[]) : [];
 
   const membersSnapshot = await getDocs(
     query(collection(db, GROUP_MEMBERS_COLLECTION), where("userId", "==", userId), where("status", "==", "active"))
@@ -330,8 +395,13 @@ export async function listUserMembershipGroups(userId: string) {
   const groupIdsFromMembers = membersSnapshot.docs.map((item) => String(item.data().groupId ?? ""));
 
   const uniqueGroupIds = [...new Set([...groupIdsFromUser, ...groupIdsFromMembers].filter(Boolean))];
+  return { uniqueGroupIds, archivedGroupIds };
+}
+
+async function loadGroupsByIds(groupIds: string[]) {
+  const db = getFirebaseFirestore();
   const groups = await Promise.all(
-    uniqueGroupIds.map(async (groupId) => {
+    groupIds.map(async (groupId) => {
       const snapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
       return snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as Group) : null;
     })
@@ -340,6 +410,41 @@ export async function listUserMembershipGroups(userId: string) {
   return groups
     .filter((group): group is Group => Boolean(group))
     .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+}
+
+export async function listUserMembershipGroups(userId: string) {
+  const { uniqueGroupIds, archivedGroupIds } = await loadUserGroupIds(userId);
+  const archivedSet = new Set(archivedGroupIds);
+  const visibleGroupIds = uniqueGroupIds.filter((groupId) => !archivedSet.has(groupId));
+  return loadGroupsByIds(visibleGroupIds);
+}
+
+export async function listArchivedUserGroups(userId: string) {
+  const { uniqueGroupIds, archivedGroupIds } = await loadUserGroupIds(userId);
+  const archivedSet = new Set(archivedGroupIds);
+  const archivedGroupIdList = uniqueGroupIds.filter((groupId) => archivedSet.has(groupId));
+  return loadGroupsByIds(archivedGroupIdList);
+}
+
+export async function archiveUserGroup(userId: string, groupId: string) {
+  const db = getFirebaseFirestore();
+  const userRef = doc(db, "users", userId);
+  const userSnapshot = await getDoc(userRef);
+  const activeGroupId = userSnapshot.exists() ? (userSnapshot.data().activeGroupId as string | undefined) : undefined;
+
+  await updateDoc(userRef, {
+    archivedGroupIds: arrayUnion(groupId),
+    ...(activeGroupId === groupId ? { activeGroupId: null } : {}),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export async function restoreUserGroup(userId: string, groupId: string) {
+  const db = getFirebaseFirestore();
+  await updateDoc(doc(db, "users", userId), {
+    archivedGroupIds: arrayRemove(groupId),
+    updatedAt: serverTimestamp()
+  });
 }
 
 export async function activateGroupForUser(userId: string, groupId: string) {

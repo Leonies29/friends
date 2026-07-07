@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 
 type MobileSheet = "games" | "menu" | null;
 
+const sheetLinkGridClass = "grid grid-cols-2 justify-items-center gap-2 sm:grid-cols-3";
+
 function NavSheetLink({
   item,
   pathname,
@@ -30,14 +32,14 @@ function NavSheetLink({
       href={item.href}
       onClick={onClose}
       className={cn(
-        "flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-sm font-black transition",
+        "flex w-[160px] max-w-full flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center text-xs font-black leading-tight transition",
         active
           ? "border-primary bg-primary text-primary-foreground shadow-sm"
           : "border-transparent bg-card text-foreground hover:border-border"
       )}
     >
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-background text-xl">{item.emoji}</span>
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-background text-lg">{item.emoji}</span>
+      <span className="line-clamp-2 w-full">{item.label}</span>
     </Link>
   );
 }
@@ -61,9 +63,9 @@ function NavSheet({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 24 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 px-3 lg:hidden"
+      className="fixed inset-x-0 bottom-[calc(5.25rem+max(0.75rem,env(safe-area-inset-bottom)))] z-50 px-3 lg:hidden"
     >
-      <div className="overflow-hidden rounded-[1.5rem] border border-border bg-[#f6ead8] shadow-2xl shadow-slate-950/20">
+      <div className="overflow-hidden rounded-[1.5rem] border border-border bg-surface-warm shadow-2xl shadow-slate-950/20">
         <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
           <p className="text-sm font-black uppercase tracking-wide text-muted-foreground">{title}</p>
           <button
@@ -82,7 +84,7 @@ function NavSheet({
               {sections.map((section) => (
                 <div key={section.title}>
                   <p className="px-1 pb-2 text-xs font-black uppercase tracking-wide text-muted-foreground">{section.title}</p>
-                  <div className="grid gap-2">
+                  <div className={sheetLinkGridClass}>
                     {section.items.map((item) => (
                       <NavSheetLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
                     ))}
@@ -95,7 +97,7 @@ function NavSheet({
               No games enabled yet. Ask an admin to activate them.
             </p>
           ) : (
-            <div className="grid gap-2">
+            <div className={sheetLinkGridClass}>
               {items.map((item) => (
                 <NavSheetLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
               ))}
@@ -175,7 +177,7 @@ export function MobileBottomNav({
 
       <nav
         aria-label="Mobile navigation"
-        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 rounded-[1.5rem] border border-border bg-[#f6ead8] p-2 shadow-xl shadow-slate-950/15 lg:hidden"
+        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 rounded-[1.5rem] border border-border bg-surface-warm px-[5px] py-1.5 shadow-xl shadow-slate-950/15 lg:hidden"
       >
         <div className="grid grid-cols-4 gap-1">
           {MOBILE_BOTTOM_SLOTS.map((slot) => {

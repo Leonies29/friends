@@ -15,7 +15,7 @@ export function QuizResultsScreen({
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-      <Card className="overflow-hidden bg-gradient-to-br from-[#f6ead8] via-white to-emerald-50 p-6 text-center">
+      <Card className="overflow-hidden bg-gradient-to-br from-surface-warm via-white to-emerald-50 p-6 text-center dark:via-card dark:to-emerald-950/30">
         <Badge>Quiz complete</Badge>
         <motion.p
           animate={{ scale: [1, 1.05, 1] }}

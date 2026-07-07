@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getActiveGroupCookie } from "@/lib/session-cookies";
 
 export type ActiveGroup = {
   id: string;
@@ -10,7 +11,7 @@ export type ActiveGroup = {
   currentDay?: number;
   gameStarted?: boolean;
   memberIds?: string[];
-  plannedMembers?: Array<{ nickname: string; claimedBy?: string | null }>;
+  plannedMembers?: Array<{ id?: string; nickname: string; claimedBy?: string | null }>;
   createdBy?: string | null;
   ownerId?: string | null;
 };
@@ -23,7 +24,7 @@ export type GroupMember = {
   email?: string;
   avatarUrl?: string | null;
   role?: "OWNER" | "ADMIN" | "PLAYER";
-  status?: "pending" | "active" | "removed";
+  status?: "pending" | "active" | "inactive" | "removed";
 };
 
 type ActiveGroupState = {
@@ -64,87 +65,99 @@ export function useActiveGroup(): ActiveGroupState {
         const auth = getFirebaseAuth();
         const db = getFirebaseFirestore();
 
-        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          if (!firebaseUser) {
-            if (!cancelled) {
-              setUserId(null);
-              setGroup(null);
-              setMembers([]);
-              setCurrentMember(null);
-              setLoading(false);
+        unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+          void (async () => {
+            try {
+              if (!firebaseUser) {
+                if (!cancelled) {
+                  setUserId(null);
+                  setGroup(null);
+                  setMembers([]);
+                  setCurrentMember(null);
+                  setLoading(false);
+                }
+                return;
+              }
+
+              const userSnapshot = await getDoc(doc(db, "users", firebaseUser.uid));
+              const activeGroupId = userSnapshot.exists()
+                ? (userSnapshot.data().activeGroupId as string | undefined)
+                : undefined;
+              const resolvedGroupId = activeGroupId ?? getActiveGroupCookie() ?? undefined;
+
+              if (!resolvedGroupId) {
+                if (!cancelled) {
+                  setUserId(firebaseUser.uid);
+                  setGroup(null);
+                  setMembers([]);
+                  setCurrentMember(null);
+                  setLoading(false);
+                }
+                return;
+              }
+
+              const groupSnapshot = await getDoc(doc(db, "friendGroups", resolvedGroupId));
+              const groupData = groupSnapshot.exists() ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as ActiveGroup) : null;
+              if (groupData) {
+                const [{ ensureGroupOwnership }] = await Promise.all([import("@/services/group-service")]);
+                await ensureGroupOwnership(groupData.id, firebaseUser.uid);
+                const refreshedGroupSnapshot = await getDoc(doc(db, "friendGroups", resolvedGroupId));
+                if (refreshedGroupSnapshot.exists()) {
+                  Object.assign(groupData, refreshedGroupSnapshot.data());
+                }
+              }
+              const [{ getGroupMember, listAllGroupMembers }] = await Promise.all([import("@/services/member-service")]);
+              const membershipDocs = groupData ? await listAllGroupMembers(groupData.id) : [];
+              const memberProfiles = await Promise.all(
+                (groupData?.memberIds ?? []).map(async (memberId) => {
+                  const memberSnapshot = await getDoc(doc(db, "users", memberId));
+                  const membership = membershipDocs.find((member) => member.userId === memberId);
+                  const profile = memberSnapshot.exists()
+                    ? ({ id: memberSnapshot.id, ...memberSnapshot.data(), ...membership, username: membership?.nickname ?? memberSnapshot.data().username, status: membership?.status ?? "active" } as GroupMember)
+                    : { id: memberId, userId: memberId, username: membership?.nickname ?? memberId, status: membership?.status ?? "active", ...membership };
+                  return profile;
+                })
+              );
+              const [{ resolveMemberAvatar }] = await Promise.all([import("@/lib/istanbul-avatars")]);
+              const membersWithAvatars = memberProfiles.map((member) => ({
+                ...member,
+                avatarUrl: resolveMemberAvatar(groupData, member)
+              }));
+              const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
+              const [{ resolveEffectiveRole }] = await Promise.all([import("@/services/permissions")]);
+              const effectiveRole = resolveEffectiveRole(currentMembership, groupData, firebaseUser.uid);
+
+              if (!cancelled) {
+                setUserId(firebaseUser.uid);
+                setGroup(groupData);
+                setMembers(membersWithAvatars);
+                setCurrentMember(currentMembership ? {
+                  ...currentMembership,
+                  role: effectiveRole,
+                  avatarUrl: resolveMemberAvatar(groupData, {
+                    nickname: currentMembership.nickname,
+                    username: currentMembership.nickname,
+                    email: currentMembership.email,
+                    avatarUrl: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.avatarUrl
+                  })
+                } : (groupData ? {
+                  id: `${groupData.id}_${firebaseUser.uid}`,
+                  userId: firebaseUser.uid,
+                  role: effectiveRole,
+                  nickname: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.nickname,
+                  username: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.username,
+                  avatarUrl: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.avatarUrl ?? null,
+                  status: "active" as const
+                } : null));
+                setLoading(false);
+              }
+            } catch (loadError) {
+              if (!cancelled) {
+                setError(loadError instanceof Error ? loadError.message : "Unable to load your group.");
+                setLoading(false);
+              }
             }
-            return;
-          }
-
-          const userSnapshot = await getDoc(doc(db, "users", firebaseUser.uid));
-          const activeGroupId = userSnapshot.exists() ? userSnapshot.data().activeGroupId as string | undefined : undefined;
-
-          if (!activeGroupId) {
-            if (!cancelled) {
-              setUserId(firebaseUser.uid);
-              setGroup(null);
-              setMembers([]);
-              setCurrentMember(null);
-              setLoading(false);
-            }
-            return;
-          }
-
-          const groupSnapshot = await getDoc(doc(db, "friendGroups", activeGroupId));
-          const groupData = groupSnapshot.exists() ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as ActiveGroup) : null;
-          if (groupData) {
-            const [{ ensureGroupOwnership }] = await Promise.all([import("@/services/group-service")]);
-            await ensureGroupOwnership(groupData.id, firebaseUser.uid);
-            const refreshedGroupSnapshot = await getDoc(doc(db, "friendGroups", activeGroupId));
-            if (refreshedGroupSnapshot.exists()) {
-              Object.assign(groupData, refreshedGroupSnapshot.data());
-            }
-          }
-          const [{ getGroupMember, listGroupMembers }] = await Promise.all([import("@/services/member-service")]);
-          const membershipDocs = groupData ? await listGroupMembers(groupData.id) : [];
-          const memberProfiles = await Promise.all(
-            (groupData?.memberIds ?? []).map(async (memberId) => {
-              const memberSnapshot = await getDoc(doc(db, "users", memberId));
-              const membership = membershipDocs.find((member) => member.userId === memberId);
-              const profile = memberSnapshot.exists()
-                ? ({ id: memberSnapshot.id, ...memberSnapshot.data(), ...membership, username: membership?.nickname ?? memberSnapshot.data().username } as GroupMember)
-                : { id: memberId, userId: memberId, username: membership?.nickname ?? memberId, ...membership };
-              return profile;
-            })
-          );
-          const [{ resolveMemberAvatar }] = await Promise.all([import("@/lib/istanbul-avatars")]);
-          const membersWithAvatars = memberProfiles.map((member) => ({
-            ...member,
-            avatarUrl: resolveMemberAvatar(groupData, member)
-          }));
-          const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
-          const [{ resolveEffectiveRole }] = await Promise.all([import("@/services/permissions")]);
-          const effectiveRole = resolveEffectiveRole(currentMembership, groupData, firebaseUser.uid);
-
-          if (!cancelled) {
-            setUserId(firebaseUser.uid);
-            setGroup(groupData);
-            setMembers(membersWithAvatars);
-            setCurrentMember(currentMembership ? {
-              ...currentMembership,
-              role: effectiveRole,
-              avatarUrl: resolveMemberAvatar(groupData, {
-                nickname: currentMembership.nickname,
-                username: currentMembership.nickname,
-                email: currentMembership.email,
-                avatarUrl: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.avatarUrl
-              })
-            } : (groupData ? {
-              id: `${groupData.id}_${firebaseUser.uid}`,
-              userId: firebaseUser.uid,
-              role: effectiveRole,
-              nickname: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.nickname,
-              username: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.username,
-              avatarUrl: membersWithAvatars.find((member) => member.userId === firebaseUser.uid)?.avatarUrl ?? null,
-              status: "active" as const
-            } : null));
-            setLoading(false);
-          }
+          })();
         });
       } catch (error) {
         if (!cancelled) {

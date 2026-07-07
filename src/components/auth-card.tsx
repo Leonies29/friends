@@ -166,7 +166,7 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
           <form className="mt-8 grid gap-4" onSubmit={handleSubmit}>
             {mode === "register" && (
               <>
-                <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+                <div className="rounded-3xl border border-border bg-surface-elevated p-4">
                   <Badge>Joining Group</Badge>
                   <p className="mt-2 text-xl font-black">{selectedGroup?.name ?? "Selected group"}</p>
                   <p className="mt-1 text-sm text-muted-foreground">Invite code: {selectedGroup?.inviteCode ?? "Required"}</p>
@@ -177,7 +177,7 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
                   onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={handleDrop}
-                  className={`grid cursor-pointer place-items-center rounded-[2rem] border-2 border-dashed p-6 text-center transition ${dragging ? "border-accent bg-accent/15" : "border-border bg-white/45 dark:bg-white/5"}`}
+                  className={`grid cursor-pointer place-items-center rounded-[2rem] border-2 border-dashed p-6 text-center transition ${dragging ? "border-accent bg-accent/15" : "border-border bg-surface-elevated"}`}
                 >
                   <input name="avatar" type="file" accept="image/*" className="hidden" onChange={(event) => handleFile(event.target.files?.[0])} />
                   {preview ? <Avatar src={preview} alt="Profile preview" className="h-24 w-24" /> : <ImagePlus className="h-12 w-12 text-accent" />}

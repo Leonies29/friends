@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Camera, Crosshair, Crown, Map, Sparkles, Trophy } from "lucide-react";
-import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
+import { Crosshair, Crown, Map, Sparkles, Trophy } from "lucide-react";
+import { Avatar, Badge, Card, Progress } from "@/components/ui";
+import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { listRecentActivity } from "@/services/activity-service";
 import { countUserVotes } from "@/services/award-service";
@@ -14,7 +14,7 @@ import { listXpTransactions } from "@/services/xp-service";
 import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
 import { calculateLevel, getLevelProgress } from "@/lib/utils";
 import type { ActivityItem } from "@/types/game";
-import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
+import { EmptyGroupCard, LoadingCard } from "@/components/game-pages/page-shell";
 
 export function HomeDashboard() {
   const state = useActiveGroup();
@@ -46,7 +46,7 @@ export function HomeDashboard() {
       ]);
 
       const userXp = transactions.filter((item) => item.userId === userId).reduce((sum, item) => sum + item.amount, 0);
-      const memberXp = state.members.map((item) => {
+      const memberXp = filterActiveGameMembers(state.members).map((item) => {
         const id = item.userId || item.id;
         return { id, xp: transactions.filter((tx) => tx.userId === id).reduce((sum, tx) => sum + tx.amount, 0) };
       }).sort((a, b) => b.xp - a.xp);
@@ -83,7 +83,7 @@ export function HomeDashboard() {
   if (!state.group) return <EmptyGroupCard />;
 
   return (
-    <PageShell eyebrow="Home" title="Istanbul Quest" description="Your profile and central dashboard for the trip adventure." group={state.group}>
+    <div className="grid gap-4 sm:gap-6">
       <Card>
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <Avatar src={avatarUrl} alt={displayName} className="h-20 w-20 shrink-0 sm:h-24 sm:w-24" />
@@ -96,61 +96,48 @@ export function HomeDashboard() {
         <Progress value={getLevelProgress(xp)} className="mt-4" />
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-3 gap-1.5 sm:gap-4">
         {profileStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-              <Card>
-                <Icon className="h-6 w-6 text-accent" />
-                <p className="mt-3 text-2xl font-black sm:mt-4 sm:text-3xl">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
+            <motion.div key={stat.label} className="w-[140px] min-w-0 sm:w-auto" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+              <Card className="p-3 sm:p-5">
+                <Icon className="h-5 w-5 text-accent sm:h-6 sm:w-6" />
+                <p className="mt-2 text-xl font-black sm:mt-4 sm:text-3xl">{stat.value}</p>
+                <p className="text-[10px] leading-tight text-muted-foreground sm:text-sm">{stat.label}</p>
               </Card>
             </motion.div>
           );
         })}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 justify-items-center gap-1.5 sm:grid-cols-2 sm:justify-items-stretch sm:gap-4 xl:grid-cols-4">
         {quickStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <motion.div key={`quick-${stat.label}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-              <Card>
-                <Icon className="h-6 w-6 text-accent" />
-                <p className="mt-4 text-2xl font-black">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
+            <motion.div key={`quick-${stat.label}`} className="w-[140px] min-w-0 sm:w-auto" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+              <Card className="p-3 sm:p-5">
+                <Icon className="h-5 w-5 text-accent sm:h-6 sm:w-6" />
+                <p className="mt-2 truncate text-lg font-black sm:mt-4 sm:text-2xl">{stat.value}</p>
+                <p className="text-[10px] leading-tight text-muted-foreground sm:text-sm">{stat.label}</p>
               </Card>
             </motion.div>
           );
         })}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <Badge>Recent activity</Badge>
-          <div className="mt-4 grid gap-3">
-            {activity.length === 0 && <p className="text-sm text-muted-foreground">No activity yet. Complete a quest or start assassin missions.</p>}
-            {activity.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-border bg-background p-4">
-                <p className="font-black">{item.title}</p>
-                <p className="text-sm text-muted-foreground">{item.subtitle}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <Badge>Quick actions</Badge>
-          <div className="mt-4 grid gap-3">
-            <Button asChild><Link href="/questline">Open quests</Link></Button>
-            <Button asChild variant="secondary"><Link href="/assassin">Open assassin</Link></Button>
-            <Button asChild variant="secondary"><Link href="/awards">Open awards</Link></Button>
-            <Button asChild variant="secondary"><Link href="/photos"><Camera className="h-4 w-4" />Open travel album</Link></Button>
-            <Button asChild variant="secondary"><Link href="/ceremony">Final ceremony</Link></Button>
-          </div>
-        </Card>
-      </section>
-    </PageShell>
+      <Card>
+        <Badge>Recent activity</Badge>
+        <div className="mt-4 grid gap-3">
+          {activity.length === 0 && <p className="text-sm text-muted-foreground">No activity yet. Complete a quest or start assassin missions.</p>}
+          {activity.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-border bg-background p-4">
+              <p className="font-black">{item.title}</p>
+              <p className="text-sm text-muted-foreground">{item.subtitle}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
   );
 }

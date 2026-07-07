@@ -149,10 +149,10 @@ export async function launchBingoGame(input: {
 }) {
   const challenges = (await listBingoChallenges(input.groupId, input.gameId)).filter((challenge) => challenge.active);
   if (challenges.length < 24) {
-    throw new Error("Il faut au moins 24 défis actifs pour lancer le bingo.");
+    throw new Error("At least 24 active challenges are required to launch bingo.");
   }
   if (!input.players.length) {
-    throw new Error("Aucun joueur dans le groupe.");
+    throw new Error("No players in the group.");
   }
 
   const db = getFirebaseFirestore();
@@ -227,9 +227,9 @@ export async function submitBingoProof(input: {
   proofText: string;
 }) {
   const cell = input.card.cells[input.cellIndex];
-  if (!cell || cell.isFree) throw new Error("Cette case ne peut pas être soumise.");
+  if (!cell || cell.isFree) throw new Error("This cell cannot be submitted.");
   if (cell.status === "validated" || cell.status === "pending") {
-    throw new Error("Cette case est déjà validée ou en attente.");
+    throw new Error("This cell is already validated or pending.");
   }
 
   const db = getFirebaseFirestore();
@@ -250,7 +250,7 @@ export async function submitBingoProof(input: {
   });
 
   const nextCells = input.card.cells.map((entry, index) => index === input.cellIndex
-    ? { ...entry, status: "pending" as const, submissionId: submissionRef.id }
+    ? { ...entry, status: "pending" as const, submissionId: submissionRef.id, rejectionNote: "" }
     : entry);
 
   await updateDoc(doc(db, BINGO_CARDS, input.card.id), {
@@ -282,7 +282,7 @@ export async function reviewBingoSubmission(input: {
 }) {
   const db = getFirebaseFirestore();
   const cardSnapshot = await getDoc(doc(db, BINGO_CARDS, input.submission.cardId));
-  if (!cardSnapshot.exists()) throw new Error("Carte introuvable.");
+  if (!cardSnapshot.exists()) throw new Error("Card not found.");
   const card = { id: cardSnapshot.id, ...cardSnapshot.data() } as BingoCard;
 
   await updateDoc(doc(db, BINGO_SUBMISSIONS, input.submission.id), {
@@ -295,7 +295,12 @@ export async function reviewBingoSubmission(input: {
 
   if (input.status === "rejected") {
     const nextCells = card.cells.map((cell, index) => index === input.submission.cellIndex
-      ? { ...cell, status: "open" as const, submissionId: null }
+      ? {
+          ...cell,
+          status: "rejected" as const,
+          submissionId: null,
+          rejectionNote: input.adminComment?.trim() || "Proof rejected — try again with more detail."
+        }
       : cell);
     await updateDoc(doc(db, BINGO_CARDS, card.id), { cells: nextCells, updatedAt: serverTimestamp() });
     return { approved: false, newLines: [] as string[] };
@@ -355,8 +360,8 @@ export async function reviewBingoSubmission(input: {
       sourceType: "game",
       sourceId: input.submission.id,
       reason: newLines.length
-        ? `Bingo validé (+${gainedPoints} pts, ${newLines.length} ligne${newLines.length > 1 ? "s" : ""})`
-        : `Défi bingo validé (+${challengePoints} pts)`,
+        ? `Bingo validated (+${gainedPoints} pts, ${newLines.length} line${newLines.length > 1 ? "s" : ""})`
+        : `Bingo challenge validated (+${challengePoints} pts)`,
       createdBy: input.reviewedBy
     });
   }

@@ -20,7 +20,7 @@ export function BingoCelebration({ visible, lines, points }: { visible: boolean;
             🎉 BINGO !
           </motion.p>
           <p className="mt-3 text-lg font-black text-amber-900">
-            {lines.length} ligne{lines.length > 1 ? "s" : ""} complétée{lines.length > 1 ? "s" : ""}
+            {lines.length} line{lines.length > 1 ? "s" : ""} completed
           </p>
           <p className="mt-1 text-sm font-semibold text-amber-800">+{points} points bonus</p>
         </motion.div>

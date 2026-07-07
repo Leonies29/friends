@@ -144,7 +144,7 @@ export function CurrentUserProfile() {
             </div>
             <LevelMedallion level={profile.level} xp={profile.totalXp} className="h-28 w-28" />
           </div>
-          <div className="mt-7 rounded-[1.75rem] border border-border bg-white/45 p-4 dark:bg-white/5">
+          <div className="mt-7 rounded-[1.75rem] border border-border bg-surface-elevated">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="font-black">Next Level Progress</p>
               <Badge>{500 - (profile.totalXp % 500)} XP remaining</Badge>
@@ -166,7 +166,7 @@ export function CurrentUserProfile() {
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {members.map((member) => (
-              <div key={member.id} className="flex items-center gap-3 rounded-3xl border border-border bg-white/45 p-3 dark:bg-white/5">
+              <div key={member.id} className="flex items-center gap-3 rounded-3xl border border-border bg-surface-elevated">
                 <Avatar src={member.avatarUrl || fallbackUser.avatarUrl} alt={member.username} />
                 <div>
                   <p className="font-black">{member.username}</p>
@@ -196,7 +196,7 @@ export function CurrentUserProfile() {
           <Badge>Achievement Tracks</Badge>
           <div className="mt-5 grid gap-4">
             {(profile.achievements.length ? profile.achievements : fallbackUser.achievements).map((achievement) => (
-              <div key={achievement.id} className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+              <div key={achievement.id} className="rounded-3xl border border-border bg-surface-elevated">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="font-black">{achievement.title}</h3>
@@ -214,7 +214,7 @@ export function CurrentUserProfile() {
           <Badge>Unlocked Badges</Badge>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {(profile.badges.length ? profile.badges : fallbackUser.badges).map((badge) => (
-              <div key={badge.id} className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+              <div key={badge.id} className="rounded-3xl border border-border bg-surface-elevated">
                 <BadgeCheck className="h-7 w-7 text-accent" />
                 <h3 className="mt-3 font-black">{badge.name}</h3>
                 <p className="text-sm text-muted-foreground">{badge.description}</p>

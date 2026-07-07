@@ -2,14 +2,8 @@
 
 import { X } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
+import { GameSetupContent } from "@/components/game-setup/game-setup-content";
 import { isGameInMenu } from "@/lib/game-navigation";
-import { AssassinSetupPanel } from "@/components/game-setup/assassin-setup-panel";
-import { ChallengeSetupPanel } from "@/components/game-setup/challenge-setup-panel";
-import { BingoSetupPanel } from "@/components/game-setup/bingo-setup-panel";
-import { ChecklistSetupPanel } from "@/components/game-setup/checklist-setup-panel";
-import { QuizSetupPanel } from "@/components/game-setup/quiz-setup-panel";
-import { PhotoSetupPanel } from "@/components/game-setup/photo-setup-panel";
-import { QuestSetupPanel } from "@/components/game-setup/quest-setup-panel";
 import type { Game } from "@/types";
 
 const SETUP_LABELS: Record<Game["category"], string> = {
@@ -18,7 +12,7 @@ const SETUP_LABELS: Record<Game["category"], string> = {
   challenge: "Configure secret challenges",
   photo: "Configure travel album link",
   quiz: "Manage Istanbul & Turkey history questions",
-  bingo: "Configure le pool de défis et lance la partie",
+  bingo: "Configure the challenge pool and launch the game",
   custom: "Configure game content"
 };
 
@@ -52,15 +46,7 @@ export function GameSetupModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-          {game.category === "treasure" && <QuestSetupPanel groupId={groupId} />}
-          {game.category === "assassin" && <AssassinSetupPanel groupId={groupId} />}
-          {game.category === "challenge" && <ChallengeSetupPanel groupId={groupId} />}
-          {game.category === "photo" && <PhotoSetupPanel game={game} onSaved={onSaved} />}
-          {game.category === "bingo" && <BingoSetupPanel game={game} groupId={groupId} />}
-          {game.category === "quiz" && <QuizSetupPanel game={game} groupId={groupId} />}
-          {game.category === "custom" && (
-            <ChecklistSetupPanel game={game} onSaved={onSaved} />
-          )}
+          <GameSetupContent game={game} groupId={groupId} onSaved={onSaved} />
         </div>
       </Card>
     </div>

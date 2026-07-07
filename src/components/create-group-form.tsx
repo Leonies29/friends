@@ -34,16 +34,20 @@ export function CreateGroupForm() {
   const [destination, setDestination] = useState("");
   const [groupId, setGroupId] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [friendNicknames, setFriendNicknames] = useState<string[]>([""]);
+  const [myNickname, setMyNickname] = useState("");
+  const [friendNicknames, setFriendNicknames] = useState<string[]>([]);
   const [selectedVibes, setSelectedVibes] = useState<string[]>(["Funny", "Adventure"]);
   const [created, setCreated] = useState(false);
+  const [postCreateFriend, setPostCreateFriend] = useState("");
+  const [postCreateFriends, setPostCreateFriends] = useState<string[]>([]);
+  const [addingFriend, setAddingFriend] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const displayName = groupName.trim() || "Your new quest group";
   const displayDestination = destination.trim() || "your destination";
   const groupQuery = useMemo(() => {
-    const ownerNickname = friendNicknames.map((item) => item.trim()).find(Boolean) ?? "";
+    const ownerNickname = myNickname.trim();
     const params = new URLSearchParams({
       group: groupId || "new-group",
       inviteCode: inviteCode || "new-group",
@@ -52,7 +56,7 @@ export function CreateGroupForm() {
     });
     if (ownerNickname) params.set("nickname", ownerNickname);
     return params.toString();
-  }, [displayDestination, displayName, friendNicknames, groupId, inviteCode]);
+  }, [displayDestination, displayName, groupId, inviteCode, myNickname]);
   const registerHref = `/register?${groupQuery}`;
   const loginHref = `/login?${groupQuery}`;
   const joinHref = inviteCode ? buildJoinPath(inviteCode) : "";
@@ -60,6 +64,20 @@ export function CreateGroupForm() {
   async function handleCreate(formData: FormData) {
     setSaving(true);
     setError("");
+
+    const trimmedNickname = myNickname.trim();
+    if (!trimmedNickname) {
+      setError("Please enter your nickname before creating the group.");
+      setSaving(false);
+      return;
+    }
+
+    const trimmedFriends = friendNicknames.map((item) => item.trim()).filter(Boolean);
+    if (trimmedFriends.some((nickname) => nickname.toLowerCase() === trimmedNickname.toLowerCase())) {
+      setError("Your nickname must be different from your friends' nicknames.");
+      setSaving(false);
+      return;
+    }
 
     try {
       const selectedGameModes = formData.getAll("gameModes").map(String);
@@ -70,7 +88,8 @@ export function CreateGroupForm() {
         startDate: String(formData.get("startDate") ?? ""),
         endDate: String(formData.get("endDate") ?? ""),
         invitees: "",
-        friendNicknames: friendNicknames.map((item) => item.trim()).filter(Boolean),
+        ownerNickname: trimmedNickname,
+        friendNicknames: trimmedFriends,
         vibe: selectedVibes.join(", "),
         gameModes: selectedGameModes
       });
@@ -97,41 +116,57 @@ export function CreateGroupForm() {
             <Field name="startDate" label="Start date" type="date" />
             <Field name="endDate" label="End date" type="date" />
           </div>
-          <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+          <div className="rounded-3xl border border-border bg-surface-elevated p-4">
+            <p className="font-black">Me</p>
+            <p className="mt-1 text-sm text-muted-foreground">Your nickname in the game when you connect to this group.</p>
+            <div className="mt-4">
+              <Field
+                label="Your nickname"
+                placeholder="Example: Léonie"
+                value={myNickname}
+                onChange={(event) => setMyNickname(event.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-surface-elevated p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="font-black">Friends nicknames</p>
+                <p className="font-black">Friends</p>
                 <p className="text-sm text-muted-foreground">Add the exact nickname each friend will choose when joining with the invite code.</p>
               </div>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setFriendNicknames((items) => [...items, ""])}>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setFriendNicknames((items) => ["", ...items])}>
                 <Plus className="h-4 w-4" />
                 Add friend
               </Button>
             </div>
-            <div className="mt-4 grid gap-3">
-              {friendNicknames.map((nickname, index) => (
-                <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <Field
-                    label={`Friend ${index + 1}`}
-                    placeholder="Example: Yaman, Leonie, Marko..."
-                    value={nickname}
-                    onChange={(event) => setFriendNicknames((items) => items.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="self-end text-rose-500"
-                    onClick={() => setFriendNicknames((items) => items.length === 1 ? [""] : items.filter((_, itemIndex) => itemIndex !== index))}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Remove
-                  </Button>
-                </div>
-              ))}
-            </div>
+            {friendNicknames.length > 0 && (
+              <div className="mt-4 grid gap-3">
+                {friendNicknames.map((nickname, index) => (
+                  <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <Field
+                      label={`Friend ${index + 1}`}
+                      placeholder="Example: Yaman, Max, Marko..."
+                      value={nickname}
+                      onChange={(event) => setFriendNicknames((items) => items.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="self-end text-rose-500"
+                      onClick={() => setFriendNicknames((items) => items.filter((_, itemIndex) => itemIndex !== index))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+          <div className="rounded-3xl border border-border bg-surface-elevated p-4">
             <p className="font-black">Trip vibe</p>
             <p className="mt-1 text-sm text-muted-foreground">Select the mood of the trip. You can choose several.</p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -151,7 +186,7 @@ export function CreateGroupForm() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+          <div className="rounded-3xl border border-border bg-surface-elevated p-4">
             <p className="font-black">Game modes</p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {gameModes.map((mode) => (
@@ -194,7 +229,47 @@ export function CreateGroupForm() {
               <strong className="text-foreground">{displayName}</strong> is ready for {displayDestination}. Next, connect an existing account or create a new account linked to this group.
             </p>
 
-            <div className="mt-5 rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+            <div className="mt-5 rounded-3xl border border-border bg-surface-elevated p-4">
+              <p className="font-black">Add more friends</p>
+              <p className="mt-1 text-sm text-muted-foreground">Reserve nicknames so they can join with the invite code.</p>
+              <div className="mt-3 flex gap-2">
+                <Field
+                  label="Friend nickname"
+                  placeholder="Example: Sam"
+                  value={postCreateFriend}
+                  onChange={(event) => setPostCreateFriend(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="self-end"
+                  disabled={addingFriend || !postCreateFriend.trim() || !groupId}
+                  onClick={() => {
+                    const nickname = postCreateFriend.trim();
+                    if (!nickname || !groupId) return;
+                    setAddingFriend(true);
+                    void import("@/services/group-service")
+                      .then(({ addPlannedMemberSlot }) => addPlannedMemberSlot(groupId, nickname))
+                      .then(() => {
+                        setPostCreateFriends((items) => [...items, nickname]);
+                        setPostCreateFriend("");
+                      })
+                      .catch((err) => setError(err instanceof Error ? err.message : "Unable to add friend."))
+                      .finally(() => setAddingFriend(false));
+                  }}
+                >
+                  {addingFriend ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Add
+                </Button>
+              </div>
+              {postCreateFriends.length > 0 && (
+                <p className="mt-3 text-sm font-semibold text-emerald-700">
+                  Added: {postCreateFriends.join(", ")}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-border bg-surface-elevated p-4">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Invitation link</p>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div className="min-w-0">

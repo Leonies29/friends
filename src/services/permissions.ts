@@ -29,7 +29,7 @@ export const rolePermissions: Record<GroupRole, RolePermissions> = {
   ADMIN: {
     canDeleteGroup: false,
     canManageSettings: false,
-    canManageMembers: false,
+    canManageMembers: true,
     canManageGames: true,
     canManageScores: true,
     canManagePlanning: true,

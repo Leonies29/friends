@@ -1,6 +1,12 @@
 export type QuizCategory = "istanbul" | "turquie";
 export type QuizDifficulty = "easy" | "medium" | "hard";
 
+export type QuizSettings = {
+  questionsPerDay?: number;
+  timerSeconds?: number;
+  totalSeries?: number;
+};
+
 export interface QuizQuestion {
   id: string;
   groupId: string;
@@ -10,6 +16,8 @@ export interface QuizQuestion {
   correctAnswer: number;
   category: QuizCategory;
   difficulty: QuizDifficulty;
+  series?: number;
+  dayNumber?: number;
   active: boolean;
   archived?: boolean;
   createdAt?: string;

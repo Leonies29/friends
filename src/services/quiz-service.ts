@@ -83,6 +83,8 @@ export async function importQuizQuestions(
       correctAnswer: template.correctAnswer,
       category: template.category,
       difficulty: template.difficulty,
+      series: Math.floor(index / 10) + 1,
+      dayNumber: Math.floor(index / 3) + 1,
       active: true,
       archived: false,
       createdAt: serverTimestamp(),
@@ -99,6 +101,8 @@ export async function createQuizQuestion(groupId: string, gameId: string, input:
   category: QuizCategory;
   difficulty: QuizDifficulty;
   active?: boolean;
+  series?: number;
+  dayNumber?: number;
 }) {
   const db = getFirebaseFirestore();
   const created = await addDoc(collection(db, QUIZ_QUESTIONS), {
@@ -109,6 +113,8 @@ export async function createQuizQuestion(groupId: string, gameId: string, input:
     correctAnswer: input.correctAnswer,
     category: input.category,
     difficulty: input.difficulty,
+    series: input.series ?? 1,
+    dayNumber: input.dayNumber ?? 1,
     active: input.active ?? true,
     archived: false,
     createdAt: serverTimestamp(),
@@ -138,11 +144,21 @@ export async function getOrCreateQuizSession(input: {
   gameId: string;
   userId: string;
   displayName: string;
+  currentDay?: number;
+  questionsPerDay?: number;
 }) {
   const existing = await getQuizSession(input.groupId, input.gameId, input.userId);
   if (existing) return existing;
 
-  const questions = (await listQuizQuestions(input.groupId, input.gameId)).filter((question) => question.active);
+  const day = input.currentDay ?? 1;
+  const perDay = input.questionsPerDay ?? 0;
+  let questions = (await listQuizQuestions(input.groupId, input.gameId)).filter((question) => question.active);
+
+  if (perDay > 0) {
+    const dayQuestions = questions.filter((question) => (question.dayNumber ?? 1) === day);
+    questions = dayQuestions.length ? dayQuestions.slice(0, perDay) : questions.slice(0, perDay);
+  }
+
   if (!questions.length) throw new Error("No active questions found for this quiz.");
 
   const questionOrder = shuffle(questions.map((question) => question.id));
@@ -195,6 +211,7 @@ export async function submitQuizAnswer(input: {
   question: QuizQuestion;
   selectedAnswer: number;
   responseTimeMs: number;
+  timerSeconds?: number;
 }) {
   if (input.session.answeredQuestionIds.includes(input.question.id)) {
     throw new Error("You have already answered this question.");
@@ -203,7 +220,7 @@ export async function submitQuizAnswer(input: {
   const isCorrect = input.selectedAnswer >= 0
     && input.selectedAnswer <= 3
     && input.selectedAnswer === input.question.correctAnswer;
-  const points = scoreQuizAnswer(isCorrect, input.responseTimeMs);
+  const points = scoreQuizAnswer(isCorrect, input.responseTimeMs, input.timerSeconds);
   const db = getFirebaseFirestore();
 
   await addDoc(collection(db, QUIZ_ANSWERS), {

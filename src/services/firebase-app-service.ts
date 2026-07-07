@@ -32,6 +32,7 @@ export interface CreateGroupInput {
   startDate: string;
   endDate: string;
   invitees: string;
+  ownerNickname: string;
   friendNicknames: string[];
   vibe: string;
   gameModes: string[];
@@ -63,6 +64,8 @@ function buildInviteCode(groupName: string) {
 }
 
 export async function createFriendGroup(input: CreateGroupInput): Promise<CreatedGroup> {
+  const ownerNickname = input.ownerNickname.trim();
+  const friendNicknames = input.friendNicknames.map((item) => item.trim()).filter(Boolean);
   const group = await createGroup({
     name: input.name,
     destination: input.destination,
@@ -71,7 +74,7 @@ export async function createFriendGroup(input: CreateGroupInput): Promise<Create
     description: `Private quest space for ${input.destination.trim() || "a new destination"}.`,
     vibe: input.vibe.trim(),
     gameModes: input.gameModes,
-    participantNicknames: input.friendNicknames
+    participantNicknames: [ownerNickname, ...friendNicknames]
   });
 
   return {

@@ -19,9 +19,9 @@ export function shuffleQuestion(question: QuizQuestion): ShuffledQuizQuestion {
   return { question, shuffledAnswers, shuffledCorrectIndex, shuffleOrder: order };
 }
 
-export function scoreQuizAnswer(isCorrect: boolean, responseTimeMs: number) {
+export function scoreQuizAnswer(isCorrect: boolean, responseTimeMs: number, timerSeconds = QUIZ_TIMER_SECONDS) {
   if (!isCorrect) return 0;
-  const speedBonus = responseTimeMs <= QUIZ_TIMER_SECONDS * 1000 ? QUIZ_SPEED_BONUS : 0;
+  const speedBonus = responseTimeMs <= timerSeconds * 1000 ? QUIZ_SPEED_BONUS : 0;
   return QUIZ_BASE_POINTS + speedBonus;
 }
 

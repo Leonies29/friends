@@ -26,7 +26,7 @@ const CATEGORY_NAV: Record<GameCategory, { href: string; emoji: string; label: s
   photo: { href: "/photos", emoji: "📸", label: "Travel Album" },
   treasure: { href: "/questline", emoji: "🗺️", label: "Quests" },
   quiz: { href: "/quiz", emoji: "❓", label: "History Quiz" },
-  bingo: { href: "/bingo", emoji: "🎯", label: "Bingo Voyage" },
+  bingo: { href: "/bingo", emoji: "🎯", label: "Travel Bingo" },
   custom: { href: "/challenges", emoji: "🎮", label: "Custom" }
 };
 

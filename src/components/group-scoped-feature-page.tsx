@@ -170,7 +170,7 @@ export function GroupScopedFeaturePage({ title, eyebrow, description, emptyTitle
           <Badge>Members in this group only</Badge>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {members.map((member) => (
-              <div key={member.id} className="flex items-center gap-3 rounded-3xl border border-border bg-white/45 p-3 dark:bg-white/5">
+              <div key={member.id} className="flex items-center gap-3 rounded-3xl border border-border bg-surface-elevated">
                 <Avatar src={member.avatarUrl ?? ""} alt={member.username ?? "Member"} />
                 <p className="font-black">{member.username ?? "Unnamed member"}</p>
               </div>

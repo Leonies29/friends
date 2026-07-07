@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Loader2, MapPin, Plus, Users } from "lucide-react";
+import { ArrowRight, Archive, Loader2, MapPin, Plus, RotateCcw, Users } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/auth";
-import { setActiveGroupCookie } from "@/lib/session-cookies";
-import { activateGroupForUser, listUserMembershipGroups } from "@/services/group-service";
+import { clearActiveGroupCookie, setActiveGroupCookie } from "@/lib/session-cookies";
+import {
+  activateGroupForUser,
+  archiveUserGroup,
+  listArchivedUserGroups,
+  listUserMembershipGroups,
+  restoreUserGroup
+} from "@/services/group-service";
 import type { Group } from "@/types";
 import { Badge, Button, Card } from "@/components/ui";
 
@@ -19,8 +25,20 @@ export function SelectGroupPage() {
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
+  const [archivedGroups, setArchivedGroups] = useState<Group[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+
+  const reloadGroups = useCallback(async (currentUserId: string) => {
+    const [memberships, archived] = await Promise.all([
+      listUserMembershipGroups(currentUserId),
+      listArchivedUserGroups(currentUserId)
+    ]);
+    setGroups(memberships);
+    setArchivedGroups(archived);
+    return memberships;
+  }, []);
 
   const chooseGroup = useCallback(async (currentUserId: string, groupId: string, silent = false) => {
     if (!silent) setSubmittingId(groupId);
@@ -37,44 +55,91 @@ export function SelectGroupPage() {
     }
   }, [router]);
 
+  const openDashboard = useCallback((groupId: string) => {
+    setActiveGroupCookie(groupId);
+    router.replace("/dashboard");
+  }, [router]);
+
   useEffect(() => {
     const auth = getFirebaseAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      setUserId(user.uid);
-
-      try {
-        const [{ doc, getDoc }, { getFirebaseFirestore }] = await Promise.all([
-          import("firebase/firestore"),
-          import("@/firebase/firestore")
-        ]);
-        const db = getFirebaseFirestore();
-        const userSnapshot = await getDoc(doc(db, "users", user.uid));
-        const currentActiveGroupId = userSnapshot.exists()
-          ? (userSnapshot.data().activeGroupId as string | undefined) ?? null
-          : null;
-        setActiveGroupId(currentActiveGroupId);
-
-        const memberships = await listUserMembershipGroups(user.uid);
-        setGroups(memberships);
-
-        if (memberships.length === 1 && !allowSwitch) {
-          await chooseGroup(user.uid, memberships[0].id, true);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      void (async () => {
+        if (!user) {
+          router.replace("/login");
           return;
         }
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Unable to load your groups.");
-      } finally {
-        setLoading(false);
-      }
+
+        setUserId(user.uid);
+
+        let redirecting = false;
+        try {
+          const [{ doc, getDoc }, { getFirebaseFirestore }] = await Promise.all([
+            import("firebase/firestore"),
+            import("@/firebase/firestore")
+          ]);
+          const db = getFirebaseFirestore();
+          const userSnapshot = await getDoc(doc(db, "users", user.uid));
+          const currentActiveGroupId = userSnapshot.exists()
+            ? (userSnapshot.data().activeGroupId as string | undefined) ?? null
+            : null;
+          setActiveGroupId(currentActiveGroupId);
+
+          const memberships = await reloadGroups(user.uid);
+
+          if (memberships.length === 1 && !allowSwitch) {
+            redirecting = true;
+            const singleGroup = memberships[0];
+            if (currentActiveGroupId === singleGroup.id) {
+              openDashboard(singleGroup.id);
+              return;
+            }
+            await chooseGroup(user.uid, singleGroup.id, true);
+            return;
+          }
+        } catch (loadError) {
+          setError(loadError instanceof Error ? loadError.message : "Unable to load your groups.");
+        } finally {
+          if (!redirecting) setLoading(false);
+        }
+      })();
     });
 
     return () => unsubscribe();
-  }, [allowSwitch, chooseGroup, router]);
+  }, [allowSwitch, chooseGroup, openDashboard, reloadGroups, router]);
+
+  async function hideGroup(groupId: string) {
+    if (!userId) return;
+    setArchivingId(groupId);
+    setError("");
+
+    try {
+      await archiveUserGroup(userId, groupId);
+      if (activeGroupId === groupId) {
+        clearActiveGroupCookie();
+        setActiveGroupId(null);
+      }
+      await reloadGroups(userId);
+    } catch (archiveError) {
+      setError(archiveError instanceof Error ? archiveError.message : "Unable to hide this group.");
+    } finally {
+      setArchivingId(null);
+    }
+  }
+
+  async function unhideGroup(groupId: string) {
+    if (!userId) return;
+    setArchivingId(groupId);
+    setError("");
+
+    try {
+      await restoreUserGroup(userId, groupId);
+      await reloadGroups(userId);
+    } catch (restoreError) {
+      setError(restoreError instanceof Error ? restoreError.message : "Unable to restore this group.");
+    } finally {
+      setArchivingId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -127,15 +192,28 @@ export function SelectGroupPage() {
                         {group.memberIds?.length ?? 0} players
                       </p>
                     </div>
-                    <Button
-                      size="lg"
-                      className="w-full shrink-0 sm:w-auto"
-                      disabled={Boolean(submittingId)}
-                      onClick={() => userId && void chooseGroup(userId, group.id)}
-                    >
-                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                      {isActive && !allowSwitch ? "Continue" : "Play here"}
-                    </Button>
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0">
+                      <Button
+                        size="lg"
+                        className="w-full"
+                        disabled={Boolean(submittingId) || Boolean(archivingId)}
+                        onClick={() => userId && void chooseGroup(userId, group.id)}
+                      >
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                        {isActive && !allowSwitch ? "Continue" : "Play here"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-muted-foreground"
+                        disabled={Boolean(submittingId) || archivingId === group.id}
+                        onClick={() => void hideGroup(group.id)}
+                      >
+                        {archivingId === group.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+                        Hide group
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               );
@@ -158,6 +236,34 @@ export function SelectGroupPage() {
               <Button asChild>
                 <Link href="/join">Join with invite code</Link>
               </Button>
+            </div>
+          </Card>
+        )}
+
+        {archivedGroups.length > 0 && (
+          <Card className="p-5">
+            <Badge>Hidden</Badge>
+            <p className="mt-2 text-sm text-muted-foreground">Groups you archived. Restore them anytime.</p>
+            <div className="mt-4 grid gap-3">
+              {archivedGroups.map((group) => (
+                <div key={group.id} className="flex flex-col gap-3 rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-black">{group.name}</p>
+                    <p className="text-sm text-muted-foreground">{group.destination || "Trip destination"}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    disabled={archivingId === group.id}
+                    onClick={() => void unhideGroup(group.id)}
+                  >
+                    {archivingId === group.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    Restore
+                  </Button>
+                </div>
+              ))}
             </div>
           </Card>
         )}

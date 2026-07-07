@@ -82,7 +82,7 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
     <GameCard>
       <Badge>Join Existing Group</Badge>
       <h2 className="mt-3 text-3xl font-black">Have an invite code?</h2>
-      <p className="mt-2 text-muted-foreground">Enter the code from your friends, then choose the nickname prepared for you.</p>
+      <p className="mt-2 flex text-muted-foreground">Enter the code from your friends, then choose the nickname prepared for you.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <Field label="Invite code" placeholder="Example: SUMMER-482" value={inviteCode} onChange={(event) => setInviteCode(event.target.value)} />
         <Button type="button" onClick={findGroup} disabled={loading}>
@@ -94,7 +94,7 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
       {error && <p className="mt-4 rounded-2xl bg-rose-500/10 p-3 text-sm font-semibold text-rose-600">{error}</p>}
 
       {group && (
-        <div className="mt-5 rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+        <div className="mt-5 rounded-3xl border border-border bg-surface-elevated p-4">
           <Badge>Group found</Badge>
           <h3 className="mt-2 text-2xl font-black">{group.name}</h3>
           <p className="text-sm text-muted-foreground">{group.destination}</p>
@@ -127,7 +127,7 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
         </div>
       )}
 
-      <div className="mt-6 rounded-3xl border border-border bg-white/45 p-4 dark:bg-white/5">
+      <div className="mt-6 rounded-3xl border border-border bg-surface-elevated p-4">
         <p className="font-black">Already joined a group?</p>
         <p className="mt-1 text-sm text-muted-foreground">Sign in with your existing account. We will load the group already linked to your profile.</p>
         <Button asChild variant="secondary" className="mt-4">

@@ -13,6 +13,7 @@ import {
   Users
 } from "lucide-react";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
+import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManagePlanning, canManageScores, canModeratePhotos } from "@/services/permissions";
 import {
@@ -259,7 +260,7 @@ export function GroupPhotosPage() {
       event.currentTarget.reset();
       await loadPhotos(group.id);
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Impossible d'uploader la photo.");
+      setUploadError(error instanceof Error ? error.message : "Unable to upload the photo.");
     } finally {
       setUploading(false);
     }
@@ -315,6 +316,7 @@ export function GroupChallengesPage() {
   const [proofError, setProofError] = useState("");
   const canEdit = canManageGames(state.currentMember?.role);
   const canScore = canManageScores(state.currentMember?.role);
+  const canAssignToOthers = Boolean(state.userId);
 
   async function loadChallenges(groupId = state.group?.id) {
     if (!groupId) return;
@@ -327,18 +329,27 @@ export function GroupChallengesPage() {
   if (fallback) return fallback;
   const group = state.group!;
 
-  async function createChallenge(event: FormEvent<HTMLFormElement>) {
+  async function createChallenge(event: FormEvent<HTMLFormElement>, forPlayer = false) {
     event.preventDefault();
-    if (!canEdit) return;
+    if (forPlayer && !state.userId) return;
+    if (!forPlayer && !canEdit) return;
     setSaving(true);
     const form = new FormData(event.currentTarget);
     const ownerId = String(form.get("ownerId") ?? "");
+    if (forPlayer && ownerId === state.userId) {
+      setProofError("Assign the challenge to another participant.");
+      setSaving(false);
+      return;
+    }
     const owner = state.members.find((member) => member.id === ownerId || member.userId === ownerId);
+    const assigner = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
     const [{ addDoc, collection, serverTimestamp }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
     await addDoc(collection(getFirebaseFirestore(), "challenges"), {
       groupId: group.id,
       ownerId,
       ownerName: memberName(owner),
+      assignedById: forPlayer ? state.userId : state.userId,
+      assignedByName: forPlayer ? memberName(assigner) : "Admin",
       title: String(form.get("title") ?? ""),
       description: String(form.get("description") ?? ""),
       difficulty: String(form.get("difficulty") ?? "Easy"),
@@ -349,6 +360,7 @@ export function GroupChallengesPage() {
       updatedAt: serverTimestamp()
     });
     event.currentTarget.reset();
+    setProofError("");
     await loadChallenges(group.id);
     setSaving(false);
   }
@@ -390,16 +402,36 @@ export function GroupChallengesPage() {
       }
       event.currentTarget.reset();
     } catch (error) {
-      setProofError(error instanceof Error ? error.message : "Impossible d'envoyer la preuve.");
+      setProofError(error instanceof Error ? error.message : "Unable to submit the proof.");
     }
   }
 
   return (
     <div className="grid gap-6">
-      <PageHero eyebrow="Secret challenges" title="Challenges" description="Reusable group challenges with proof and admin approval." group={group} />
+      <PageHero eyebrow="Secret challenges" title="Challenges" description="Everyone can assign private missions to other participants. Admins approve proofs." group={group} />
+      {canAssignToOthers && (
+        <Card>
+          <Badge>Assign a mission</Badge>
+          <p className="mt-2 text-sm text-muted-foreground">Pick another participant and give them a secret challenge.</p>
+          <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={(event) => void createChallenge(event, true)}>
+            <input name="title" required placeholder="Challenge title" className={inputClass} />
+            <select name="ownerId" required className={inputClass}>
+              <option value="">Choose a participant</option>
+              {filterActiveGameMembers(state.members)
+                .filter((member) => (member.userId || member.id) !== state.userId)
+                .map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}
+            </select>
+            <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
+            <input name="xpReward" type="number" defaultValue={50} className={inputClass} />
+            <textarea name="description" required placeholder="Challenge description" className={`${textareaClass} md:col-span-2`} />
+            {proofError && <p className="text-sm font-semibold text-rose-700 md:col-span-2">{proofError}</p>}
+            <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />{saving ? "Saving..." : "Assign challenge"}</Button>
+          </form>
+        </Card>
+      )}
       {canEdit && (
         <Card>
-          <form className="grid gap-3 md:grid-cols-2" onSubmit={createChallenge}>
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void createChallenge(event, false)}>
             <input name="title" required placeholder="Challenge title" className={inputClass} />
             <select name="ownerId" required className={inputClass}><option value="">Choose a participant</option>{state.members.map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}</select>
             <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
@@ -418,7 +450,7 @@ export function GroupChallengesPage() {
               <div>
                 <Badge>{challenge.difficulty} / {challenge.xpReward} XP / {challenge.status}</Badge>
                 <h2 className="mt-3 text-2xl font-black">{challenge.title}</h2>
-                <p className="mt-1 text-muted-foreground">For {challenge.ownerName}</p>
+                <p className="mt-1 text-muted-foreground">For {challenge.ownerName}{challenge.assignedByName ? ` · from ${challenge.assignedByName}` : ""}</p>
                 {(challenge.ownerId === state.userId || challenge.status !== "secret") && <p className="mt-3 text-sm text-muted-foreground">{challenge.description}</p>}
               </div>
               <div className="flex flex-wrap gap-2">

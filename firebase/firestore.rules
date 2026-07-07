@@ -105,5 +105,98 @@ service cloud.firestore {
       allow read: if isGroupMember(resource.data.groupId);
       allow create, update: if isGroupMember(request.resource.data.groupId);
     }
+
+    match /assassinGames/{gameId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if canManageGroup(request.resource.data.groupId);
+    }
+
+    match /assassinPlayers/{playerId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if canManageGroup(request.resource.data.groupId)
+        || isGroupMember(request.resource.data.groupId);
+    }
+
+    match /assassinMissions/{missionId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if canManageGroup(request.resource.data.groupId)
+        || isGroupMember(request.resource.data.groupId);
+    }
+
+    match /assassinEliminations/{eliminationId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create: if isGroupMember(request.resource.data.groupId)
+        && request.auth.uid == request.resource.data.killerId
+        && request.resource.data.status == 'pending';
+      allow update: if isGroupMember(resource.data.groupId)
+        && (
+          (request.auth.uid == resource.data.victimId && resource.data.status == 'pending')
+          || canManageGroup(resource.data.groupId)
+        );
+    }
+
+    match /assassinSetups/{setupId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if canManageGroup(request.resource.data.groupId);
+    }
+
+    match /assassinMissionTemplates/{templateId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update, delete: if canManageGroup(
+        request.resource != null ? request.resource.data.groupId : resource.data.groupId
+      );
+    }
+
+    match /activityFeed/{entryId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create: if isGroupMember(request.resource.data.groupId);
+    }
+
+    match /challenges/{challengeId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create: if isGroupMember(request.resource.data.groupId)
+        && (
+          canManageGroup(request.resource.data.groupId)
+          || (
+            request.auth.uid == request.resource.data.assignedById
+            && request.resource.data.ownerId != request.auth.uid
+          )
+        );
+      allow update: if canManageGroup(resource.data.groupId)
+        || (
+          isGroupMember(resource.data.groupId)
+          && request.auth.uid == resource.data.ownerId
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'proof', 'updatedAt'])
+        );
+      allow delete: if canManageGroup(resource.data.groupId);
+    }
+
+    match /votes/{voteId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update: if isGroupMember(request.resource.data.groupId)
+        && request.auth.uid == request.resource.data.voterId;
+    }
+
+    match /awardCategories/{categoryId} {
+      allow read: if isGroupMember(resource.data.groupId);
+      allow create, update, delete: if canManageGroup(
+        request.resource != null ? request.resource.data.groupId : resource.data.groupId
+      );
+    }
+
+    match /groupMembers/{memberId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+    }
+
+    match /friendGroups/{groupId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+    }
   }
 }

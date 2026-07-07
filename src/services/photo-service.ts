@@ -46,11 +46,11 @@ function sanitizeFileName(fileName: string) {
 
 function assertValidImage(file: File) {
   if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    throw new PhotoUploadError("Image trop volumineuse. La taille maximale est de 5 Mo.", "file-too-large");
+    throw new PhotoUploadError("Image too large. Maximum size is 5 MB.", "file-too-large");
   }
 
   if (typeof navigator !== "undefined" && !navigator.onLine) {
-    throw new PhotoUploadError("Connexion perdue. Vérifie ta connexion internet puis réessaie.", "offline");
+    throw new PhotoUploadError("Connection lost. Check your internet connection and try again.", "offline");
   }
 }
 
@@ -59,10 +59,10 @@ function normalizeUploadError(error: unknown): PhotoUploadError {
 
   const message = error instanceof Error ? error.message : "";
   if (message.includes("storage/retry-limit-exceeded") || message.includes("storage/canceled") || message.includes("storage/unknown")) {
-    return new PhotoUploadError("L'upload a échoué. Vérifie ta connexion puis réessaie.", "upload-failed");
+    return new PhotoUploadError("Upload failed. Check your connection and try again.", "upload-failed");
   }
 
-  return new PhotoUploadError("Impossible d'uploader la photo pour le moment.", "upload-failed");
+  return new PhotoUploadError("Unable to upload the photo right now.", "upload-failed");
 }
 
 export async function uploadChallengePhoto(file: File, userId: string, challengeId: string): Promise<ChallengePhotoMetadata> {

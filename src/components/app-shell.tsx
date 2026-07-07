@@ -37,10 +37,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!state.group?.id || !state.userId) return;
-    void listXpTransactions(state.group.id).then((transactions) => {
-      const xp = transactions.filter((item) => item.userId === state.userId).reduce((sum, item) => sum + item.amount, 0);
-      setTotalXp(xp);
-    });
+    void listXpTransactions(state.group.id)
+      .then((transactions) => {
+        const xp = transactions.filter((item) => item.userId === state.userId).reduce((sum, item) => sum + item.amount, 0);
+        setTotalXp(xp);
+      })
+      .catch(() => undefined);
   }, [state.group?.id, state.userId]);
 
   useEffect(() => {
@@ -48,7 +50,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setGames([]);
       return;
     }
-    const reload = () => void ensureDefaultGames(state.group!.id).then(setGames);
+    const reload = () => {
+      void ensureDefaultGames(state.group!.id).then(setGames).catch(() => undefined);
+    };
     reload();
     window.addEventListener(GAMES_UPDATED_EVENT, reload);
     return () => window.removeEventListener(GAMES_UPDATED_EVENT, reload);
@@ -63,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0">
-      <aside className="fixed left-4 top-4 z-40 hidden h-[calc(100vh-2rem)] w-80 flex-col rounded-[1.75rem] border border-border bg-[#f6ead8] p-4 shadow-xl shadow-slate-950/10 lg:flex">
+      <aside className="fixed left-4 top-4 z-40 hidden h-[calc(100vh-2rem)] w-80 flex-col rounded-[1.75rem] border border-border bg-surface-warm p-4 shadow-xl shadow-slate-950/10 lg:flex">
         <Link href="/dashboard" className="rounded-[1.5rem] bg-primary p-5 text-primary-foreground">
           <p className="text-xs font-black uppercase tracking-[0.35em] text-primary-foreground/70">Adventure Pass</p>
           <h1 className="mt-2 font-display text-4xl font-black leading-none">Istanbul Quest</h1>
@@ -72,7 +76,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="mt-4 rounded-[1.5rem] border border-border bg-card p-4">
           <div className="flex items-center gap-4">
-            <Avatar src={currentMember?.avatarUrl ?? ""} alt={displayName} className="h-14 w-14" />
+            <Link href="/settings" aria-label="Open settings" className="shrink-0 rounded-full transition hover:opacity-90">
+              <Avatar src={currentMember?.avatarUrl ?? ""} alt={displayName} className="h-14 w-14" />
+            </Link>
             <div className="min-w-0 flex-1">
               <Badge>Level {level}</Badge>
               <p className="mt-2 truncate text-xl font-black">{displayName}</p>
@@ -109,25 +115,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
 
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 py-3 backdrop-blur lg:ml-[21rem] lg:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-          <Link href="/dashboard" className="flex min-w-0 items-center gap-3">
-            <Avatar src={currentMember?.avatarUrl ?? ""} alt={displayName} className="lg:hidden" />
-            <div className="min-w-0">
-              <p className="truncate font-black">{displayName}</p>
-              <p className="truncate text-xs font-semibold text-muted-foreground">{state.group?.name ?? `Level ${level}`}</p>
-            </div>
+      <div className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex items-center gap-2">
+        <Button variant="secondary" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
+          <Sun className="h-4 w-4 dark:hidden" />
+          <Moon className="hidden h-4 w-4 dark:block" />
+        </Button>
+        <Button variant="ghost" size="sm" onClick={logout}>
+          <LogOut className="h-4 w-4" />
+          <span className="hidden sm:inline">Log out</span>
+        </Button>
+      </div>
+
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 py-3 pr-28 backdrop-blur sm:pr-32 lg:ml-[21rem] lg:px-8 lg:pr-8">
+        <div className="mx-auto flex max-w-7xl items-center gap-3">
+          <Link href="/settings" aria-label="Open settings" className="shrink-0 rounded-full transition hover:opacity-90 lg:hidden">
+            <Avatar src={currentMember?.avatarUrl ?? ""} alt={displayName} />
           </Link>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-              <Sun className="h-4 w-4 dark:hidden" />
-              <Moon className="hidden h-4 w-4 dark:block" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={logout}>
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Log out</span>
-            </Button>
-          </div>
+          <Link href="/dashboard" className="min-w-0 flex-1">
+            <p className="truncate font-black">{displayName}</p>
+            <p className="truncate text-xs font-semibold text-muted-foreground">{state.group?.name ?? `Level ${level}`}</p>
+          </Link>
         </div>
       </header>
 

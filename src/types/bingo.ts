@@ -33,6 +33,7 @@ export interface BingoCell {
   isFree?: boolean;
   status: BingoCellStatus;
   submissionId?: string | null;
+  rejectionNote?: string;
 }
 
 export interface BingoCard {

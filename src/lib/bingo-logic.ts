@@ -26,7 +26,7 @@ export function buildFreeCell(index = BINGO_CENTER_INDEX): BingoCell {
     col,
     challengeId: null,
     title: "FREE",
-    description: "Case gratuite — déjà validée !",
+    description: "Free space — already validated!",
     category: "custom",
     difficulty: "common",
     points: 0,
@@ -56,7 +56,7 @@ export function buildChallengeCell(index: number, challenge: BingoChallenge): Bi
 export function generatePlayerGrid(challenges: BingoChallenge[]) {
   const active = challenges.filter((challenge) => challenge.active && !challenge.archived);
   if (active.length < 24) {
-    throw new Error("Il faut au moins 24 défis actifs pour lancer une partie.");
+    throw new Error("At least 24 active challenges are required to start a game.");
   }
 
   const picked = shuffle(active);

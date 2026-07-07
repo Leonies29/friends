@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { GameCustomizeModal } from "@/components/game-customize-modal";
 import { GameSetupModal } from "@/components/game-setup-modal";
@@ -8,13 +9,10 @@ import { notifyGamesUpdated } from "@/lib/game-events";
 import { getGameNavTarget, isGameInMenu } from "@/lib/game-navigation";
 import {
   archiveGame,
-  createGame,
   duplicateGame,
   toggleGameActive
 } from "@/services/game-service";
-import type { Game, GameCategory } from "@/types";
-
-const inputClass = "w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold";
+import type { Game } from "@/types";
 
 function EmojiControl({
   emoji,
@@ -54,13 +52,14 @@ function gameStatusEmoji(game: Game) {
 export function GameManagementPanel({
   groupId,
   games,
-  onReload
+  onReload,
+  embedded = false
 }: {
   groupId: string;
   games: Game[];
   onReload: () => Promise<void>;
+  embedded?: boolean;
 }) {
-  const [saving, setSaving] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [setupGame, setSetupGame] = useState<Game | null>(null);
 
@@ -75,25 +74,79 @@ export function GameManagementPanel({
     notifyGamesUpdated();
   }
 
-  async function handleCreateGame(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    const form = new FormData(event.currentTarget);
-    await createGame(groupId, {
-      title: String(form.get("title") ?? ""),
-      description: String(form.get("description") ?? ""),
-      icon: String(form.get("icon") ?? "Gamepad2"),
-      category: String(form.get("category") ?? "custom") as GameCategory
-    });
-    event.currentTarget.reset();
-    await refresh();
-    setSaving(false);
-  }
-
   async function handleToggle(game: Game) {
     await toggleGameActive(game);
     await refresh();
   }
+
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        {!embedded && (
+          <div className="min-w-0">
+            <Badge>Games</Badge>
+            <p className="mt-2 text-sm text-muted-foreground">
+              ⚙️ configure content · ▶️ show in menu · ✏️ edit title and XP
+            </p>
+          </div>
+        )}
+        <Button
+          asChild
+          variant="secondary"
+          size="sm"
+          className={`h-9 w-9 shrink-0 rounded-2xl px-0 ${embedded ? "ml-auto" : ""}`}
+          title="Create game"
+          aria-label="Create game"
+        >
+          <Link href="/admin/games/new">➕</Link>
+        </Button>
+      </div>
+
+      <div className={`grid gap-2 ${embedded ? "mt-3" : "mt-5"}`}>
+        {activeGames.map((game) => {
+          const nav = getGameNavTarget(game.category);
+          const inMenu = isGameInMenu(game);
+          return (
+            <div key={game.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-background px-3 py-3 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <span className="shrink-0 text-xl" title={inMenu ? "In menu" : "Hidden"}>{gameStatusEmoji(game)}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="break-words font-black">{game.title}</p>
+                    <span className="text-xs font-semibold text-muted-foreground">{nav.emoji} {nav.label}</span>
+                  </div>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">{game.description}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
+                <EmojiControl emoji="⚙️" label="Configure game content" onClick={() => setSetupGame(game)} />
+                <EmojiControl emoji="✏️" label="Edit title and XP rules" onClick={() => setEditingGame(game)} />
+                <EmojiControl
+                  emoji={inMenu ? "⏸️" : "▶️"}
+                  label={inMenu ? "Hide from menu" : "Show in menu"}
+                  active={inMenu}
+                  onClick={() => void handleToggle(game)}
+                />
+                <EmojiControl emoji="📋" label="Duplicate" onClick={() => void duplicateGame(game).then(refresh)} />
+                <EmojiControl emoji="🗑️" label="Archive" onClick={() => void archiveGame(game.id).then(refresh)} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {archivedGames.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-dashed border-border p-3">
+          <p className="text-sm font-black">📦 Archived ({archivedGames.length})</p>
+          <div className="mt-2 grid gap-2">
+            {archivedGames.map((game) => (
+              <p key={game.id} className="text-sm text-muted-foreground">{game.title}</p>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -114,73 +167,7 @@ export function GameManagementPanel({
         />
       )}
 
-      <Card>
-        <Badge>Games</Badge>
-        <p className="mt-2 text-sm text-muted-foreground">
-          ⚙️ configure content · ▶️ show in menu · ✏️ edit title and XP
-        </p>
-
-        <form className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]" onSubmit={(event) => void handleCreateGame(event)}>
-          <input name="title" required placeholder="Game title" className={inputClass} />
-          <select name="category" className={inputClass} defaultValue="custom">
-            <option value="custom">Custom</option>
-            <option value="challenge">Challenge</option>
-            <option value="photo">Photo</option>
-            <option value="treasure">Treasure Hunt</option>
-            <option value="quiz">Quiz</option>
-            <option value="bingo">Bingo</option>
-            <option value="assassin">Assassin</option>
-          </select>
-          <Button type="submit" disabled={saving} className="h-11 w-11 shrink-0 rounded-2xl px-0" title="Create game" aria-label="Create game">
-            ➕
-          </Button>
-          <input name="description" placeholder="Short description" className={`${inputClass} md:col-span-3`} />
-        </form>
-
-        <div className="mt-5 grid gap-2">
-          {activeGames.map((game) => {
-            const nav = getGameNavTarget(game.category);
-            const inMenu = isGameInMenu(game);
-            return (
-              <div key={game.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-background px-3 py-3 sm:flex-row sm:items-center">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <span className="shrink-0 text-xl" title={inMenu ? "In menu" : "Hidden"}>{gameStatusEmoji(game)}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="break-words font-black">{game.title}</p>
-                      <span className="text-xs font-semibold text-muted-foreground">{nav.emoji} {nav.label}</span>
-                    </div>
-                    <p className="line-clamp-2 text-sm text-muted-foreground">{game.description}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
-                  <EmojiControl emoji="⚙️" label="Configure game content" onClick={() => setSetupGame(game)} />
-                  <EmojiControl emoji="✏️" label="Edit title and XP rules" onClick={() => setEditingGame(game)} />
-                  <EmojiControl
-                    emoji={inMenu ? "⏸️" : "▶️"}
-                    label={inMenu ? "Hide from menu" : "Show in menu"}
-                    active={inMenu}
-                    onClick={() => void handleToggle(game)}
-                  />
-                  <EmojiControl emoji="📋" label="Duplicate" onClick={() => void duplicateGame(game).then(refresh)} />
-                  <EmojiControl emoji="🗑️" label="Archive" onClick={() => void archiveGame(game.id).then(refresh)} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {archivedGames.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-dashed border-border p-3">
-            <p className="text-sm font-black">📦 Archived ({archivedGames.length})</p>
-            <div className="mt-2 grid gap-2">
-              {archivedGames.map((game) => (
-                <p key={game.id} className="text-sm text-muted-foreground">{game.title}</p>
-              ))}
-            </div>
-          </div>
-        )}
-      </Card>
+      {embedded ? body : <Card>{body}</Card>}
     </>
   );
 }

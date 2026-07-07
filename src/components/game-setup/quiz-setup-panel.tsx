@@ -10,6 +10,7 @@ import {
   importQuizQuestions,
   updateQuizQuestion
 } from "@/services/quiz-service";
+import { updateGame } from "@/services/game-service";
 import type { Game } from "@/types";
 import type { QuizCategory, QuizDifficulty, QuizQuestion } from "@/types/quiz";
 
@@ -19,6 +20,22 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const [questionsPerDay, setQuestionsPerDay] = useState(String(game.settings?.questionsPerDay ?? 3));
+  const [timerSeconds, setTimerSeconds] = useState(String(game.settings?.timerSeconds ?? 20));
+  const [totalSeries, setTotalSeries] = useState(String(game.settings?.totalSeries ?? 3));
+
+  async function saveSettings() {
+    await updateGame(game.id, {
+      settings: {
+        ...game.settings,
+        questionsPerDay: Number(questionsPerDay) || 3,
+        timerSeconds: Number(timerSeconds) || 20,
+        totalSeries: Number(totalSeries) || 3
+      }
+    });
+    setMessage("Quiz settings saved.");
+  }
 
   async function load() {
     setLoading(true);
@@ -42,7 +59,9 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
       answers,
       correctAnswer: Number(form.get("correctAnswer") ?? 0),
       category: String(form.get("category") ?? "istanbul") as QuizCategory,
-      difficulty: String(form.get("difficulty") ?? "easy") as QuizDifficulty
+      difficulty: String(form.get("difficulty") ?? "easy") as QuizDifficulty,
+      series: Number(form.get("series") ?? 1),
+      dayNumber: Number(form.get("dayNumber") ?? 1)
     });
     event.currentTarget.reset();
     setMessage("Question added.");
@@ -54,6 +73,26 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
   return (
     <div className="grid gap-4">
       {message && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</p>}
+
+      <Card className="p-4">
+        <Badge>Quiz settings</Badge>
+        <p className="mt-2 text-sm text-muted-foreground">Organize questions by day and series. Players get questions for the current trip day.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <label className="grid gap-1 text-sm font-bold text-muted-foreground">
+            Questions / day
+            <input className={inputClass} value={questionsPerDay} onChange={(event) => setQuestionsPerDay(event.target.value)} type="number" min={1} />
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-muted-foreground">
+            Timer (seconds)
+            <input className={inputClass} value={timerSeconds} onChange={(event) => setTimerSeconds(event.target.value)} type="number" min={5} />
+          </label>
+          <label className="grid gap-1 text-sm font-bold text-muted-foreground">
+            Series count
+            <input className={inputClass} value={totalSeries} onChange={(event) => setTotalSeries(event.target.value)} type="number" min={1} />
+          </label>
+        </div>
+        <Button className="mt-3" size="sm" variant="secondary" onClick={() => void saveSettings()}>Save settings</Button>
+      </Card>
 
       <Card className="p-4">
         <Badge>Import</Badge>
@@ -70,7 +109,9 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
         <input name="answerB" required placeholder="Answer B" className={inputClass} />
         <input name="answerC" required placeholder="Answer C" className={inputClass} />
         <input name="answerD" required placeholder="Answer D" className={inputClass} />
-        <div className="grid gap-2 md:grid-cols-3">
+        <div className="grid gap-2 md:grid-cols-5">
+          <input name="series" type="number" min={1} defaultValue={1} placeholder="Series" className={inputClass} />
+          <input name="dayNumber" type="number" min={1} defaultValue={1} placeholder="Day" className={inputClass} />
           <select name="correctAnswer" className={inputClass} defaultValue="0">
             <option value="0">Correct answer: A</option>
             <option value="1">Correct answer: B</option>

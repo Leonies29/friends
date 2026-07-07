@@ -2,13 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Copy, Loader2, Minus, Plus } from "lucide-react";
-import { AssassinEmergencyPanel } from "@/components/admin/assassin-emergency-panel";
+import { AssassinEmergencySection } from "@/components/admin/assassin-emergency-panel";
 import { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
+import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
+import { MembersManagementPanel } from "@/components/admin/members-management-panel";
 import { GameManagementPanel } from "@/components/game-management-panel";
 import { Badge, Button, Card } from "@/components/ui";
 import { buildInviteLink } from "@/lib/app-paths";
+import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
-import { canManageGames, canManageScores, resolveEffectiveRole } from "@/services/permissions";
+import { canManageGames, canManageMembers, canManageScores, resolveEffectiveRole } from "@/services/permissions";
 import { ensureDefaultGames } from "@/services/game-service";
 import { addXpTransaction } from "@/services/xp-service";
 import type { Game } from "@/types";
@@ -40,7 +43,9 @@ export function AdminDashboard() {
   const [inviteLink, setInviteLink] = useState("");
 
   const role = resolveEffectiveRole(state.currentMember, state.group, state.userId);
-  const canAdmin = canManageGames(role) || canManageScores(role);
+  const canAdmin = canManageGames(role) || canManageScores(role) || canManageMembers(role);
+  const canMembers = canManageMembers(role);
+  const activeMembers = filterActiveGameMembers(state.members);
 
   async function loadAdmin(groupId = state.group?.id) {
     if (!groupId) return;
@@ -117,22 +122,8 @@ export function AdminDashboard() {
   const inviteCode = group.inviteCode ?? "";
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-4 sm:gap-5">
       <AdminHero group={group} />
-
-      <Card>
-        <Badge>Invitation</Badge>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-wide text-muted-foreground">Invite code</p>
-            <p className="text-2xl font-black">{inviteCode}</p>
-            <p className="mt-2 break-all text-sm font-semibold text-muted-foreground">{inviteLink || buildInviteLink(inviteCode)}</p>
-          </div>
-          <Button variant="secondary" onClick={() => navigator.clipboard?.writeText(inviteLink || buildInviteLink(inviteCode))}>
-            <Copy className="h-4 w-4" />Copy link
-          </Button>
-        </div>
-      </Card>
 
       {loadError && (
         <Card className="border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700">
@@ -141,36 +132,81 @@ export function AdminDashboard() {
         </Card>
       )}
 
-      {loadingGames ? (
-        <Card className="flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-accent" />
-          <p className="font-semibold text-muted-foreground">Loading games...</p>
-        </Card>
-      ) : (
-        <GameManagementPanel groupId={group.id} games={games} onReload={async () => { await loadAdmin(group.id); }} />
+      <AdminCollapsibleSection
+        title="Games"
+        emoji="🎮"
+        summary="Configure, activate, and create trip games."
+      >
+        {loadingGames ? (
+          <Card className="flex items-center gap-3 border-0 p-0 shadow-none">
+            <Loader2 className="h-5 w-5 animate-spin text-accent" />
+            <p className="font-semibold text-muted-foreground">Loading games...</p>
+          </Card>
+        ) : (
+          <GameManagementPanel groupId={group.id} games={games} onReload={async () => { await loadAdmin(group.id); }} embedded />
+        )}
+      </AdminCollapsibleSection>
+
+      {canMembers && (
+        <AdminCollapsibleSection
+          title="Players"
+          emoji="👥"
+          summary="Activate guests, deactivate players, and manage invite slots."
+        >
+          <MembersManagementPanel embedded />
+        </AdminCollapsibleSection>
       )}
 
-      <AssassinEmergencyPanel groupId={group.id} members={state.members} />
+      <AssassinEmergencySection groupId={group.id} members={state.members} />
+
+      <AdminCollapsibleSection
+        title="Ceremony"
+        emoji="🏆"
+        summary="Reveal award winners when everyone has voted."
+      >
+        <AwardsRevealSection members={state.members} groupId={group.id} embedded />
+      </AdminCollapsibleSection>
+
+      <AdminCollapsibleSection
+        title="Invitation"
+        emoji="🔗"
+        summary="Share the invite code and link with your friends."
+      >
+        <div className="grid gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">Invite code</p>
+            <p className="text-xl font-black">{inviteCode}</p>
+            <p className="mt-2 break-all text-xs font-semibold text-muted-foreground">{inviteLink || buildInviteLink(inviteCode)}</p>
+          </div>
+          <Button variant="secondary" size="sm" className="w-full sm:w-fit" onClick={() => navigator.clipboard?.writeText(inviteLink || buildInviteLink(inviteCode))}>
+            <Copy className="h-4 w-4" />Copy link
+          </Button>
+        </div>
+      </AdminCollapsibleSection>
 
       {canManageScores(role) && (
-        <Card>
-          <Badge>Score adjustments</Badge>
-          <form className="mt-4 grid gap-3" onSubmit={(event) => void handleXp(event, 1)}>
-            <select name="userId" required className={`${inputClass} w-full`}>
+        <AdminCollapsibleSection
+          title="Score adjustments"
+          emoji="⭐"
+          summary="Add or remove XP for a player."
+        >
+          <form className="grid max-w-md gap-3" onSubmit={(event) => void handleXp(event, 1)}>
+            <select name="userId" required className={`${inputClass} w-full text-sm`}>
               <option value="">Choose player</option>
-              {state.members.map((member) => (
+              {activeMembers.map((member) => (
                 <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>
               ))}
             </select>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input name="amount" type="number" min={1} required placeholder="XP" className={inputClass} />
-              <input name="reason" placeholder="Reason" className={inputClass} />
+            <div className="grid gap-3">
+              <input name="amount" type="number" min={1} required placeholder="XP" className={`${inputClass} text-sm`} />
+              <input name="reason" placeholder="Reason" className={`${inputClass} text-sm`} />
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button type="submit"><Plus className="h-4 w-4" />Add XP</Button>
+              <Button type="submit" size="sm"><Plus className="h-4 w-4" />Add XP</Button>
               <Button
                 type="button"
                 variant="secondary"
+                size="sm"
                 onClick={(event) => {
                   const form = event.currentTarget.closest("form");
                   if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);
@@ -180,10 +216,8 @@ export function AdminDashboard() {
               </Button>
             </div>
           </form>
-        </Card>
+        </AdminCollapsibleSection>
       )}
-
-      <AwardsRevealSection members={state.members} groupId={group.id} />
     </div>
   );
 }

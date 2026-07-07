@@ -21,9 +21,9 @@ export function RpgProgressPanel() {
       </div>
       <Progress value={getLevelProgress(currentUser.totalXp)} className="mt-5" />
       <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-        <div className="rounded-2xl bg-white/45 p-3 dark:bg-white/5"><Star className="mx-auto h-5 w-5 text-accent" /><p className="mt-1 text-lg font-black">{currentUser.totalXp}</p><p className="text-[10px] font-bold uppercase text-muted-foreground">XP</p></div>
-        <div className="rounded-2xl bg-white/45 p-3 dark:bg-white/5"><Compass className="mx-auto h-5 w-5 text-accent" /><p className="mt-1 text-lg font-black">{questProgress}%</p><p className="text-[10px] font-bold uppercase text-muted-foreground">Route</p></div>
-        <div className="rounded-2xl bg-white/45 p-3 dark:bg-white/5"><Award className="mx-auto h-5 w-5 text-accent" /><p className="mt-1 text-lg font-black">{currentUser.badges.length}</p><p className="text-[10px] font-bold uppercase text-muted-foreground">Badges</p></div>
+        <div className="rounded-2xl bg-surface-elevated-muted p-3"><Star className="mx-auto h-5 w-5 text-accent" /><p className="mt-1 text-lg font-black">{currentUser.totalXp}</p><p className="text-[10px] font-bold uppercase text-muted-foreground">XP</p></div>
+        <div className="rounded-2xl bg-surface-elevated-muted p-3"><Compass className="mx-auto h-5 w-5 text-accent" /><p className="mt-1 text-lg font-black">{questProgress}%</p><p className="text-[10px] font-bold uppercase text-muted-foreground">Route</p></div>
+        <div className="rounded-2xl bg-surface-elevated-muted p-3"><Award className="mx-auto h-5 w-5 text-accent" /><p className="mt-1 text-lg font-black">{currentUser.badges.length}</p><p className="text-[10px] font-bold uppercase text-muted-foreground">Badges</p></div>
       </div>
     </Card>
   );

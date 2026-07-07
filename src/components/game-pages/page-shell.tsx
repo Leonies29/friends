@@ -23,7 +23,7 @@ export function PageShell({
   return (
     <div className="grid gap-4 sm:gap-6">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <Card className="bg-[#f6ead8]">
+        <Card className="bg-surface-warm">
           <Badge>{eyebrow}</Badge>
           <h1 className="mt-3 break-words font-display text-2xl font-black leading-tight sm:mt-4 sm:text-3xl md:text-5xl">{title}</h1>
           <p className="mt-2 text-sm text-muted-foreground sm:mt-3 sm:text-base">{description}</p>

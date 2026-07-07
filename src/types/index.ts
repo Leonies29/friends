@@ -25,6 +25,9 @@ export interface GroupScopedEntity extends BaseEntity {
 
 export interface User extends BaseEntity {
   username: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
   email: string;
   avatarUrl: string;
   country: string;
@@ -87,7 +90,7 @@ export interface GroupMember extends GroupScopedEntity {
   email?: string;
   avatarUrl?: string | null;
   participantSlotId?: string;
-  status: "pending" | "active" | "removed";
+  status: "pending" | "active" | "inactive" | "removed";
   joinedAt?: EntityTimestamp;
   removedAt?: EntityTimestamp;
 }
@@ -131,6 +134,10 @@ export interface Game extends GroupScopedEntity {
 export interface GameSettings {
   albumUrl?: string;
   checklistItems?: GameChecklistItem[];
+  questionsPerDay?: number;
+  timerSeconds?: number;
+  totalSeries?: number;
+  awardsFormat?: "classic" | "quiz";
 }
 
 export interface GameChecklistItem {
@@ -153,6 +160,8 @@ export interface Challenge extends GroupScopedEntity {
   gameId?: string;
   ownerId: string;
   ownerName?: string;
+  assignedById?: string;
+  assignedByName?: string;
   title: string;
   description: string;
   difficulty: Difficulty;

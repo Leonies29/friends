@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Avatar, Badge, Card } from "@/components/ui";
+import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { listXpTransactions } from "@/services/xp-service";
 import { calculateLevel } from "@/lib/utils";
@@ -22,7 +23,7 @@ export function RankingPage() {
     async function load() {
       setLoading(true);
       const transactions = await listXpTransactions(state.group!.id);
-      const computed = state.members.map((member) => {
+      const computed = filterActiveGameMembers(state.members).map((member) => {
         const id = member.userId || member.id;
         const xp = transactions.filter((item) => item.userId === id).reduce((sum, item) => sum + item.amount, 0);
         return {
@@ -48,24 +49,27 @@ export function RankingPage() {
     <PageShell eyebrow="Ranking" title="XP Leaderboard" description="Overall ranking based on total XP." group={state.group}>
       <Card>
         <Badge>Podium</Badge>
-        <div className="mt-6 grid items-end gap-3 sm:gap-4 md:grid-cols-3">
-          {[1, 0, 2].map((index) => {
-            const row = podium[index];
-            if (!row) return <div key={index} />;
+        <div className="mt-6 flex items-end justify-center gap-1.5 sm:gap-3">
+          {([1, 0, 2] as const).map((rankIndex, slotIndex) => {
+            const row = podium[rankIndex];
+            if (!row) return <div key={rankIndex} className="w-[140px] shrink-0" aria-hidden />;
             const medals = ["🥇", "🥈", "🥉"];
+            const isFirst = rankIndex === 0;
             return (
               <motion.div
                 key={row.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.08 }}
-                className={`rounded-[1.5rem] border border-border bg-background p-4 text-center sm:rounded-[2rem] sm:p-5 ${index === 0 ? "md:-translate-y-4" : ""}`}
+                transition={{ delay: slotIndex * 0.08 }}
+                className={`w-[140px] shrink-0 rounded-[1.25rem] border border-border bg-background p-2.5 text-center sm:rounded-[2rem] sm:p-4 ${
+                  isFirst ? "-translate-y-2 sm:-translate-y-4" : ""
+                }`}
               >
-                <p className="text-3xl sm:text-4xl">{medals[index]}</p>
-                <Avatar src={row.avatarUrl} alt={row.name} className="mx-auto mt-3 h-16 w-16 sm:mt-4 sm:h-20 sm:w-20" />
-                <p className="mt-2 truncate px-1 text-lg font-black sm:mt-3 sm:text-xl">{row.name}</p>
-                <p className="text-xs text-muted-foreground sm:text-sm">Level {row.level}</p>
-                <p className="mt-1 text-xl font-black sm:mt-2 sm:text-2xl">{row.xp} XP</p>
+                <p className="text-xl sm:text-4xl">{medals[rankIndex]}</p>
+                <Avatar src={row.avatarUrl} alt={row.name} className="mx-auto mt-1.5 h-11 w-11 sm:mt-4 sm:h-20 sm:w-20" />
+                <p className="mt-1.5 truncate px-0.5 text-xs font-black sm:mt-3 sm:text-xl">{row.name}</p>
+                <p className="text-[10px] text-muted-foreground sm:text-sm">Level {row.level}</p>
+                <p className="mt-0.5 text-sm font-black sm:mt-2 sm:text-2xl">{row.xp} XP</p>
               </motion.div>
             );
           })}

@@ -111,6 +111,45 @@ export async function updateAwardCategory(categoryId: string, data: Partial<Pick
   await setDoc(doc(db, AWARD_CATEGORIES_COLLECTION, categoryId), { ...data, updatedAt: serverTimestamp() }, { merge: true });
 }
 
+export async function getVoteParticipationStats(groupId: string, memberIds: string[]) {
+  const [votes, categories] = await Promise.all([
+    listVotes(groupId),
+    listAwardCategories(groupId)
+  ]);
+
+  const totalCategories = categories.length;
+  const eligibleVoters = memberIds.filter(Boolean);
+  const voterProgress = eligibleVoters.map((voterId) => {
+    const voterVotes = votes.filter((vote) => vote.voterId === voterId);
+    const completed = voterVotes.filter((vote) => vote.isWhiteVote || vote.targetUserId).length;
+    return {
+      voterId,
+      completed,
+      total: totalCategories,
+      isComplete: completed >= totalCategories
+    };
+  });
+
+  const completedVoters = voterProgress.filter((entry) => entry.isComplete).length;
+  const participationRate = eligibleVoters.length
+    ? Math.round((completedVoters / eligibleVoters.length) * 100)
+    : 0;
+
+  return {
+    totalCategories,
+    eligibleVoters: eligibleVoters.length,
+    completedVoters,
+    participationRate,
+    voterProgress,
+    pendingVoterIds: voterProgress.filter((entry) => !entry.isComplete).map((entry) => entry.voterId)
+  };
+}
+
+export async function updateAwardCategoryVisibility(categoryId: string, visible: boolean) {
+  const db = getFirebaseFirestore();
+  await setDoc(doc(db, AWARD_CATEGORIES_COLLECTION, categoryId), { visible, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 export async function deleteAwardCategory(categoryId: string) {
   const db = getFirebaseFirestore();
   const { deleteDoc } = await import("firebase/firestore");

@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -77,8 +78,8 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     xpRules: [{ id: "quiz-answer", label: "Correct quiz answer", amount: 10, sourceType: "game" }]
   },
   {
-    title: "Bingo Voyage",
-    description: "Grille 5×5 personnalisée, preuves texte uniquement et modération admin.",
+    title: "Travel Bingo",
+    description: "Custom 5×5 grid, text-only proofs, and admin moderation.",
     icon: "Grid3X3",
     category: "bingo",
     enabled: false,
@@ -86,7 +87,7 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     archived: false,
     status: "inactive",
     order: 60,
-    xpRules: [{ id: "bingo-cell", label: "Défi bingo validé", amount: 1, sourceType: "game" }]
+    xpRules: [{ id: "bingo-cell", label: "Validated bingo challenge", amount: 1, sourceType: "game" }]
   }
 ];
 
@@ -96,6 +97,13 @@ export async function listGames(groupId: string) {
   return snapshot.docs
     .map((item) => ({ id: item.id, ...item.data() }) as Game)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+export async function getGame(gameId: string) {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDoc(doc(db, GAMES_COLLECTION, gameId));
+  if (!snapshot.exists()) return null;
+  return { id: snapshot.id, ...snapshot.data() } as Game;
 }
 
 export async function ensureDefaultGames(groupId: string) {

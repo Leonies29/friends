@@ -78,7 +78,9 @@ export function QuizPage() {
           groupId: state.group!.id,
           gameId: activeQuiz.id,
           userId: state.userId!,
-          displayName
+          displayName,
+          currentDay: state.group?.currentDay ?? 1,
+          questionsPerDay: activeQuiz.settings?.questionsPerDay
         })
       ),
       listQuizLeaderboard(state.group!.id, activeQuiz.id)
@@ -97,6 +99,8 @@ export function QuizPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const timerSeconds = quizGame?.settings?.timerSeconds ?? 20;
+
   const submitAnswer = useCallback(async (displayedIndex: number | null) => {
     if (!session || !current || locked) return;
     setLocked(true);
@@ -108,7 +112,8 @@ export function QuizPage() {
       session,
       question: current.question,
       selectedAnswer: originalIndex,
-      responseTimeMs
+      responseTimeMs,
+      timerSeconds
     });
 
     const correctLabel = current.question.answers[current.question.correctAnswer];
@@ -133,13 +138,13 @@ export function QuizPage() {
         await loadQuestion(updatedSession);
       }
     }, 1800);
-  }, [session, current, locked, getElapsedMs, load, loadQuestion]);
+  }, [session, current, locked, getElapsedMs, load, loadQuestion, timerSeconds]);
 
   const handleTimeout = useCallback(() => {
     if (!locked) void submitAnswer(null);
   }, [locked, submitAnswer]);
 
-  const remaining = useQuizTimer(timerActive && !locked, handleTimeout);
+  const remaining = useQuizTimer(timerActive && !locked, handleTimeout, timerSeconds);
 
   if (state.loading || loading) return <LoadingCard label="Loading quiz..." />;
   if (!state.group) return <EmptyGroupCard />;
@@ -162,7 +167,7 @@ export function QuizPage() {
   }
 
   return (
-    <PageShell eyebrow="History Quiz" title={quizGame.title} description="Answer within 20s for a +5 speed bonus · +10 pts per correct answer" group={state.group}>
+    <PageShell eyebrow="History Quiz" title={quizGame.title} description={`Answer within ${timerSeconds}s for a +${QUIZ_SPEED_BONUS} speed bonus · +${QUIZ_BASE_POINTS} pts per correct answer`} group={state.group}>
       {session && (
         <QuizProgressBar current={session.answeredQuestionIds.length} total={session.questionOrder.length} />
       )}

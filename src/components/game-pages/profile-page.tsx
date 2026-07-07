@@ -64,21 +64,21 @@ export function ProfilePage() {
             <Badge>Level {level}</Badge>
             <h2 className="mt-2 text-3xl font-black">{displayName}</h2>
             <p className="text-sm font-semibold text-muted-foreground">{xp.toLocaleString()} XP</p>
-            <p className="mt-3 text-sm text-muted-foreground">Photo de profil fixe pour le groupe Istanbul.</p>
+            <p className="mt-3 text-sm text-muted-foreground">Fixed profile photo for the Istanbul group.</p>
           </div>
         </div>
         <Progress value={getLevelProgress(xp)} className="mt-5" />
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-3 justify-items-center gap-1.5 sm:justify-items-stretch sm:gap-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-              <Card>
-                <Icon className="h-6 w-6 text-accent" />
-                <p className="mt-4 text-3xl font-black">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
+            <motion.div key={stat.label} className="w-[140px] min-w-0 sm:w-auto" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+              <Card className="p-3 sm:p-5">
+                <Icon className="h-5 w-5 text-accent sm:h-6 sm:w-6" />
+                <p className="mt-2 text-xl font-black sm:mt-4 sm:text-3xl">{stat.value}</p>
+                <p className="text-[10px] leading-tight text-muted-foreground sm:text-sm">{stat.label}</p>
               </Card>
             </motion.div>
           );
