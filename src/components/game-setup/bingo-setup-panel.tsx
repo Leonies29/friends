@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getFirebaseAuth } from "@/firebase/auth";
 import { Badge, Button, Card } from "@/components/ui";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
+import { formatFirestoreError } from "@/lib/firebase-errors";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { BINGO_CATEGORY_META, BINGO_DIFFICULTY_META } from "@/lib/bingo-constants";
 import {
@@ -67,35 +69,52 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
     await load();
   }
 
+  async function ensureAdminAccess() {
+    if (!state.userId) throw new Error("You must be signed in.");
+    const { prepareGroupAdminAccess } = await import("@/services/group-service");
+    await prepareGroupAdminAccess(groupId, state.userId, {
+      appRole: state.currentMember?.role,
+      email: getFirebaseAuth().currentUser?.email ?? state.currentMember?.email,
+      nickname: state.currentMember?.nickname
+    });
+  }
+
   async function handleLaunch() {
     setError("");
     try {
+      await ensureAdminAccess();
       await launchBingoGame({
         groupId,
         gameId: game.id,
         launchedBy: state.userId ?? "admin",
         players: filterActiveGameMembers(state.members).map((member) => ({
-          userId: member.userId || member.id,
+          userId: memberUserId(member),
           displayName: member.nickname || member.username || "Player"
         }))
       });
       setMessage("Game launched! Each player received their grid.");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to launch the game.");
+      setError(formatFirestoreError(err, "Unable to launch the game."));
     }
   }
 
   async function handleReview(submission: BingoSubmission, status: "approved" | "rejected") {
-    const adminComment = status === "rejected" ? window.prompt("Comment (optional)", "") ?? "" : "";
-    await reviewBingoSubmission({
-      submission,
-      status,
-      adminComment,
-      reviewedBy: state.userId ?? "admin"
-    });
-    setMessage(status === "approved" ? "Proof approved." : "Proof rejected.");
-    await load();
+    setError("");
+    try {
+      await ensureAdminAccess();
+      const adminComment = status === "rejected" ? window.prompt("Comment (optional)", "") ?? "" : "";
+      await reviewBingoSubmission({
+        submission,
+        status,
+        adminComment,
+        reviewedBy: state.userId ?? "admin"
+      });
+      setMessage(status === "approved" ? "Proof approved." : "Proof rejected.");
+      await load();
+    } catch (err) {
+      setError(formatFirestoreError(err, "Unable to review this proof."));
+    }
   }
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading bingo...</p>;

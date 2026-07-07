@@ -29,15 +29,29 @@ export function SelectGroupPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [loadingArchived, setLoadingArchived] = useState(false);
 
-  const reloadGroups = useCallback(async (currentUserId: string) => {
-    const [memberships, archived] = await Promise.all([
-      listUserMembershipGroups(currentUserId),
-      listArchivedUserGroups(currentUserId)
-    ]);
+  const reloadGroups = useCallback(async (currentUserId: string, includeArchived = showArchived) => {
+    const memberships = await listUserMembershipGroups(currentUserId);
     setGroups(memberships);
-    setArchivedGroups(archived);
+    if (includeArchived) {
+      setArchivedGroups(await listArchivedUserGroups(currentUserId));
+    }
     return memberships;
+  }, [showArchived]);
+
+  const loadArchivedGroups = useCallback(async (currentUserId: string) => {
+    setLoadingArchived(true);
+    setError("");
+    try {
+      setArchivedGroups(await listArchivedUserGroups(currentUserId));
+      setShowArchived(true);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load archived groups.");
+    } finally {
+      setLoadingArchived(false);
+    }
   }, []);
 
   const chooseGroup = useCallback(async (currentUserId: string, groupId: string, silent = false) => {
@@ -105,7 +119,7 @@ export function SelectGroupPage() {
     });
 
     return () => unsubscribe();
-  }, [allowSwitch, chooseGroup, openDashboard, reloadGroups, router]);
+  }, [allowSwitch, chooseGroup, openDashboard, reloadGroups, router, showArchived]);
 
   async function hideGroup(groupId: string) {
     if (!userId) return;
@@ -118,9 +132,9 @@ export function SelectGroupPage() {
         clearActiveGroupCookie();
         setActiveGroupId(null);
       }
-      await reloadGroups(userId);
+      await reloadGroups(userId, showArchived);
     } catch (archiveError) {
-      setError(archiveError instanceof Error ? archiveError.message : "Unable to hide this group.");
+      setError(archiveError instanceof Error ? archiveError.message : "Unable to archive this group.");
     } finally {
       setArchivingId(null);
     }
@@ -133,7 +147,7 @@ export function SelectGroupPage() {
 
     try {
       await restoreUserGroup(userId, groupId);
-      await reloadGroups(userId);
+      await reloadGroups(userId, true);
     } catch (restoreError) {
       setError(restoreError instanceof Error ? restoreError.message : "Unable to restore this group.");
     } finally {
@@ -211,7 +225,7 @@ export function SelectGroupPage() {
                         onClick={() => void hideGroup(group.id)}
                       >
                         {archivingId === group.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
-                        Hide group
+                        Archive
                       </Button>
                     </div>
                   </div>
@@ -240,10 +254,30 @@ export function SelectGroupPage() {
           </Card>
         )}
 
-        {archivedGroups.length > 0 && (
+        {!showArchived ? (
           <Card className="p-5">
-            <Badge>Hidden</Badge>
-            <p className="mt-2 text-sm text-muted-foreground">Groups you archived. Restore them anytime.</p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full sm:w-fit"
+              disabled={loadingArchived}
+              onClick={() => userId && void loadArchivedGroups(userId)}
+            >
+              {loadingArchived ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              Show archived groups
+            </Button>
+          </Card>
+        ) : archivedGroups.length > 0 ? (
+          <Card className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Badge>Archived</Badge>
+                <p className="mt-2 text-sm text-muted-foreground">Groups you archived. Restore them anytime.</p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowArchived(false)}>
+                Hide archived
+              </Button>
+            </div>
             <div className="mt-4 grid gap-3">
               {archivedGroups.map((group) => (
                 <div key={group.id} className="flex flex-col gap-3 rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-3 sm:flex-row sm:items-center">
@@ -265,6 +299,14 @@ export function SelectGroupPage() {
                 </div>
               ))}
             </div>
+          </Card>
+        ) : (
+          <Card className="p-5">
+            <Badge>Archived</Badge>
+            <p className="mt-2 text-sm text-muted-foreground">You have no archived groups.</p>
+            <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={() => setShowArchived(false)}>
+              Back to active groups
+            </Button>
           </Card>
         )}
 

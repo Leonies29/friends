@@ -155,10 +155,15 @@ export async function launchBingoGame(input: {
     throw new Error("No players in the group.");
   }
 
+  const players = input.players.filter((player) => player.userId?.trim());
+  if (!players.length) {
+    throw new Error("No players with a valid account were found.");
+  }
+
   const db = getFirebaseFirestore();
   const batch = writeBatch(db);
 
-  input.players.forEach((player) => {
+  players.forEach((player) => {
     const cells = generatePlayerGrid(challenges);
     const cardId = cardDocId(input.groupId, input.gameId, player.userId);
     const validatedCount = countValidatedCells(cells);
@@ -215,6 +220,67 @@ export async function getBingoCard(groupId: string, gameId: string, userId: stri
   const db = getFirebaseFirestore();
   const snapshot = await getDoc(doc(db, BINGO_CARDS, cardDocId(groupId, gameId, userId)));
   return snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as BingoCard) : null;
+}
+
+export async function ensureBingoCardForPlayer(input: {
+  groupId: string;
+  gameId: string;
+  userId: string;
+  displayName: string;
+}) {
+  const existing = await getBingoCard(input.groupId, input.gameId, input.userId);
+  if (existing) return existing;
+
+  const session = await getBingoSession(input.groupId, input.gameId);
+  if (session?.status !== "active") return null;
+
+  const challenges = (await listBingoChallenges(input.groupId, input.gameId)).filter((challenge) => challenge.active);
+  if (challenges.length < 24) return null;
+
+  const cells = generatePlayerGrid(challenges);
+  const validatedCount = countValidatedCells(cells);
+  const cardId = cardDocId(input.groupId, input.gameId, input.userId);
+  const db = getFirebaseFirestore();
+  const batch = writeBatch(db);
+
+  batch.set(doc(db, BINGO_CARDS, cardId), {
+    groupId: input.groupId,
+    gameId: input.gameId,
+    userId: input.userId,
+    displayName: input.displayName,
+    cells,
+    completedLines: [],
+    totalPoints: 0,
+    bingoCount: 0,
+    validatedCount,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+  batch.set(doc(db, BINGO_PLAYERS, cardId), {
+    groupId: input.groupId,
+    gameId: input.gameId,
+    userId: input.userId,
+    displayName: input.displayName,
+    totalPoints: 0,
+    bingoCount: 0,
+    validatedCount,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  batch.set(doc(db, BINGO_LEADERBOARD, leaderboardDocId(input.groupId, input.gameId, input.userId)), {
+    groupId: input.groupId,
+    gameId: input.gameId,
+    userId: input.userId,
+    displayName: input.displayName,
+    totalPoints: 0,
+    bingoCount: 0,
+    validatedCount,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  await batch.commit();
+  return getBingoCard(input.groupId, input.gameId, input.userId);
 }
 
 export async function submitBingoProof(input: {

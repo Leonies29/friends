@@ -14,5 +14,12 @@ export function filterActiveGameMembers<T extends GameMemberLike>(members: T[]) 
 }
 
 export function memberUserId(member: GameMemberLike) {
-  return member.userId || member.id;
+  const userId = member.userId?.trim();
+  if (userId) return userId;
+  const memberDocId = member.id?.trim() ?? "";
+  const separatorIndex = memberDocId.indexOf("_");
+  if (separatorIndex > 0 && separatorIndex < memberDocId.length - 1) {
+    return memberDocId.slice(separatorIndex + 1);
+  }
+  return memberDocId;
 }

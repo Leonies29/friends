@@ -196,7 +196,13 @@ service cloud.firestore {
 
     match /bingoCards/{cardId} {
       allow read: if isGroupMember(resource.data.groupId);
-      allow create: if canManageGroup(request.resource.data.groupId);
+      allow create: if canManageGroup(request.resource.data.groupId)
+        || (
+          isGroupMember(request.resource.data.groupId)
+          && request.auth.uid == request.resource.data.userId
+          && exists(/databases/$(database)/documents/bingoSessions/$(request.resource.data.groupId + '_' + request.resource.data.gameId))
+          && get(/databases/$(database)/documents/bingoSessions/$(request.resource.data.groupId + '_' + request.resource.data.gameId)).data.status == 'active'
+        );
       allow update: if canManageGroup(resource.data.groupId)
         || (
           isGroupMember(resource.data.groupId)

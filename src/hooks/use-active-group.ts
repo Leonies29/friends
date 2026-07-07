@@ -118,7 +118,14 @@ export function useActiveGroup(): ActiveGroupState {
                   const memberSnapshot = await getDoc(doc(db, "users", memberId));
                   const membership = membershipDocs.find((member) => member.userId === memberId);
                   const profile = memberSnapshot.exists()
-                    ? ({ id: memberSnapshot.id, ...memberSnapshot.data(), ...membership, username: membership?.nickname ?? memberSnapshot.data().username, status: membership?.status ?? "active" } as GroupMember)
+                    ? ({
+                        ...memberSnapshot.data(),
+                        ...membership,
+                        id: memberSnapshot.id,
+                        userId: membership?.userId ?? memberSnapshot.id,
+                        username: membership?.nickname ?? memberSnapshot.data().username,
+                        status: membership?.status ?? "active"
+                      } as GroupMember)
                     : { id: memberId, userId: memberId, username: membership?.nickname ?? memberId, status: membership?.status ?? "active", ...membership };
                   return profile;
                 })

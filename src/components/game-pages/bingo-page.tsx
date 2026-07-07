@@ -10,8 +10,10 @@ import { BingoStatsBar } from "@/components/bingo/bingo-stats-bar";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { bingoBonusPoints } from "@/lib/bingo-logic";
+import { formatFirestoreError } from "@/lib/firebase-errors";
 import { listGames } from "@/services/game-service";
 import {
+  ensureBingoCardForPlayer,
   getBingoCard,
   getBingoSession,
   listBingoLeaderboard,
@@ -27,6 +29,7 @@ export function BingoPage() {
   const [leaderboard, setLeaderboard] = useState<Awaited<ReturnType<typeof listBingoLeaderboard>>>([]);
   const [sessionStatus, setSessionStatus] = useState<string>("setup");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedCell, setSelectedCell] = useState<BingoCell | null>(null);
   const [celebration, setCelebration] = useState<{ lines: string[]; points: number } | null>(null);
   const previousBingoCount = useRef(0);
@@ -39,57 +42,68 @@ export function BingoPage() {
   const load = useCallback(async () => {
     if (!state.group?.id || !state.userId) return;
     setLoading(true);
-    const games = await listGames(state.group.id);
-    const activeBingo = games.find((game) => game.category === "bingo" && game.enabled && game.visible && !game.archived) ?? null;
-    setBingoGame(activeBingo);
+    setError("");
+    try {
+      const games = await listGames(state.group.id);
+      const activeBingo = games.find((game) => game.category === "bingo" && game.enabled && game.visible && !game.archived) ?? null;
+      setBingoGame(activeBingo);
 
-    if (!activeBingo) {
-      setCard(null);
-      setLeaderboard([]);
-      setSessionStatus("setup");
+      if (!activeBingo) {
+        setCard(null);
+        setLeaderboard([]);
+        setSessionStatus("setup");
+        return;
+      }
+
+      const session = await getBingoSession(state.group.id, activeBingo.id);
+      setSessionStatus(session?.status ?? "setup");
+
+      let playerCard = await getBingoCard(state.group.id, activeBingo.id, state.userId);
+      if (!playerCard && session?.status === "active") {
+        playerCard = await ensureBingoCardForPlayer({
+          groupId: state.group.id,
+          gameId: activeBingo.id,
+          userId: state.userId,
+          displayName: displayName
+        });
+      }
+
+      const ranking = await listBingoLeaderboard(state.group.id, activeBingo.id);
+      setLeaderboard(ranking);
+
+      if (playerCard && playerCard.bingoCount > previousBingoCount.current) {
+        const delta = playerCard.bingoCount - previousBingoCount.current;
+        const lines = playerCard.completedLines.slice(-delta);
+        setCelebration({ lines, points: bingoBonusPoints(lines) });
+        window.setTimeout(() => setCelebration(null), 3500);
+      }
+      previousBingoCount.current = playerCard?.bingoCount ?? 0;
+      setCard(playerCard);
+    } catch (err) {
+      setError(formatFirestoreError(err, "Unable to load bingo."));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const [session, playerCard, ranking] = await Promise.all([
-      getBingoSession(state.group.id, activeBingo.id),
-      getBingoCard(state.group.id, activeBingo.id, state.userId),
-      listBingoLeaderboard(state.group.id, activeBingo.id)
-    ]);
-
-    setSessionStatus(session?.status ?? "setup");
-    setLeaderboard(ranking);
-
-    if (playerCard && playerCard.bingoCount > previousBingoCount.current) {
-      const delta = playerCard.bingoCount - previousBingoCount.current;
-      const lines = playerCard.completedLines.slice(-delta);
-      setCelebration({ lines, points: bingoBonusPoints(lines) });
-      window.setTimeout(() => setCelebration(null), 3500);
-    }
-    previousBingoCount.current = playerCard?.bingoCount ?? 0;
-    setCard(playerCard);
-    setLoading(false);
-  }, [state.group?.id, state.userId]);
+  }, [state.group?.id, state.userId, displayName]);
 
   useEffect(() => { void load(); }, [load]);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => { void load(); }, 15000);
-    return () => window.clearInterval(timer);
-  }, [load]);
-
   async function handleSubmitProof(proofText: string) {
     if (!state.group?.id || !state.userId || !bingoGame || !card || !selectedCell) return;
-    await submitBingoProof({
-      groupId: state.group.id,
-      gameId: bingoGame.id,
-      card,
-      userId: state.userId,
-      userName: displayName,
-      cellIndex: selectedCell.index,
-      proofText
-    });
-    await load();
+    try {
+      await submitBingoProof({
+        groupId: state.group.id,
+        gameId: bingoGame.id,
+        card,
+        userId: state.userId,
+        userName: displayName,
+        cellIndex: selectedCell.index,
+        proofText
+      });
+      await load();
+    } catch (err) {
+      throw new Error(formatFirestoreError(err, "Unable to submit your proof."));
+    }
   }
 
   if (state.loading || loading) return <LoadingCard label="Loading bingo..." />;
@@ -106,9 +120,15 @@ export function BingoPage() {
   if (sessionStatus !== "active" || !card) {
     return (
       <PageShell eyebrow="Travel Bingo" title={bingoGame.title} description="Your grid will be available once the admin launches the game." group={state.group}>
+        {error && <Card><p className="text-sm font-semibold text-rose-700">{error}</p></Card>}
         <Card>
-          <Badge>Waiting</Badge>
-          <p className="mt-3 text-sm text-muted-foreground">The admin must configure challenges then press Generate grids.</p>
+          <Badge>{sessionStatus === "active" ? "Grid pending" : "Waiting"}</Badge>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {sessionStatus === "active"
+              ? "The game is live but your grid is not ready yet. Tap Refresh or ask an admin to relaunch grids."
+              : "The admin must configure challenges then press Generate grids."}
+          </p>
+          <Button className="mt-4" size="sm" variant="secondary" onClick={() => void load()}>Refresh</Button>
         </Card>
         <BingoLeaderboardPanel entries={leaderboard} />
       </PageShell>
@@ -117,6 +137,7 @@ export function BingoPage() {
 
   return (
     <PageShell eyebrow="Travel Bingo" title={bingoGame.title} description="Complete your grid, describe your proofs in text, and go for BINGO!" group={state.group}>
+      {error && <Card><p className="text-sm font-semibold text-rose-700">{error}</p></Card>}
       <BingoCelebration visible={Boolean(celebration)} lines={celebration?.lines ?? []} points={celebration?.points ?? 0} />
       <BingoStatsBar card={card} />
       <Card>
