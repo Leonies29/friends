@@ -65,7 +65,11 @@ function buildInviteCode(groupName: string) {
   return `${base || "QUEST"}-${Math.floor(100 + Math.random() * 900)}`;
 }
 
-export async function createFriendGroup(input: CreateGroupInput, ownerId?: string | null): Promise<CreatedGroup> {
+export async function createFriendGroup(
+  input: CreateGroupInput,
+  ownerId?: string | null,
+  ownerEmail?: string | null
+): Promise<CreatedGroup> {
   const ownerNickname = input.ownerNickname.trim();
   const friendNicknames = input.friendNicknames.map((item) => item.trim()).filter(Boolean);
   const group = await createGroup({
@@ -77,7 +81,8 @@ export async function createFriendGroup(input: CreateGroupInput, ownerId?: strin
     vibe: input.vibe.trim(),
     gameModes: input.gameModes,
     participantNicknames: [ownerNickname, ...friendNicknames],
-    ownerId: ownerId ?? null
+    ownerId: ownerId ?? null,
+    ownerEmail: ownerEmail ?? null
   });
 
   if (ownerId) {
@@ -220,8 +225,8 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
     await claimParticipant({ groupId, userId, nickname: username, email: input.email, avatarUrl });
   } else {
     const group = groupData as import("@/types").Group;
-    const role = resolveJoinRole(group, userId, username);
-    const ownerPatch = buildOwnerPatch(group, userId, role);
+    const role = resolveJoinRole(group, userId, input.email);
+    const ownerPatch = buildOwnerPatch(group, userId, role, input.email);
     await Promise.all([
       setDoc(doc(db, GROUPS_COLLECTION, groupId), {
         memberIds: arrayUnion(userId),
@@ -279,8 +284,8 @@ export async function signInAndJoinGroup(email: string, password: string, groupI
     const groupData = groupSnapshot.exists() ? groupSnapshot.data() : {};
     const group = groupData as import("@/types").Group;
     const displayName = email.split("@")[0] || "Trip member";
-    const role = resolveJoinRole(group, userId, displayName);
-    const ownerPatch = buildOwnerPatch(group, userId, role);
+    const role = resolveJoinRole(group, userId, email);
+    const ownerPatch = buildOwnerPatch(group, userId, role, email);
     await Promise.all([
       setDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId), {
         memberIds: arrayUnion(userId),

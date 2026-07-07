@@ -6,6 +6,7 @@ import { AlertTriangle, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
 import { Badge, Button, Card } from "@/components/ui";
 import { clearActiveGroupCookie } from "@/lib/session-cookies";
+import { formatFirestoreError } from "@/lib/firebase-errors";
 import { deleteGroupPermanently, resetGroupProgress } from "@/services/group-lifecycle-service";
 import { canDeleteGroup, canManageGames } from "@/services/permissions";
 import type { GroupRole } from "@/types";
@@ -14,13 +15,14 @@ type GroupDangerZoneProps = {
   groupId: string;
   groupName: string;
   userId: string;
+  userEmail?: string | null;
   role: GroupRole;
   onResetComplete?: () => void | Promise<void>;
 };
 
 const inputClass = "rounded-2xl border border-border bg-background px-4 py-3 font-semibold outline-none focus:border-accent focus:ring-4 focus:ring-accent/15";
 
-export function GroupDangerZone({ groupId, groupName, userId, role, onResetComplete }: GroupDangerZoneProps) {
+export function GroupDangerZone({ groupId, groupName, userId, userEmail, role, onResetComplete }: GroupDangerZoneProps) {
   const router = useRouter();
   const canReset = canManageGames(role);
   const canDelete = canDeleteGroup(role);
@@ -38,11 +40,11 @@ export function GroupDangerZone({ groupId, groupName, userId, role, onResetCompl
     setResetting(true);
     setResetError("");
     try {
-      await resetGroupProgress(groupId, userId);
+      await resetGroupProgress(groupId, userId, { appRole: role, email: userEmail ?? undefined });
       setShowResetConfirm(false);
       await onResetComplete?.();
     } catch (error) {
-      setResetError(error instanceof Error ? error.message : "Unable to reset this group.");
+      setResetError(formatFirestoreError(error, "Impossible de réinitialiser ce groupe."));
     } finally {
       setResetting(false);
     }
@@ -58,11 +60,11 @@ export function GroupDangerZone({ groupId, groupName, userId, role, onResetCompl
     setDeleting(true);
     setDeleteError("");
     try {
-      await deleteGroupPermanently(groupId, userId);
+      await deleteGroupPermanently(groupId, userId, { appRole: role, email: userEmail ?? undefined });
       clearActiveGroupCookie();
       router.replace("/select-group?switch=1");
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : "Unable to delete this group.");
+      setDeleteError(formatFirestoreError(error, "Impossible de supprimer ce groupe."));
       setDeleting(false);
     }
   }

@@ -12,22 +12,29 @@ export function PageShell({
   title,
   description,
   group,
+  action,
   children
 }: {
   eyebrow: string;
   title: string;
   description: string;
   group?: ActiveGroup | null;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="grid gap-4 sm:gap-6">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <Card className="bg-surface-warm">
-          <Badge>{eyebrow}</Badge>
-          <h1 className="mt-3 break-words font-display text-2xl font-black leading-tight sm:mt-4 sm:text-3xl md:text-5xl">{title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground sm:mt-3 sm:text-base">{description}</p>
-          {group?.name && <p className="mt-2 truncate text-sm font-black text-primary sm:mt-3">{group.name}</p>}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Badge>{eyebrow}</Badge>
+              <h1 className="mt-3 break-words font-display text-2xl font-black leading-tight sm:mt-4 sm:text-3xl md:text-5xl">{title}</h1>
+              <p className="mt-2 text-sm text-muted-foreground sm:mt-3 sm:text-base">{description}</p>
+              {group?.name && <p className="mt-2 truncate text-sm font-black text-primary sm:mt-3">{group.name}</p>}
+            </div>
+            {action ? <div className="shrink-0">{action}</div> : null}
+          </div>
         </Card>
       </motion.div>
       {children}

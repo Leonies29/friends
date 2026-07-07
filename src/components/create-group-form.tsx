@@ -85,7 +85,7 @@ export function CreateGroupForm() {
         import("@/services/firebase-app-service"),
         import("@/firebase/auth")
       ]);
-      const ownerId = getFirebaseAuth().currentUser?.uid ?? null;
+      const currentUser = getFirebaseAuth().currentUser;
       const group = await createFriendGroup({
         name: String(formData.get("groupName") ?? ""),
         destination: String(formData.get("destination") ?? ""),
@@ -96,7 +96,7 @@ export function CreateGroupForm() {
         friendNicknames: trimmedFriends,
         vibe: selectedVibes.join(", "),
         gameModes: selectedGameModes
-      }, ownerId);
+      }, currentUser?.uid ?? null, currentUser?.email ?? null);
 
       setGroupId(group.id);
       setInviteCode(group.inviteCode);

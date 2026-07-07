@@ -14,6 +14,7 @@ export type ActiveGroup = {
   plannedMembers?: Array<{ id?: string; nickname: string; claimedBy?: string | null }>;
   createdBy?: string | null;
   ownerId?: string | null;
+  ownerEmail?: string | null;
 };
 
 export type GroupMember = {
@@ -99,8 +100,12 @@ export function useActiveGroup(): ActiveGroupState {
               const groupSnapshot = await getDoc(doc(db, "friendGroups", resolvedGroupId));
               const groupData = groupSnapshot.exists() ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as ActiveGroup) : null;
               if (groupData) {
-                const [{ ensureGroupOwnership }] = await Promise.all([import("@/services/group-service")]);
-                await ensureGroupOwnership(groupData.id, firebaseUser.uid);
+                const [{ ensureGroupOwnership, ensureActiveGroupMembership }] = await Promise.all([import("@/services/group-service")]);
+                await ensureGroupOwnership(groupData.id, firebaseUser.uid, firebaseUser.email);
+                await ensureActiveGroupMembership(groupData.id, firebaseUser.uid, {
+                  nickname: userSnapshot.exists() ? String(userSnapshot.data().username ?? "") : undefined,
+                  email: firebaseUser.email ?? userSnapshot.data()?.email as string | undefined
+                });
                 const refreshedGroupSnapshot = await getDoc(doc(db, "friendGroups", resolvedGroupId));
                 if (refreshedGroupSnapshot.exists()) {
                   Object.assign(groupData, refreshedGroupSnapshot.data());
@@ -125,7 +130,12 @@ export function useActiveGroup(): ActiveGroupState {
               }));
               const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
               const [{ resolveEffectiveRole }] = await Promise.all([import("@/services/permissions")]);
-              const effectiveRole = resolveEffectiveRole(currentMembership, groupData, firebaseUser.uid);
+              const effectiveRole = resolveEffectiveRole(
+                currentMembership,
+                groupData,
+                firebaseUser.uid,
+                firebaseUser.email ?? currentMembership?.email
+              );
 
               if (!cancelled) {
                 setUserId(firebaseUser.uid);

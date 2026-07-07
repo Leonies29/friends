@@ -10,15 +10,30 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid));
     }
 
-    function isGroupMember(groupId) {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid))
+    function hasActiveMembershipDoc(groupId) {
+      return exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid))
         && memberDoc(groupId).data.status == 'active';
     }
 
-    function isGroupAdmin(groupId) {
-      return isGroupMember(groupId)
-        && memberDoc(groupId).data.role in ['OWNER', 'ADMIN'];
+    function isListedGroupMember(groupId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/friendGroups/$(groupId))
+        && (
+          request.auth.uid in get(/databases/$(database)/documents/friendGroups/$(groupId)).data.get('memberIds', [])
+          || get(/databases/$(database)/documents/friendGroups/$(groupId)).data.ownerId == request.auth.uid
+          || get(/databases/$(database)/documents/friendGroups/$(groupId)).data.createdBy == request.auth.uid
+        );
+    }
+
+    function isGroupMember(groupId) {
+      return isSignedIn() && (hasActiveMembershipDoc(groupId) || isListedGroupMember(groupId));
+    }
+
+    function hasPrivilegedMembership(groupId) {
+      return exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid))
+        && memberDoc(groupId).data.role in ['OWNER', 'ADMIN']
+        && memberDoc(groupId).data.status != 'inactive'
+        && memberDoc(groupId).data.status != 'removed';
     }
 
     function isGroupOwner(groupId) {
@@ -27,11 +42,19 @@ service cloud.firestore {
         && (
           get(/databases/$(database)/documents/friendGroups/$(groupId)).data.ownerId == request.auth.uid
           || get(/databases/$(database)/documents/friendGroups/$(groupId)).data.createdBy == request.auth.uid
+          || (
+            request.auth.token.email != null
+            && get(/databases/$(database)/documents/friendGroups/$(groupId)).data.get('ownerEmail', '') == request.auth.token.email
+          )
         );
     }
 
+    function isGroupAdmin(groupId) {
+      return isGroupOwner(groupId) || hasPrivilegedMembership(groupId);
+    }
+
     function canManageGroup(groupId) {
-      return isGroupAdmin(groupId) || isGroupOwner(groupId);
+      return isGroupAdmin(groupId);
     }
 
     function scopedGroupId() {
@@ -112,29 +135,31 @@ service cloud.firestore {
     }
 
     match /photoReactions/{reactionId} {
-      allow read, create, update, delete: if isSignedIn() && isGroupMember(scopedGroupId());
+      allow read, create, update: if isSignedIn() && isGroupMember(scopedGroupId());
+      allow delete: if isSignedIn() && (isGroupMember(scopedGroupId()) || canManageGroup(scopedGroupId()));
     }
 
     match /photoComments/{commentId} {
       allow read, create: if isSignedIn() && isGroupMember(scopedGroupId());
-      allow delete: if isSignedIn() && canManageGroup(scopedGroupId());
+      allow update, delete: if isSignedIn() && (isGroupMember(scopedGroupId()) || canManageGroup(scopedGroupId()));
     }
 
     // Quests & planning
     match /quests/{questId} {
       allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
-      allow create, update, delete: if isSignedIn() && canManageGroup(scopedGroupId());
+      allow create: if isSignedIn() && canManageGroup(request.resource.data.groupId);
+      allow update, delete: if isSignedIn() && canManageGroup(resource.data.groupId);
     }
 
     match /questRelics/{relicId} {
       allow read, create, update: if isSignedIn() && isGroupMember(scopedGroupId());
-      allow delete: if isSignedIn() && canManageGroup(scopedGroupId());
+      allow delete: if isSignedIn() && canManageGroup(resource.data.groupId);
     }
 
     match /questCompletions/{completionId} {
       allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
       allow create, update: if isSignedIn() && isGroupMember(scopedGroupId());
-      allow delete: if isSignedIn() && canManageGroup(scopedGroupId());
+      allow delete: if isSignedIn() && canManageGroup(resource.data.groupId);
     }
 
     match /scheduleEvents/{eventId} {
@@ -215,7 +240,8 @@ service cloud.firestore {
     // Quiz
     match /quizQuestions/{questionId} {
       allow read: if isGroupMember(resource.data.groupId);
-      allow create, update, delete: if canManageGroup(scopedGroupId());
+      allow create: if canManageGroup(request.resource.data.groupId);
+      allow update, delete: if canManageGroup(resource.data.groupId);
     }
 
     match /quizSessions/{sessionId} {
@@ -282,7 +308,8 @@ service cloud.firestore {
 
     match /assassinMissionTemplates/{templateId} {
       allow read: if isGroupMember(resource.data.groupId);
-      allow create, update, delete: if canManageGroup(scopedGroupId());
+      allow create: if canManageGroup(request.resource.data.groupId);
+      allow update, delete: if canManageGroup(resource.data.groupId);
     }
 
     match /activityFeed/{entryId} {
@@ -321,7 +348,8 @@ service cloud.firestore {
 
     match /awardCategories/{categoryId} {
       allow read: if isGroupMember(resource.data.groupId);
-      allow create, update, delete: if canManageGroup(scopedGroupId());
+      allow create: if canManageGroup(request.resource.data.groupId);
+      allow update, delete: if canManageGroup(resource.data.groupId);
     }
   }
 }

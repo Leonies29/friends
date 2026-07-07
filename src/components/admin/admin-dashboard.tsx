@@ -10,6 +10,7 @@ import { MembersManagementPanel } from "@/components/admin/members-management-pa
 import { GameManagementPanel } from "@/components/game-management-panel";
 import { Badge, Button, Card } from "@/components/ui";
 import { buildInviteLink } from "@/lib/app-paths";
+import { formatFirestoreError } from "@/lib/firebase-errors";
 import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManageMembers, canManageScores, resolveEffectiveRole } from "@/services/permissions";
@@ -43,25 +44,30 @@ export function AdminDashboard() {
   const [loadError, setLoadError] = useState("");
   const [inviteLink, setInviteLink] = useState("");
 
-  const role = resolveEffectiveRole(state.currentMember, state.group, state.userId);
+  const role = resolveEffectiveRole(state.currentMember, state.group, state.userId, state.currentMember?.email);
   const canAdmin = canManageGames(role) || canManageScores(role) || canManageMembers(role);
   const canMembers = canManageMembers(role);
   const activeMembers = filterActiveGameMembers(state.members);
 
   async function loadAdmin(groupId = state.group?.id) {
-    if (!groupId) return;
+    if (!groupId || !state.userId) return;
     setLoadingGames(true);
     setLoadError("");
     try {
+      const { prepareGroupAdminAccess } = await import("@/services/group-service");
+      await prepareGroupAdminAccess(groupId, state.userId, {
+        appRole: role,
+        email: state.currentMember?.email
+      });
       setGames(await ensureDefaultGames(groupId));
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Unable to load games.");
+      setLoadError(formatFirestoreError(error, "Unable to load games."));
     } finally {
       setLoadingGames(false);
     }
   }
 
-  useEffect(() => { void loadAdmin(); }, [state.group?.id]);
+  useEffect(() => { void loadAdmin(); }, [state.group?.id, state.userId]);
 
   useEffect(() => {
     if (state.group?.inviteCode) {
@@ -190,6 +196,7 @@ export function AdminDashboard() {
           groupId={group.id}
           groupName={group.name ?? "Active group"}
           userId={state.userId}
+          userEmail={state.currentMember?.email}
           role={role}
           onResetComplete={async () => { await loadAdmin(group.id); }}
         />

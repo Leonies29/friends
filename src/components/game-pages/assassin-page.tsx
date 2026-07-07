@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Crosshair, Skull, Swords, Target } from "lucide-react";
+import { Crosshair, RefreshCw, Skull, Swords, Target } from "lucide-react";
 import { Avatar, Badge, Button, Card } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { claimElimination, loadAssassinState, respondElimination } from "@/services/assassin-service";
@@ -27,6 +27,7 @@ function eliminationStatusLabel(status: AssassinElimination["status"]) {
 export function AssassinPage() {
   const state = useActiveGroup();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [players, setPlayers] = useState<AssassinPlayer[]>([]);
   const [missions, setMissions] = useState<AssassinMission[]>([]);
@@ -35,23 +36,30 @@ export function AssassinPage() {
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [missionExpanded, setMissionExpanded] = useState(false);
 
-  async function load() {
+  async function load(options?: { silent?: boolean }) {
     if (!state.group?.id) return;
-    setLoading(true);
+    const silent = options?.silent ?? false;
+    if (silent) setRefreshing(true);
+    else setLoading(true);
     const data = await loadAssassinState(state.group.id);
     setGame(data.game);
     setPlayers(data.players);
     setMissions(data.missions);
     setEliminations(data.eliminations.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-    setMissionExpanded(false);
-    setLoading(false);
+    if (!silent) setMissionExpanded(false);
+    if (silent) setRefreshing(false);
+    else setLoading(false);
   }
+
+  const refreshButton = (
+    <Button type="button" variant="secondary" size="sm" disabled={refreshing} onClick={() => void load({ silent: true })}>
+      <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+      Refresh
+    </Button>
+  );
 
   useEffect(() => {
     void load();
-    if (!state.group?.id) return;
-    const interval = window.setInterval(() => { void load(); }, 5000);
-    return () => window.clearInterval(interval);
   }, [state.group?.id, state.members.length]);
 
   const myPlayer = players.find((player) => player.uid === state.userId);
@@ -72,7 +80,7 @@ export function AssassinPage() {
     setError("");
     try {
       await claimElimination(state.group.id, state.userId, myPlayer.currentTargetId);
-      await load();
+      await load({ silent: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to claim elimination.");
     }
@@ -84,7 +92,7 @@ export function AssassinPage() {
     setRespondingId(itemId);
     try {
       await respondElimination(itemId, accept, state.userId);
-      await load();
+      await load({ silent: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to respond.");
     } finally {
@@ -148,7 +156,7 @@ export function AssassinPage() {
 
   if (game?.status === "finished") {
     return (
-      <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="The game is over." group={state.group}>
+      <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="The game is over." group={state.group} action={refreshButton}>
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
           <Card className="text-center">
             <Crosshair className="mx-auto h-10 w-10 text-accent" />
@@ -162,7 +170,7 @@ export function AssassinPage() {
 
   if (game?.status !== "active") {
     return (
-      <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="The game has not started yet." group={state.group}>
+      <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="The game has not started yet." group={state.group} action={refreshButton}>
         <Card>
           <Badge>Waiting for admin</Badge>
           <p className="mt-3 text-lg font-black">The assassin game is not active yet.</p>
@@ -173,7 +181,7 @@ export function AssassinPage() {
   }
 
   return (
-    <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="Only you can see your mission. Public page never reveals secret missions." group={state.group}>
+    <PageShell eyebrow="Assassin" title="Secret Elimination Game" description="Only you can see your mission. Public page never reveals secret missions." group={state.group} action={refreshButton}>
       {isDuel && myPlayer?.isAlive && (
         <Card className="border-rose-300 bg-rose-50">
           <Badge>Final duel</Badge>

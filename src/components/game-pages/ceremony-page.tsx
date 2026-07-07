@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Avatar, Badge, Card, Progress } from "@/components/ui";
+import { RefreshCw } from "lucide-react";
+import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
 import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { getAwardResults, getVoteParticipationStats, listAwardCategories } from "@/services/award-service";
@@ -19,68 +20,79 @@ function memberName(member: { nickname?: string; username?: string }) {
 export function CeremonyPage() {
   const state = useActiveGroup();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [xpWinner, setXpWinner] = useState<{ name: string; avatarUrl: string; xp: number } | null>(null);
   const [assassinWinner, setAssassinWinner] = useState<{ name: string; avatarUrl: string } | null>(null);
   const [secretCount, setSecretCount] = useState(0);
   const [participation, setParticipation] = useState<Awaited<ReturnType<typeof getVoteParticipationStats>> | null>(null);
   const [awardWinners, setAwardWinners] = useState<Array<{ id: string; emoji: string; title: string; winnerName: string }>>([]);
 
-  useEffect(() => {
+  const load = useCallback(async (silent = false) => {
     if (!state.group?.id) return;
-    async function load() {
-      setLoading(true);
-      const groupId = state.group!.id;
-      const activeMemberIds = filterActiveGameMembers(state.members).map((member) => member.userId || member.id);
-      const [transactions, assassin, quests, awardResults, voteStats, categories] = await Promise.all([
-        listXpTransactions(groupId),
-        loadAssassinState(groupId),
-        listGroupQuests(groupId),
-        getAwardResults(groupId),
-        getVoteParticipationStats(groupId, activeMemberIds),
-        listAwardCategories(groupId)
-      ]);
+    if (silent) setRefreshing(true);
+    else setLoading(true);
 
-      const xpRows = filterActiveGameMembers(state.members).map((member) => {
-        const id = member.userId || member.id;
-        return {
-          id,
-          name: memberName(member),
-          avatarUrl: member.avatarUrl ?? "",
-          xp: transactions.filter((item) => item.userId === id).reduce((sum, item) => sum + item.amount, 0)
-        };
-      }).sort((a, b) => b.xp - a.xp);
+    const groupId = state.group.id;
+    const activeMemberIds = filterActiveGameMembers(state.members).map((member) => member.userId || member.id);
+    const [transactions, assassin, quests, awardResults, voteStats, categories] = await Promise.all([
+      listXpTransactions(groupId),
+      loadAssassinState(groupId),
+      listGroupQuests(groupId),
+      getAwardResults(groupId),
+      getVoteParticipationStats(groupId, activeMemberIds),
+      listAwardCategories(groupId)
+    ]);
 
-      const winnerPlayer = assassin.game?.winnerId
-        ? assassin.players.find((player) => player.uid === assassin.game?.winnerId)
-        : [...assassin.players].filter((player) => player.isAlive)[0]
-          ?? [...assassin.players].sort((a, b) => b.eliminationCount - a.eliminationCount)[0];
+    const xpRows = filterActiveGameMembers(state.members).map((member) => {
+      const id = member.userId || member.id;
+      return {
+        id,
+        name: memberName(member),
+        avatarUrl: member.avatarUrl ?? "",
+        xp: transactions.filter((item) => item.userId === id).reduce((sum, item) => sum + item.amount, 0)
+      };
+    }).sort((a, b) => b.xp - a.xp);
 
-      const visibleCategories = categories.filter((category) => category.visible !== false);
-      const winners = visibleCategories.map((category) => {
-        const ranked = awardResults.get(category.id) ?? [];
-        const top = ranked[0];
-        const winnerMember = top
-          ? state.members.find((member) => (member.userId || member.id) === top.userId)
-          : null;
-        return {
-          id: category.id,
-          emoji: category.emoji,
-          title: category.title,
-          winnerName: winnerMember ? memberName(winnerMember) : "—"
-        };
-      });
+    const winnerPlayer = assassin.game?.winnerId
+      ? assassin.players.find((player) => player.uid === assassin.game?.winnerId)
+      : [...assassin.players].filter((player) => player.isAlive)[0]
+        ?? [...assassin.players].sort((a, b) => b.eliminationCount - a.eliminationCount)[0];
 
-      setXpWinner(xpRows[0] ?? null);
-      setAssassinWinner(winnerPlayer ? { name: winnerPlayer.displayName, avatarUrl: winnerPlayer.avatarUrl } : null);
-      setSecretCount(quests.filter((quest) => quest.isSecret && quest.completedBy.length > 0).length);
-      setParticipation(voteStats);
-      setAwardWinners(winners);
-      setLoading(false);
-    }
-    void load();
-    const interval = window.setInterval(() => { void load(); }, 8000);
-    return () => window.clearInterval(interval);
+    const visibleCategories = categories.filter((category) => category.visible !== false);
+    const winners = visibleCategories.map((category) => {
+      const ranked = awardResults.get(category.id) ?? [];
+      const top = ranked[0];
+      const winnerMember = top
+        ? state.members.find((member) => (member.userId || member.id) === top.userId)
+        : null;
+      return {
+        id: category.id,
+        emoji: category.emoji,
+        title: category.title,
+        winnerName: winnerMember ? memberName(winnerMember) : "—"
+      };
+    });
+
+    setXpWinner(xpRows[0] ?? null);
+    setAssassinWinner(winnerPlayer ? { name: winnerPlayer.displayName, avatarUrl: winnerPlayer.avatarUrl } : null);
+    setSecretCount(quests.filter((quest) => quest.isSecret && quest.completedBy.length > 0).length);
+    setParticipation(voteStats);
+    setAwardWinners(winners);
+
+    if (silent) setRefreshing(false);
+    else setLoading(false);
   }, [state.group?.id, state.members]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const refreshButton = (
+    <Button type="button" variant="secondary" size="sm" disabled={refreshing} onClick={() => void load(true)}>
+      <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+      Refresh
+    </Button>
+  );
 
   const pendingVoters = participation?.pendingVoterIds.map((voterId) => {
     const member = state.members.find((item) => (item.userId || item.id) === voterId);
@@ -91,7 +103,7 @@ export function CeremonyPage() {
   if (!state.group) return <EmptyGroupCard />;
 
   return (
-    <PageShell eyebrow="Final Ceremony" title="Trip Finale" description="Designed for the final evening on a TV screen." group={state.group}>
+    <PageShell eyebrow="Final Ceremony" title="Trip Finale" description="Designed for the final evening on a TV screen." group={state.group} action={refreshButton}>
       <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
         <Card className="overflow-hidden bg-surface-warm text-center">
           <p className="text-5xl">🎉</p>

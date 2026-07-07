@@ -9,8 +9,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
-  where,
-  writeBatch
+  where
 } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { ensureAwardCategories } from "@/services/award-service";
@@ -19,9 +18,10 @@ import {
   getCurrentGroupMember,
   GROUP_MEMBERS_COLLECTION,
   GROUPS_COLLECTION,
-  GROUPS_SCHEMA_COLLECTION
+  GROUPS_SCHEMA_COLLECTION,
+  prepareGroupAdminAccess
 } from "@/services/group-service";
-import { canDeleteGroup, canManageGames, resolveEffectiveRole } from "@/services/permissions";
+import { canDeleteGroup, resolveEffectiveRole } from "@/services/permissions";
 import type { Group } from "@/types";
 
 const GROUP_SCOPED_COLLECTIONS = [
@@ -63,14 +63,20 @@ async function deleteQueryBatch(collectionName: string, groupId: string) {
   const db = getFirebaseFirestore();
 
   while (true) {
-    const snapshot = await getDocs(
-      query(collection(db, collectionName), where("groupId", "==", groupId), limit(400))
-    );
+    let snapshot;
+    try {
+      snapshot = await getDocs(
+        query(collection(db, collectionName), where("groupId", "==", groupId), limit(400))
+      );
+    } catch {
+      return;
+    }
+
     if (snapshot.empty) return;
 
-    const batch = writeBatch(db);
-    snapshot.docs.forEach((item) => batch.delete(item.ref));
-    await batch.commit();
+    const results = await Promise.allSettled(snapshot.docs.map((item) => deleteDoc(item.ref)));
+    const deletedCount = results.filter((result) => result.status === "fulfilled").length;
+    if (deletedCount === 0) return;
   }
 }
 
@@ -78,25 +84,27 @@ async function deleteGroupMembers(groupId: string) {
   const db = getFirebaseFirestore();
   const snapshot = await getDocs(query(collection(db, GROUP_MEMBERS_COLLECTION), where("groupId", "==", groupId)));
 
-  if (!snapshot.empty) {
-    const batch = writeBatch(db);
-    snapshot.docs.forEach((item) => batch.delete(item.ref));
-    await batch.commit();
-  }
+  await Promise.allSettled(snapshot.docs.map((item) => deleteDoc(item.ref)));
 }
 
 async function deleteAssassinSetup(groupId: string) {
   const db = getFirebaseFirestore();
   const setupRef = doc(db, "assassinSetups", groupId);
-  const snapshot = await getDoc(setupRef);
-  if (snapshot.exists()) {
-    await deleteDoc(setupRef);
+  try {
+    const snapshot = await getDoc(setupRef);
+    if (snapshot.exists()) {
+      await deleteDoc(setupRef);
+    }
+  } catch {
+    // Best effort: setup doc may be missing or already removed.
   }
 }
 
 async function wipeGroupGameData(groupId: string) {
-  await Promise.all(GROUP_SCOPED_COLLECTIONS.map((collectionName) => deleteQueryBatch(collectionName, groupId)));
-  await deleteAssassinSetup(groupId);
+  await Promise.allSettled([
+    ...GROUP_SCOPED_COLLECTIONS.map((collectionName) => deleteQueryBatch(collectionName, groupId)),
+    deleteAssassinSetup(groupId)
+  ]);
 }
 
 async function resetGroupProgressFields(groupId: string) {
@@ -120,7 +128,13 @@ async function resetGroupProgressFields(groupId: string) {
   ]);
 }
 
-async function assertCanManageGroupGames(groupId: string, userId: string) {
+async function assertCanDeleteGroup(groupId: string, userId: string, options?: ResetGroupOptions) {
+  await prepareGroupAdminAccess(groupId, userId, {
+    appRole: options?.appRole,
+    nickname: options?.nickname,
+    email: options?.email
+  });
+
   const [groupSnapshot, member] = await Promise.all([
     getDoc(doc(getFirebaseFirestore(), GROUPS_COLLECTION, groupId)),
     getCurrentGroupMember(groupId, userId)
@@ -131,26 +145,7 @@ async function assertCanManageGroupGames(groupId: string, userId: string) {
   }
 
   const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
-  const role = resolveEffectiveRole(member, group, userId);
-  if (!canManageGames(role)) {
-    throw new Error("Only group owners and admins can reset group progress.");
-  }
-
-  return group;
-}
-
-async function assertCanDeleteGroup(groupId: string, userId: string) {
-  const [groupSnapshot, member] = await Promise.all([
-    getDoc(doc(getFirebaseFirestore(), GROUPS_COLLECTION, groupId)),
-    getCurrentGroupMember(groupId, userId)
-  ]);
-
-  if (!groupSnapshot.exists()) {
-    throw new Error("This group no longer exists.");
-  }
-
-  const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
-  const role = resolveEffectiveRole(member, group, userId);
+  const role = resolveEffectiveRole(member, group, userId, options?.email);
   if (!canDeleteGroup(role)) {
     throw new Error("Only the trip owner can delete this group.");
   }
@@ -177,18 +172,27 @@ async function detachUsersFromGroup(groupId: string, memberUserIds: string[]) {
   }));
 }
 
-export async function resetGroupProgress(groupId: string, userId: string) {
-  await assertCanManageGroupGames(groupId, userId);
+export type ResetGroupOptions = {
+  appRole?: import("@/types").GroupRole;
+  nickname?: string;
+  email?: string;
+};
+
+export async function resetGroupProgress(groupId: string, userId: string, options?: ResetGroupOptions) {
+  await prepareGroupAdminAccess(groupId, userId, {
+    appRole: options?.appRole,
+    nickname: options?.nickname,
+    email: options?.email
+  });
   await wipeGroupGameData(groupId);
   await resetGroupProgressFields(groupId);
-  await Promise.all([ensureDefaultGames(groupId), ensureAwardCategories(groupId)]);
+  await Promise.allSettled([ensureDefaultGames(groupId), ensureAwardCategories(groupId)]);
 }
 
-export async function deleteGroupPermanently(groupId: string, userId: string) {
-  const group = await assertCanDeleteGroup(groupId, userId);
-  const db = getFirebaseFirestore();
+export async function deleteGroupPermanently(groupId: string, userId: string, options?: ResetGroupOptions) {
+  const group = await assertCanDeleteGroup(groupId, userId, options);
 
-  const membersSnapshot = await getDocs(query(collection(db, GROUP_MEMBERS_COLLECTION), where("groupId", "==", groupId)));
+  const membersSnapshot = await getDocs(query(collection(getFirebaseFirestore(), GROUP_MEMBERS_COLLECTION), where("groupId", "==", groupId)));
   const memberUserIds = [
     ...(group.memberIds ?? []),
     ...membersSnapshot.docs.map((item) => String(item.data().userId ?? ""))
@@ -198,9 +202,9 @@ export async function deleteGroupPermanently(groupId: string, userId: string) {
   await deleteGroupMembers(groupId);
 
   await Promise.all([
-    deleteDoc(doc(db, GROUPS_COLLECTION, groupId)),
-    deleteDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId)),
-    deleteDoc(doc(db, "appConfig", groupId))
+    deleteDoc(doc(getFirebaseFirestore(), GROUPS_COLLECTION, groupId)),
+    deleteDoc(doc(getFirebaseFirestore(), GROUPS_SCHEMA_COLLECTION, groupId)),
+    deleteDoc(doc(getFirebaseFirestore(), "appConfig", groupId))
   ]);
 
   await detachUsersFromGroup(groupId, memberUserIds);

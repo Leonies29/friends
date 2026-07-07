@@ -13,6 +13,7 @@ import {
   where
 } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
+import { resolveEffectiveRole, canManageGames } from "@/services/permissions";
 import type { Group, GroupMember, GroupRole, ParticipantSlot } from "@/types";
 
 export const GROUPS_COLLECTION = "friendGroups";
@@ -29,6 +30,7 @@ export type CreateGroupPayload = {
   gameModes?: string[];
   participantNicknames: string[];
   ownerId?: string | null;
+  ownerEmail?: string | null;
 };
 
 export type ClaimParticipantPayload = {
@@ -71,38 +73,45 @@ export function buildParticipantSlots(nicknames: string[]): ParticipantSlot[] {
     }));
 }
 
+export function normalizeEmail(email?: string | null) {
+  return email?.trim().toLowerCase() ?? "";
+}
+
 export function getCreatorNickname(group: Pick<Group, "creatorNickname" | "plannedMembers">) {
   return group.creatorNickname?.trim() || group.plannedMembers?.[0]?.nickname?.trim() || "";
 }
 
-export function isCreatorNickname(
-  group: Pick<Group, "creatorNickname" | "plannedMembers">,
-  nickname?: string | null
+export function isGroupOwnerAccount(
+  group: Pick<Group, "ownerId" | "createdBy" | "ownerEmail">,
+  userId: string,
+  email?: string | null
 ) {
-  const creatorNickname = getCreatorNickname(group);
-  if (!creatorNickname || !nickname?.trim()) return false;
-  return nickname.trim().toLowerCase() === creatorNickname.toLowerCase();
+  if (group.ownerId === userId || group.createdBy === userId) return true;
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return false;
+  return normalizeEmail(group.ownerEmail) === normalizedEmail;
 }
 
 export function resolveJoinRole(
-  group: Pick<Group, "createdBy" | "ownerId" | "creatorNickname" | "plannedMembers">,
+  group: Pick<Group, "createdBy" | "ownerId" | "ownerEmail">,
   userId: string,
-  nickname?: string | null
+  email?: string | null
 ): GroupRole {
-  if (group.createdBy === userId || group.ownerId === userId) return "OWNER";
-  if (isCreatorNickname(group, nickname)) return "OWNER";
+  if (isGroupOwnerAccount(group, userId, email)) return "OWNER";
   return "PLAYER";
 }
 
 export function buildOwnerPatch(
-  group: Pick<Group, "createdBy" | "ownerId">,
+  group: Pick<Group, "createdBy" | "ownerId" | "ownerEmail">,
   userId: string,
-  role: GroupRole
+  role: GroupRole,
+  email?: string | null
 ) {
   if (role !== "OWNER") return {};
   return {
     createdBy: group.createdBy || userId,
-    ownerId: group.ownerId || userId
+    ownerId: group.ownerId || userId,
+    ownerEmail: group.ownerEmail || normalizeEmail(email) || undefined
   };
 }
 
@@ -150,6 +159,7 @@ export async function createGroup(payload: CreateGroupPayload) {
     endDate: payload.endDate,
     createdBy: payload.ownerId ?? null,
     ownerId: payload.ownerId ?? null,
+    ownerEmail: payload.ownerEmail ? normalizeEmail(payload.ownerEmail) : null,
     creatorNickname,
     status: "setup",
     memberIds: payload.ownerId ? [payload.ownerId] : [],
@@ -190,6 +200,7 @@ export async function createGroup(payload: CreateGroupPayload) {
       userId: payload.ownerId,
       role: "OWNER",
       nickname: participantSlots[0]?.nickname ?? "Trip owner",
+      email: payload.ownerEmail ?? "",
       status: "active"
     });
   }
@@ -197,7 +208,7 @@ export async function createGroup(payload: CreateGroupPayload) {
   return group;
 }
 
-export async function ensureGroupOwnership(groupId: string, userId: string) {
+export async function ensureGroupOwnership(groupId: string, userId: string, email?: string | null) {
   const db = getFirebaseFirestore();
   const groupRef = doc(db, GROUPS_COLLECTION, groupId);
   const schemaGroupRef = doc(db, GROUPS_SCHEMA_COLLECTION, groupId);
@@ -208,17 +219,18 @@ export async function ensureGroupOwnership(groupId: string, userId: string) {
   const member = await getCurrentGroupMember(groupId, userId);
   const creatorNickname = getCreatorNickname(groupData);
   const creatorSlot = groupData.plannedMembers?.[0];
-  const isListedOwner = groupData.ownerId === userId || groupData.createdBy === userId;
-  const isCreatorByNickname = Boolean(member?.nickname && isCreatorNickname(groupData, member.nickname));
+  const resolvedEmail = normalizeEmail(email) || normalizeEmail(member?.email);
+  const isListedOwner = isGroupOwnerAccount(groupData, userId, resolvedEmail);
   const isCreatorBySlot = creatorSlot?.claimedBy === userId;
-  const shouldOwn = isListedOwner || isCreatorByNickname || isCreatorBySlot;
+  const shouldOwn = isListedOwner || isCreatorBySlot;
 
   if (!shouldOwn) return;
 
-  const shouldFixOwner = isCreatorByNickname || isCreatorBySlot;
   const patch = {
-    createdBy: shouldFixOwner ? userId : (groupData.createdBy || userId),
-    ownerId: shouldFixOwner ? userId : (groupData.ownerId || userId),
+    createdBy: userId,
+    ownerId: userId,
+    ownerEmail: resolvedEmail || groupData.ownerEmail || null,
+    memberIds: arrayUnion(userId),
     ...(creatorNickname && !groupData.creatorNickname ? { creatorNickname } : {}),
     updatedAt: serverTimestamp()
   };
@@ -236,20 +248,114 @@ export async function ensureGroupOwnership(groupId: string, userId: string) {
       avatarUrl: (item.data().avatarUrl as string | null | undefined) ?? ""
     }));
 
-  await Promise.all([
-    setDoc(groupRef, patch, { merge: true }),
-    setDoc(schemaGroupRef, patch, { merge: true }),
-    upsertGroupMember({
+  await setDoc(groupRef, patch, { merge: true });
+  await setDoc(schemaGroupRef, patch, { merge: true });
+  await upsertGroupMember({
+    groupId,
+    userId,
+    role: "OWNER",
+    nickname: member?.nickname ?? creatorNickname ?? "Trip owner",
+    status: "active",
+    email: resolvedEmail || member?.email || "",
+    avatarUrl: member?.avatarUrl ?? ""
+  });
+  await Promise.allSettled(demoteWrongOwners);
+}
+
+export async function ensureActiveGroupMembership(
+  groupId: string,
+  userId: string,
+  options?: { nickname?: string; email?: string; avatarUrl?: string | null }
+) {
+  const db = getFirebaseFirestore();
+  const [groupSnapshot, member] = await Promise.all([
+    getDoc(doc(db, GROUPS_COLLECTION, groupId)),
+    getCurrentGroupMember(groupId, userId)
+  ]);
+
+  if (!groupSnapshot.exists()) return null;
+
+  const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
+  const isListedMember = group.memberIds?.includes(userId)
+    || group.ownerId === userId
+    || group.createdBy === userId;
+
+  if (!isListedMember) return member;
+
+  const effectiveRole = resolveEffectiveRole(member, group, userId, options?.email ?? member?.email);
+  const targetRole: GroupRole = canManageGames(effectiveRole)
+    ? (effectiveRole === "OWNER" ? "OWNER" : "ADMIN")
+    : (member?.role ?? effectiveRole ?? "PLAYER");
+
+  if (member?.status === "active" && member.role === targetRole) return member;
+
+  await upsertGroupMember({
+    groupId,
+    userId,
+    role: targetRole,
+    nickname: options?.nickname ?? member?.nickname ?? getCreatorNickname(group) ?? "Group member",
+    email: options?.email ?? member?.email ?? "",
+    avatarUrl: options?.avatarUrl ?? member?.avatarUrl ?? "",
+    status: "active"
+  });
+
+  return getCurrentGroupMember(groupId, userId);
+}
+
+export async function prepareGroupAdminAccess(
+  groupId: string,
+  userId: string,
+  options?: { nickname?: string; email?: string; avatarUrl?: string | null; appRole?: GroupRole }
+) {
+  await ensureGroupOwnership(groupId, userId, options?.email);
+
+  const db = getFirebaseFirestore();
+  let groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+  if (!groupSnapshot.exists()) {
+    throw new Error("This group no longer exists.");
+  }
+
+  let group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
+  let member = await ensureActiveGroupMembership(groupId, userId, options);
+  let role = resolveEffectiveRole(member, group, userId, options?.email ?? member?.email);
+  const trustedAdmin = Boolean(options?.appRole && canManageGames(options.appRole));
+  const ownerEmail = normalizeEmail(options?.email) || normalizeEmail(member?.email) || group.ownerEmail || null;
+
+  if (trustedAdmin || canManageGames(role)) {
+    const adminRole: GroupRole = options?.appRole === "OWNER" || role === "OWNER" ? "OWNER" : "ADMIN";
+    const ownerPatch = {
+      ownerId: userId,
+      createdBy: userId,
+      ownerEmail,
+      memberIds: arrayUnion(userId),
+      updatedAt: serverTimestamp()
+    };
+
+    await setDoc(doc(db, GROUPS_COLLECTION, groupId), ownerPatch, { merge: true });
+    await setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), ownerPatch, { merge: true });
+    await upsertGroupMember({
       groupId,
       userId,
-      role: "OWNER",
-      nickname: member?.nickname ?? creatorNickname ?? "Trip owner",
-      status: "active",
-      email: member?.email ?? "",
-      avatarUrl: member?.avatarUrl ?? ""
-    }),
-    ...demoteWrongOwners
-  ]);
+      role: adminRole,
+      nickname: options?.nickname ?? member?.nickname ?? getCreatorNickname(group) ?? "Trip owner",
+      email: ownerEmail ?? member?.email ?? "",
+      avatarUrl: options?.avatarUrl ?? member?.avatarUrl ?? "",
+      status: "active"
+    });
+
+    groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+    group = groupSnapshot.exists()
+      ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as Group)
+      : group;
+    member = await getCurrentGroupMember(groupId, userId);
+    role = resolveEffectiveRole(member, group, userId, ownerEmail ?? member?.email);
+  }
+
+  if (!canManageGames(role)) {
+    throw new Error("Seuls les admins du groupe peuvent faire cette action.");
+  }
+
+  return group;
 }
 
 export async function upsertGroupMember(member: Pick<GroupMember, "groupId" | "userId" | "role" | "nickname" | "status"> & Partial<GroupMember>) {
@@ -379,9 +485,10 @@ export async function claimParticipant(payload: ClaimParticipantPayload) {
         ? { ...member, claimedBy: payload.userId, claimedAt }
         : member
     );
-    const isCreator = isCreatorNickname(groupData, payload.nickname);
-    const role = payload.role ?? (isCreator ? "OWNER" : "PLAYER");
-    const ownerPatch = buildOwnerPatch(groupData, payload.userId, role);
+    const isOwnerAccount = isGroupOwnerAccount(groupData, payload.userId, payload.email);
+    const isFirstCreatorSlot = slot.id === plannedMembers[0]?.id && !groupData.ownerId && !groupData.createdBy;
+    const role = payload.role ?? (isOwnerAccount || isFirstCreatorSlot ? "OWNER" : "PLAYER");
+    const ownerPatch = buildOwnerPatch(groupData, payload.userId, role, payload.email);
 
     transaction.set(groupRef, {
       plannedMembers: nextMembers,

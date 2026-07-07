@@ -1,12 +1,23 @@
 import type { GroupMember, GroupRole, RolePermissions } from "@/types";
 
+function normalizeEmail(email?: string | null) {
+  return email?.trim().toLowerCase() ?? "";
+}
+
 export function resolveEffectiveRole(
   member: { role?: GroupRole } | null | undefined,
-  group: { ownerId?: string | null; createdBy?: string | null } | null | undefined,
-  userId: string | null | undefined
+  group: { ownerId?: string | null; createdBy?: string | null; ownerEmail?: string | null } | null | undefined,
+  userId: string | null | undefined,
+  email?: string | null
 ): GroupRole {
-  if (userId && group && (group.ownerId === userId || group.createdBy === userId)) {
-    return "OWNER";
+  if (userId && group) {
+    if (group.ownerId === userId || group.createdBy === userId) {
+      return "OWNER";
+    }
+    const normalizedEmail = normalizeEmail(email);
+    if (normalizedEmail && normalizeEmail(group.ownerEmail) === normalizedEmail) {
+      return "OWNER";
+    }
   }
   if (member?.role === "OWNER" || member?.role === "ADMIN") {
     return member.role;

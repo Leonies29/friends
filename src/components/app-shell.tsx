@@ -26,7 +26,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const state = useActiveGroup();
   const [totalXp, setTotalXp] = useState(0);
   const [games, setGames] = useState<Game[]>([]);
-  const canAdmin = canManageGames(resolveEffectiveRole(state.currentMember, state.group, state.userId));
+  const role = resolveEffectiveRole(state.currentMember, state.group, state.userId, state.currentMember?.email);
+  const canAdmin = canManageGames(role);
   const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
   const displayName = currentMember?.nickname || currentMember?.username || "Traveler";
   const level = calculateLevel(totalXp);
@@ -51,16 +52,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     const reload = () => {
-      if (!canAdmin) {
-        void listGames(state.group!.id).then(setGames).catch(() => undefined);
+      const groupId = state.group!.id;
+      const userId = state.userId;
+      if (!canAdmin || !userId) {
+        void listGames(groupId).then(setGames).catch(() => undefined);
         return;
       }
-      void ensureDefaultGames(state.group!.id).then(setGames).catch(() => undefined);
+      void import("@/services/group-service")
+        .then(({ prepareGroupAdminAccess }) => prepareGroupAdminAccess(groupId, userId, {
+          appRole: role,
+          email: state.currentMember?.email
+        }))
+        .then(() => ensureDefaultGames(groupId))
+        .then(setGames)
+        .catch(() => undefined);
     };
     reload();
     window.addEventListener(GAMES_UPDATED_EVENT, reload);
     return () => window.removeEventListener(GAMES_UPDATED_EVENT, reload);
-  }, [state.group?.id, pathname, canAdmin]);
+  }, [state.group?.id, state.userId, state.currentMember?.email, pathname, canAdmin, role]);
 
   async function logout() {
     await signOut(getFirebaseAuth()).catch(() => undefined);
