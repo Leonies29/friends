@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { GameSetupContent } from "@/components/game-setup/game-setup-content";
 import { Badge, Button, Card } from "@/components/ui";
@@ -23,7 +23,9 @@ const SETUP_LABELS: Record<Game["category"], string> = {
   custom: "Configure game content"
 };
 
-export function GameSetupPage({ gameId }: { gameId: string }) {
+export function GameSetupPage({ gameId: initialGameId }: { gameId: string }) {
+  const params = useParams<{ gameId: string }>();
+  const gameId = params.gameId ?? initialGameId;
   const router = useRouter();
   const state = useActiveGroup();
   const [game, setGame] = useState<Game | null>(null);
