@@ -52,21 +52,12 @@ function leaderboardDocId(groupId: string, gameId: string, userId: string) {
   return `${groupId}_${gameId}_${userId}`;
 }
 
-export async function ensureBingoChallenges(groupId: string, gameId: string) {
+export async function ensureBingoChallenges(groupId: string, gameId: string, options?: { seedIfEmpty?: boolean }) {
+  const existing = await listBingoChallenges(groupId, gameId);
+  if (existing.length) return existing;
+  if (options?.seedIfEmpty === false) return existing;
+
   const db = getFirebaseFirestore();
-  const snapshot = await getDocs(query(
-    collection(db, BINGO_CHALLENGES),
-    where("groupId", "==", groupId),
-    where("gameId", "==", gameId)
-  ));
-
-  if (snapshot.size) {
-    return snapshot.docs
-      .map((item) => ({ id: item.id, ...item.data() }) as BingoChallenge)
-      .filter((challenge) => !challenge.archived)
-      .sort((a, b) => a.title.localeCompare(b.title));
-  }
-
   await Promise.all(DEFAULT_BINGO_CHALLENGES.map((template, index) =>
     setDoc(doc(db, BINGO_CHALLENGES, `${groupId}_${gameId}_${index}`), {
       groupId,

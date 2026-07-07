@@ -42,7 +42,8 @@ service cloud.firestore {
           || get(/databases/$(database)/documents/friendGroups/$(groupId)).data.createdBy == request.auth.uid
           || (
             request.auth.token.email != null
-            && get(/databases/$(database)/documents/friendGroups/$(groupId)).data.get('ownerEmail', '') == request.auth.token.email
+            && get(/databases/$(database)/documents/friendGroups/$(groupId)).data.get('ownerEmail', '').lower()
+              == request.auth.token.email.lower()
           )
         );
     }
@@ -180,18 +181,18 @@ service cloud.firestore {
 
     // Bingo
     match /bingoChallenges/{challengeId} {
-      allow read: if isGroupMember(resource.data.groupId);
-      allow create: if canManageGroup(request.resource.data.groupId)
+      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      allow create: if isSignedIn() && isGroupAdmin(request.resource.data.groupId)
         && request.resource.data.gameId is string
         && request.resource.data.title is string
         && request.resource.data.description is string;
-      allow update, delete: if canManageGroup(resource.data.groupId);
+      allow update, delete: if isSignedIn() && isGroupAdmin(resource.data.groupId);
     }
 
     match /bingoSessions/{sessionId} {
-      allow read: if isGroupMember(resource.data.groupId);
-      allow create, update: if canManageGroup(request.resource.data.groupId);
-      allow delete: if canManageGroup(resource.data.groupId);
+      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      allow create, update: if isSignedIn() && isGroupAdmin(request.resource.data.groupId);
+      allow delete: if isSignedIn() && isGroupAdmin(resource.data.groupId);
     }
 
     match /bingoCards/{cardId} {
@@ -213,8 +214,8 @@ service cloud.firestore {
     }
 
     match /bingoSubmissions/{submissionId} {
-      allow read: if isGroupMember(resource.data.groupId)
-        && (canManageGroup(resource.data.groupId) || request.auth.uid == resource.data.userId);
+      allow read: if isSignedIn() && isGroupMember(resource.data.groupId)
+        && (isGroupAdmin(resource.data.groupId) || request.auth.uid == resource.data.userId);
       allow create: if isGroupMember(request.resource.data.groupId)
         && request.auth.uid == request.resource.data.userId
         && request.resource.data.status == 'pending';

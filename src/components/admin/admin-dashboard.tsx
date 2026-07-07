@@ -57,7 +57,8 @@ export function AdminDashboard() {
       const { prepareGroupAdminAccess } = await import("@/services/group-service");
       await prepareGroupAdminAccess(groupId, state.userId, {
         appRole: role,
-        email: state.currentMember?.email
+        email: state.currentMember?.email,
+        nickname: state.currentMember?.nickname
       });
       setGames(await ensureDefaultGames(groupId));
     } catch (error) {

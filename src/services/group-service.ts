@@ -82,6 +82,36 @@ export function getCreatorNickname(group: Pick<Group, "creatorNickname" | "plann
   return group.creatorNickname?.trim() || group.plannedMembers?.[0]?.nickname?.trim() || "";
 }
 
+async function resolveMemberNickname(
+  groupId: string,
+  userId: string,
+  options?: { explicit?: string | null; group?: Group; existingMember?: GroupMember | null }
+) {
+  const explicit = options?.explicit?.trim();
+  if (explicit) return explicit;
+
+  const member = options?.existingMember ?? await getCurrentGroupMember(groupId, userId);
+  if (member?.nickname?.trim()) return member.nickname.trim();
+
+  const db = getFirebaseFirestore();
+  const userSnapshot = await getDoc(doc(db, "users", userId));
+  if (userSnapshot.exists()) {
+    const username = String(userSnapshot.data().username ?? "").trim();
+    if (username) return username;
+  }
+
+  const groupSnapshot = options?.group
+    ? null
+    : await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+  const group = options?.group ?? (groupSnapshot?.exists()
+    ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as Group)
+    : undefined);
+  const creatorNickname = group ? getCreatorNickname(group) : "";
+  if (creatorNickname) return creatorNickname;
+
+  return member?.nickname?.trim() || "Group member";
+}
+
 export function isGroupOwnerAccount(
   group: Pick<Group, "ownerId" | "createdBy" | "ownerEmail">,
   userId: string,
@@ -255,7 +285,10 @@ export async function ensureGroupOwnership(groupId: string, userId: string, emai
     groupId,
     userId,
     role: "OWNER",
-    nickname: member?.nickname ?? creatorNickname ?? "Trip owner",
+    nickname: await resolveMemberNickname(groupId, userId, {
+      group: groupData,
+      existingMember: member
+    }),
     status: "active",
     email: resolvedEmail || member?.email || "",
     avatarUrl: member?.avatarUrl ?? ""
@@ -294,7 +327,11 @@ export async function ensureActiveGroupMembership(
     groupId,
     userId,
     role: targetRole,
-    nickname: options?.nickname ?? member?.nickname ?? getCreatorNickname(group) ?? "Group member",
+    nickname: await resolveMemberNickname(groupId, userId, {
+      explicit: options?.nickname,
+      group,
+      existingMember: member
+    }),
     email: options?.email ?? member?.email ?? "",
     avatarUrl: options?.avatarUrl ?? member?.avatarUrl ?? "",
     status: "active"
@@ -312,6 +349,18 @@ export async function forceSyncGroupAdminAccess(
   const resolvedEmail = normalizeEmail(options?.email) || normalizeEmail(authUser?.email) || "";
   const adminRole: GroupRole = options?.appRole === "ADMIN" ? "ADMIN" : "OWNER";
   const db = getFirebaseFirestore();
+  const [groupSnapshot, existingMember] = await Promise.all([
+    getDoc(doc(db, GROUPS_COLLECTION, groupId)),
+    getCurrentGroupMember(groupId, userId)
+  ]);
+  const group = groupSnapshot.exists()
+    ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as Group)
+    : undefined;
+  const nickname = await resolveMemberNickname(groupId, userId, {
+    explicit: options?.nickname,
+    group,
+    existingMember
+  });
   const ownerPatch = {
     ownerId: userId,
     createdBy: userId,
@@ -327,23 +376,23 @@ export async function forceSyncGroupAdminAccess(
     groupId,
     userId,
     role: adminRole,
-    nickname: options?.nickname ?? "Trip owner",
-    email: resolvedEmail,
+    nickname,
+    email: resolvedEmail || existingMember?.email || "",
+    avatarUrl: existingMember?.avatarUrl ?? "",
     status: "active",
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
   if (!groupSnapshot.exists()) {
     throw new Error("This group no longer exists.");
   }
 
-  const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
-  if (group.ownerId !== userId && group.createdBy !== userId) {
+  const syncedGroup = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
+  if (syncedGroup.ownerId !== userId && syncedGroup.createdBy !== userId) {
     throw new Error("Firebase n'a pas pu confirmer ton accès admin. Reconnecte-toi et réessaie.");
   }
 
-  return group;
+  return syncedGroup;
 }
 
 export async function prepareGroupAdminAccess(
@@ -391,7 +440,11 @@ export async function prepareGroupAdminAccess(
       groupId,
       userId,
       role: adminRole,
-      nickname: options?.nickname ?? member?.nickname ?? getCreatorNickname(group) ?? "Trip owner",
+      nickname: await resolveMemberNickname(groupId, userId, {
+        explicit: options?.nickname,
+        group,
+        existingMember: member
+      }),
       email: ownerEmail ?? member?.email ?? "",
       avatarUrl: options?.avatarUrl ?? member?.avatarUrl ?? "",
       status: "active"

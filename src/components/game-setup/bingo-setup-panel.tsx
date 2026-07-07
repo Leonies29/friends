@@ -13,6 +13,7 @@ import {
   ensureBingoChallenges,
   getBingoSession,
   launchBingoGame,
+  listBingoChallenges,
   listPendingBingoSubmissions,
   reviewBingoSubmission,
   updateBingoChallenge
@@ -38,16 +39,27 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
     setLoading(true);
     setError("");
     try {
-      const [items, session, pending] = await Promise.all([
-        ensureBingoChallenges(groupId, game.id),
-        getBingoSession(groupId, game.id),
-        listPendingBingoSubmissions(groupId, game.id)
+      if (state.userId) {
+        await ensureAdminAccess().catch(() => undefined);
+      }
+
+      const [items, session] = await Promise.all([
+        listBingoChallenges(groupId, game.id).then(async (loaded) => {
+          if (loaded.length) return loaded;
+          return ensureBingoChallenges(groupId, game.id, { seedIfEmpty: true });
+        }),
+        getBingoSession(groupId, game.id)
       ]);
       setChallenges(items);
       setSessionStatus(session?.status ?? "setup");
-      setSubmissions(pending);
+
+      try {
+        setSubmissions(await listPendingBingoSubmissions(groupId, game.id));
+      } catch {
+        setSubmissions([]);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load bingo.");
+      setError(formatFirestoreError(err, "Unable to load bingo."));
     } finally {
       setLoading(false);
     }
@@ -57,16 +69,44 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await createBingoChallenge(groupId, game.id, {
-      title: String(form.get("title") ?? ""),
-      description: String(form.get("description") ?? ""),
-      category: String(form.get("category") ?? "custom") as BingoCategory,
-      difficulty: String(form.get("difficulty") ?? "common") as BingoDifficulty
-    });
-    event.currentTarget.reset();
-    setMessage("Challenge added.");
-    await load();
+    setError("");
+    try {
+      await ensureAdminAccess();
+      const form = new FormData(event.currentTarget);
+      await createBingoChallenge(groupId, game.id, {
+        title: String(form.get("title") ?? ""),
+        description: String(form.get("description") ?? ""),
+        category: String(form.get("category") ?? "custom") as BingoCategory,
+        difficulty: String(form.get("difficulty") ?? "common") as BingoDifficulty
+      });
+      event.currentTarget.reset();
+      setMessage("Challenge added.");
+      await load();
+    } catch (err) {
+      setError(formatFirestoreError(err, "Unable to add this challenge."));
+    }
+  }
+
+  async function handleUpdateChallenge(challengeId: string, data: Parameters<typeof updateBingoChallenge>[1]) {
+    setError("");
+    try {
+      await ensureAdminAccess();
+      await updateBingoChallenge(challengeId, data);
+      await load();
+    } catch (err) {
+      setError(formatFirestoreError(err, "Unable to update this challenge."));
+    }
+  }
+
+  async function handleDeleteChallenge(challengeId: string) {
+    setError("");
+    try {
+      await ensureAdminAccess();
+      await deleteBingoChallenge(challengeId);
+      await load();
+    } catch (err) {
+      setError(formatFirestoreError(err, "Unable to delete this challenge."));
+    }
   }
 
   async function ensureAdminAccess() {
@@ -182,12 +222,12 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
                       const title = window.prompt("Title", challenge.title);
                       const description = window.prompt("Description", challenge.description);
                       if (!title || !description) return;
-                      void updateBingoChallenge(challenge.id, { title, description }).then(load);
+                      void handleUpdateChallenge(challenge.id, { title, description });
                     }}>✏️</button>
-                    <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Enable/Disable" onClick={() => void updateBingoChallenge(challenge.id, { active: !challenge.active }).then(load)}>
+                    <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Enable/Disable" onClick={() => void handleUpdateChallenge(challenge.id, { active: !challenge.active })}>
                       {challenge.active ? "⏸️" : "▶️"}
                     </button>
-                    <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Delete" onClick={() => void deleteBingoChallenge(challenge.id).then(load)}>🗑️</button>
+                    <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Delete" onClick={() => void handleDeleteChallenge(challenge.id)}>🗑️</button>
                   </div>
                 </div>
               </div>

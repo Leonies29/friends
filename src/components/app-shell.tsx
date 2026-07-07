@@ -61,7 +61,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       void import("@/services/group-service")
         .then(({ prepareGroupAdminAccess }) => prepareGroupAdminAccess(groupId, userId, {
           appRole: role,
-          email: state.currentMember?.email
+          email: state.currentMember?.email,
+          nickname: state.currentMember?.nickname
         }))
         .then(() => ensureDefaultGames(groupId))
         .then(setGames)
