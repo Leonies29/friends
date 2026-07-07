@@ -12,7 +12,7 @@ import { useActiveGroup } from "@/hooks/use-active-group";
 import { GAMES_UPDATED_EVENT } from "@/lib/game-events";
 import { buildNavigationFromGames, filterVisibleNavItems, isNavItemActive, splitMobileNavigation } from "@/lib/game-navigation";
 import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
-import { ensureDefaultGames } from "@/services/game-service";
+import { ensureDefaultGames, listGames } from "@/services/game-service";
 import { listXpTransactions } from "@/services/xp-service";
 import { clearActiveGroupCookie } from "@/lib/session-cookies";
 import { cn, calculateLevel, getLevelProgress } from "@/lib/utils";
@@ -51,12 +51,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     const reload = () => {
+      if (!canAdmin) {
+        void listGames(state.group!.id).then(setGames).catch(() => undefined);
+        return;
+      }
       void ensureDefaultGames(state.group!.id).then(setGames).catch(() => undefined);
     };
     reload();
     window.addEventListener(GAMES_UPDATED_EVENT, reload);
     return () => window.removeEventListener(GAMES_UPDATED_EVENT, reload);
-  }, [state.group?.id, pathname]);
+  }, [state.group?.id, pathname, canAdmin]);
 
   async function logout() {
     await signOut(getFirebaseAuth()).catch(() => undefined);
