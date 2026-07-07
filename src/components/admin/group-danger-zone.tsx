@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { getFirebaseAuth } from "@/firebase/auth";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
 import { Badge, Button, Card } from "@/components/ui";
 import { clearActiveGroupCookie } from "@/lib/session-cookies";
@@ -40,7 +41,8 @@ export function GroupDangerZone({ groupId, groupName, userId, userEmail, role, o
     setResetting(true);
     setResetError("");
     try {
-      await resetGroupProgress(groupId, userId, { appRole: role, email: userEmail ?? undefined });
+      const authEmail = getFirebaseAuth().currentUser?.email ?? userEmail ?? undefined;
+      await resetGroupProgress(groupId, userId, { appRole: role, email: authEmail });
       setShowResetConfirm(false);
       await onResetComplete?.();
     } catch (error) {
@@ -60,7 +62,8 @@ export function GroupDangerZone({ groupId, groupName, userId, userEmail, role, o
     setDeleting(true);
     setDeleteError("");
     try {
-      await deleteGroupPermanently(groupId, userId, { appRole: role, email: userEmail ?? undefined });
+      const authEmail = getFirebaseAuth().currentUser?.email ?? userEmail ?? undefined;
+      await deleteGroupPermanently(groupId, userId, { appRole: role, email: authEmail });
       clearActiveGroupCookie();
       router.replace("/select-group?switch=1");
     } catch (error) {

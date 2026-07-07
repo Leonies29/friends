@@ -12,8 +12,9 @@ import {
   updateDoc,
   where
 } from "firebase/firestore";
+import { getFirebaseAuth } from "@/firebase/auth";
 import { getFirebaseFirestore } from "@/firebase/firestore";
-import { resolveEffectiveRole, canManageGames } from "@/services/permissions";
+import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
 import type { Group, GroupMember, GroupRole, ParticipantSlot } from "@/types";
 
 export const GROUPS_COLLECTION = "friendGroups";
@@ -302,12 +303,66 @@ export async function ensureActiveGroupMembership(
   return getCurrentGroupMember(groupId, userId);
 }
 
+export async function forceSyncGroupAdminAccess(
+  groupId: string,
+  userId: string,
+  options?: { nickname?: string; email?: string | null; appRole?: GroupRole }
+) {
+  const authUser = getFirebaseAuth().currentUser;
+  const resolvedEmail = normalizeEmail(options?.email) || normalizeEmail(authUser?.email) || "";
+  const adminRole: GroupRole = options?.appRole === "ADMIN" ? "ADMIN" : "OWNER";
+  const db = getFirebaseFirestore();
+  const ownerPatch = {
+    ownerId: userId,
+    createdBy: userId,
+    ownerEmail: resolvedEmail || null,
+    memberIds: arrayUnion(userId),
+    updatedAt: serverTimestamp()
+  };
+
+  await setDoc(doc(db, GROUPS_COLLECTION, groupId), ownerPatch, { merge: true });
+  await setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), ownerPatch, { merge: true });
+  await setDoc(doc(db, GROUP_MEMBERS_COLLECTION, `${groupId}_${userId}`), {
+    id: `${groupId}_${userId}`,
+    groupId,
+    userId,
+    role: adminRole,
+    nickname: options?.nickname ?? "Trip owner",
+    email: resolvedEmail,
+    status: "active",
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+  if (!groupSnapshot.exists()) {
+    throw new Error("This group no longer exists.");
+  }
+
+  const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
+  if (group.ownerId !== userId && group.createdBy !== userId) {
+    throw new Error("Firebase n'a pas pu confirmer ton accès admin. Reconnecte-toi et réessaie.");
+  }
+
+  return group;
+}
+
 export async function prepareGroupAdminAccess(
   groupId: string,
   userId: string,
   options?: { nickname?: string; email?: string; avatarUrl?: string | null; appRole?: GroupRole }
 ) {
-  await ensureGroupOwnership(groupId, userId, options?.email);
+  const authEmail = getFirebaseAuth().currentUser?.email ?? options?.email ?? null;
+  const trustedAdmin = Boolean(options?.appRole && canManageGames(options.appRole));
+
+  if (trustedAdmin) {
+    return forceSyncGroupAdminAccess(groupId, userId, {
+      nickname: options?.nickname,
+      email: authEmail,
+      appRole: options?.appRole
+    });
+  }
+
+  await ensureGroupOwnership(groupId, userId, authEmail);
 
   const db = getFirebaseFirestore();
   let groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
@@ -316,12 +371,11 @@ export async function prepareGroupAdminAccess(
   }
 
   let group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
-  let member = await ensureActiveGroupMembership(groupId, userId, options);
-  let role = resolveEffectiveRole(member, group, userId, options?.email ?? member?.email);
-  const trustedAdmin = Boolean(options?.appRole && canManageGames(options.appRole));
-  const ownerEmail = normalizeEmail(options?.email) || normalizeEmail(member?.email) || group.ownerEmail || null;
+  let member = await ensureActiveGroupMembership(groupId, userId, { ...options, email: authEmail ?? options?.email });
+  let role = resolveEffectiveRole(member, group, userId, authEmail ?? member?.email);
+  const ownerEmail = normalizeEmail(authEmail) || normalizeEmail(member?.email) || group.ownerEmail || null;
 
-  if (trustedAdmin || canManageGames(role)) {
+  if (canManageGames(role)) {
     const adminRole: GroupRole = options?.appRole === "OWNER" || role === "OWNER" ? "OWNER" : "ADMIN";
     const ownerPatch = {
       ownerId: userId,

@@ -31,9 +31,7 @@ service cloud.firestore {
 
     function hasPrivilegedMembership(groupId) {
       return exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid))
-        && memberDoc(groupId).data.role in ['OWNER', 'ADMIN']
-        && memberDoc(groupId).data.status != 'inactive'
-        && memberDoc(groupId).data.status != 'removed';
+        && memberDoc(groupId).data.role in ['OWNER', 'ADMIN'];
     }
 
     function isGroupOwner(groupId) {

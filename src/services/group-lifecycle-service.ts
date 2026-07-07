@@ -8,13 +8,16 @@ import {
   limit,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where
 } from "firebase/firestore";
+import { getFirebaseAuth } from "@/firebase/auth";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { ensureAwardCategories } from "@/services/award-service";
 import { ensureDefaultGames } from "@/services/game-service";
 import {
+  forceSyncGroupAdminAccess,
   getCurrentGroupMember,
   GROUP_MEMBERS_COLLECTION,
   GROUPS_COLLECTION,
@@ -59,6 +62,18 @@ const GROUP_SCOPED_COLLECTIONS = [
   "assassinMissionTemplates"
 ] as const;
 
+async function runStep<T>(label: string, task: () => Promise<T>) {
+  try {
+    return await task();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    if (/insufficient permissions/i.test(message)) {
+      throw new Error(`Accès refusé pendant "${label}". Reconnecte-toi avec le compte propriétaire du groupe.`);
+    }
+    throw new Error(`${label}: ${message}`);
+  }
+}
+
 async function deleteQueryBatch(collectionName: string, groupId: string) {
   const db = getFirebaseFirestore();
 
@@ -83,7 +98,6 @@ async function deleteQueryBatch(collectionName: string, groupId: string) {
 async function deleteGroupMembers(groupId: string) {
   const db = getFirebaseFirestore();
   const snapshot = await getDocs(query(collection(db, GROUP_MEMBERS_COLLECTION), where("groupId", "==", groupId)));
-
   await Promise.allSettled(snapshot.docs.map((item) => deleteDoc(item.ref)));
 }
 
@@ -96,7 +110,7 @@ async function deleteAssassinSetup(groupId: string) {
       await deleteDoc(setupRef);
     }
   } catch {
-    // Best effort: setup doc may be missing or already removed.
+    // Best effort.
   }
 }
 
@@ -117,23 +131,28 @@ async function resetGroupProgressFields(groupId: string) {
   };
 
   await Promise.all([
-    updateDoc(doc(db, GROUPS_COLLECTION, groupId), progressPatch),
-    updateDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), progressPatch),
-    updateDoc(doc(db, "appConfig", groupId), {
+    setDoc(doc(db, GROUPS_COLLECTION, groupId), progressPatch, { merge: true }),
+    setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), progressPatch, { merge: true }),
+    setDoc(doc(db, "appConfig", groupId), {
       gameStarted: false,
       currentDay: 0,
       status: "setup",
       updatedAt: serverTimestamp()
-    })
+    }, { merge: true })
   ]);
 }
 
-async function assertCanDeleteGroup(groupId: string, userId: string, options?: ResetGroupOptions) {
-  await prepareGroupAdminAccess(groupId, userId, {
-    appRole: options?.appRole,
+function resolveResetOptions(userId: string, options?: ResetGroupOptions): ResetGroupOptions {
+  const authUser = getFirebaseAuth().currentUser;
+  return {
+    appRole: options?.appRole ?? "OWNER",
     nickname: options?.nickname,
-    email: options?.email
-  });
+    email: options?.email ?? authUser?.email ?? undefined
+  };
+}
+
+async function assertCanDeleteGroup(groupId: string, userId: string, options?: ResetGroupOptions) {
+  await prepareGroupAdminAccess(groupId, userId, resolveResetOptions(userId, options));
 
   const [groupSnapshot, member] = await Promise.all([
     getDoc(doc(getFirebaseFirestore(), GROUPS_COLLECTION, groupId)),
@@ -179,14 +198,17 @@ export type ResetGroupOptions = {
 };
 
 export async function resetGroupProgress(groupId: string, userId: string, options?: ResetGroupOptions) {
-  await prepareGroupAdminAccess(groupId, userId, {
-    appRole: options?.appRole,
-    nickname: options?.nickname,
-    email: options?.email
-  });
-  await wipeGroupGameData(groupId);
-  await resetGroupProgressFields(groupId);
-  await Promise.allSettled([ensureDefaultGames(groupId), ensureAwardCategories(groupId)]);
+  const resolved = resolveResetOptions(userId, options);
+
+  await runStep("synchronisation admin", () =>
+    forceSyncGroupAdminAccess(groupId, userId, resolved)
+  );
+  await runStep("suppression des données de jeu", () => wipeGroupGameData(groupId));
+  await runStep("réinitialisation du groupe", () => resetGroupProgressFields(groupId));
+  await Promise.allSettled([
+    ensureDefaultGames(groupId),
+    ensureAwardCategories(groupId)
+  ]);
 }
 
 export async function deleteGroupPermanently(groupId: string, userId: string, options?: ResetGroupOptions) {
