@@ -10,6 +10,14 @@ export function resolveEffectiveRole(
   userId: string | null | undefined,
   email?: string | null
 ): GroupRole {
+  // The role stored on the member's own groupMembers document is the source of truth once it
+  // exists (it reflects promotions, demotions and ownership transfers). The group document's
+  // ownerId/createdBy/ownerEmail fields are only a bootstrap signal for members who don't have a
+  // membership record yet — they must never override an already-established role, otherwise an
+  // admin who happens to still match a stale owner field would keep getting bumped back to OWNER.
+  if (member?.role) {
+    return member.role;
+  }
   if (userId && group) {
     if (group.ownerId === userId || group.createdBy === userId) {
       return "OWNER";
@@ -19,10 +27,6 @@ export function resolveEffectiveRole(
       return "OWNER";
     }
   }
-  if (member?.role === "OWNER" || member?.role === "ADMIN") {
-    return member.role;
-  }
-  if (member?.role) return member.role;
   return "PLAYER";
 }
 

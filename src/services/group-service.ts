@@ -247,6 +247,14 @@ export async function ensureGroupOwnership(groupId: string, userId: string, emai
   if (!groupSnapshot.exists()) return;
 
   const groupData = groupSnapshot.data() as Group;
+
+  // Ownership can only be *claimed* while the group has no owner yet (bootstrap right after an
+  // anonymous group creation). Once an owner is on record, the only way to change it is the
+  // explicit transferGroupOwnership flow — otherwise a stale ownerEmail match (or anyone else
+  // who transiently satisfies isGroupOwnerAccount) would keep re-promoting themselves to OWNER
+  // and silently demoting the real owner/admins on every reload.
+  if (groupData.ownerId || groupData.createdBy) return;
+
   const member = await getCurrentGroupMember(groupId, userId);
   const creatorNickname = getCreatorNickname(groupData);
   const creatorSlot = groupData.plannedMembers?.[0];
@@ -347,27 +355,34 @@ export async function forceSyncGroupAdminAccess(
 ) {
   const authUser = getFirebaseAuth().currentUser;
   const resolvedEmail = normalizeEmail(options?.email) || normalizeEmail(authUser?.email) || "";
-  const adminRole: GroupRole = options?.appRole === "ADMIN" ? "ADMIN" : "OWNER";
   const db = getFirebaseFirestore();
   const [groupSnapshot, existingMember] = await Promise.all([
     getDoc(doc(db, GROUPS_COLLECTION, groupId)),
     getCurrentGroupMember(groupId, userId)
   ]);
-  const group = groupSnapshot.exists()
-    ? ({ id: groupSnapshot.id, ...groupSnapshot.data() } as Group)
-    : undefined;
+  if (!groupSnapshot.exists()) {
+    throw new Error("This group no longer exists.");
+  }
+
+  const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
   const nickname = await resolveMemberNickname(groupId, userId, {
     explicit: options?.nickname,
     group,
     existingMember
   });
-  const ownerPatch = {
-    ownerId: userId,
-    createdBy: userId,
-    ownerEmail: resolvedEmail || null,
-    memberIds: arrayUnion(userId),
-    updatedAt: serverTimestamp()
-  };
+
+  // Only ever (re)claim ownerId/createdBy when the group has no owner yet, or this user already
+  // is the owner. A plain ADMIN syncing their access must never overwrite the real owner's
+  // identity on the group document — that field is not "whoever last touched the group".
+  const groupHasNoOwner = !group.ownerId && !group.createdBy;
+  const isCurrentOwner = group.ownerId === userId || group.createdBy === userId;
+  const requestedOwner = options?.appRole !== "ADMIN";
+  const adminRole: GroupRole = isCurrentOwner || (groupHasNoOwner && requestedOwner) ? "OWNER" : "ADMIN";
+
+  const memberIdsPatch = { memberIds: arrayUnion(userId), updatedAt: serverTimestamp() };
+  const ownerPatch = adminRole === "OWNER"
+    ? { ownerId: userId, createdBy: userId, ownerEmail: resolvedEmail || null, ...memberIdsPatch }
+    : memberIdsPatch;
 
   await setDoc(doc(db, GROUPS_COLLECTION, groupId), ownerPatch, { merge: true });
   await setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), ownerPatch, { merge: true });
@@ -383,16 +398,8 @@ export async function forceSyncGroupAdminAccess(
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  if (!groupSnapshot.exists()) {
-    throw new Error("This group no longer exists.");
-  }
-
-  const syncedGroup = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
-  if (syncedGroup.ownerId !== userId && syncedGroup.createdBy !== userId) {
-    throw new Error("Firebase n'a pas pu confirmer ton accès admin. Reconnecte-toi et réessaie.");
-  }
-
-  return syncedGroup;
+  const refreshedGroupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+  return { id: refreshedGroupSnapshot.id, ...refreshedGroupSnapshot.data() } as Group;
 }
 
 export async function prepareGroupAdminAccess(
@@ -426,13 +433,14 @@ export async function prepareGroupAdminAccess(
 
   if (canManageGames(role)) {
     const adminRole: GroupRole = options?.appRole === "OWNER" || role === "OWNER" ? "OWNER" : "ADMIN";
-    const ownerPatch = {
-      ownerId: userId,
-      createdBy: userId,
-      ownerEmail,
-      memberIds: arrayUnion(userId),
-      updatedAt: serverTimestamp()
-    };
+    // Same rule as forceSyncGroupAdminAccess: never overwrite ownerId/createdBy for a plain ADMIN,
+    // only when this user is (or is about to legitimately become) the OWNER.
+    const groupHasNoOwner = !group.ownerId && !group.createdBy;
+    const isCurrentOwner = group.ownerId === userId || group.createdBy === userId;
+    const memberIdsPatch = { memberIds: arrayUnion(userId), updatedAt: serverTimestamp() };
+    const ownerPatch = adminRole === "OWNER" && (groupHasNoOwner || isCurrentOwner)
+      ? { ownerId: userId, createdBy: userId, ownerEmail, ...memberIdsPatch }
+      : memberIdsPatch;
 
     await setDoc(doc(db, GROUPS_COLLECTION, groupId), ownerPatch, { merge: true });
     await setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), ownerPatch, { merge: true });

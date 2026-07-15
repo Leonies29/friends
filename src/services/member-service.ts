@@ -45,15 +45,21 @@ export async function transferGroupOwnership(groupId: string, fromUserId: string
     throw new Error("The new owner must be an active group member.");
   }
 
+  // Re-point ownerEmail at the new owner (or clear it) so a stale match on the previous owner's
+  // email can never resurrect them as OWNER later (see resolveEffectiveRole/isGroupOwnerAccount).
+  const nextOwnerEmail = nextOwner.email?.trim().toLowerCase() || null;
+
   await Promise.all([
     setDoc(groupRef, {
       ownerId: toUserId,
       createdBy: toUserId,
+      ownerEmail: nextOwnerEmail,
       updatedAt: serverTimestamp()
     }, { merge: true }),
     setDoc(doc(db, "groups", groupId), {
       ownerId: toUserId,
       createdBy: toUserId,
+      ownerEmail: nextOwnerEmail,
       updatedAt: serverTimestamp()
     }, { merge: true }),
     setMemberRole(groupId, toUserId, "OWNER"),

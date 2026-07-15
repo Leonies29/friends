@@ -35,21 +35,38 @@ service cloud.firestore {
     }
 
     function isGroupOwner(groupId) {
+      let group = get(/databases/$(database)/documents/friendGroups/$(groupId)).data;
       return isSignedIn()
         && exists(/databases/$(database)/documents/friendGroups/$(groupId))
         && (
-          get(/databases/$(database)/documents/friendGroups/$(groupId)).data.ownerId == request.auth.uid
-          || get(/databases/$(database)/documents/friendGroups/$(groupId)).data.createdBy == request.auth.uid
+          group.ownerId == request.auth.uid
+          || group.createdBy == request.auth.uid
+          // The ownerEmail match is a bootstrap-only signal for a group that has no recorded
+          // owner yet (e.g. created before sign-in). Once ownerId/createdBy are set, ownership
+          // can only change via an explicit transfer — otherwise a stale ownerEmail left behind
+          // after a transfer could keep re-granting the old owner access forever.
           || (
-            request.auth.token.email != null
-            && get(/databases/$(database)/documents/friendGroups/$(groupId)).data.get('ownerEmail', '').lower()
-              == request.auth.token.email.lower()
+            group.get('ownerId', null) == null
+            && group.get('createdBy', null) == null
+            && request.auth.token.email != null
+            && group.get('ownerEmail', '').lower() == request.auth.token.email.lower()
           )
         );
     }
 
+    function hasMembershipDoc(groupId) {
+      return exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid));
+    }
+
     function isGroupAdmin(groupId) {
-      return isGroupOwner(groupId) || hasPrivilegedMembership(groupId);
+      // Once a member has their own groupMembers document, its role is authoritative: it
+      // reflects promotions, demotions and ownership transfers. The group document's
+      // ownerId/createdBy fields are only consulted as a bootstrap fallback before that
+      // membership document exists, so a plain ADMIN can never inherit owner-level rules just
+      // because a stale/self-set ownerId happens to match their uid.
+      return isSignedIn() && (
+        hasMembershipDoc(groupId) ? hasPrivilegedMembership(groupId) : isGroupOwner(groupId)
+      );
     }
 
     function canManageGroup(groupId) {
@@ -58,6 +75,16 @@ service cloud.firestore {
 
     function scopedGroupId() {
       return request.resource != null ? request.resource.data.groupId : resource.data.groupId;
+    }
+
+    // A non-admin may freely update roster/bookkeeping fields on the group document (joining,
+    // reserving nicknames, etc.), but must never be able to plant themselves as ownerId/createdBy
+    // /ownerEmail on a group that already has an owner — that field is not "whoever wrote last".
+    // The only exception is the true bootstrap case: no owner recorded yet.
+    function canWriteGroupOwnerFields(groupId) {
+      return canManageGroup(groupId)
+        || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'createdBy', 'ownerEmail'])
+        || (resource.data.get('ownerId', null) == null && resource.data.get('createdBy', null) == null);
     }
 
     // Accounts
@@ -70,14 +97,14 @@ service cloud.firestore {
     match /friendGroups/{groupId} {
       allow read: if true;
       allow create: if true;
-      allow update: if isSignedIn();
+      allow update: if isSignedIn() && canWriteGroupOwnerFields(groupId);
       allow delete: if isSignedIn() && canManageGroup(groupId);
     }
 
     match /groups/{groupId} {
       allow read: if true;
       allow create: if true;
-      allow update: if isSignedIn();
+      allow update: if isSignedIn() && canWriteGroupOwnerFields(groupId);
       allow delete: if isSignedIn() && canManageGroup(groupId);
     }
 
@@ -90,12 +117,27 @@ service cloud.firestore {
 
     match /groupMembers/{memberId} {
       allow read: if isSignedIn();
+      // Self-onboarding may only claim PLAYER, or OWNER when the group document itself confirms
+      // this account is the owner (bootstrap). ADMIN can never be self-assigned on create — it
+      // must come from an existing admin promoting someone else, which goes through the update
+      // branch below and already requires canManageGroup.
       allow create: if isSignedIn()
-        && request.auth.uid == request.resource.data.userId;
+        && request.auth.uid == request.resource.data.userId
+        && (
+          request.resource.data.role == 'PLAYER'
+          || (request.resource.data.role == 'OWNER' && isGroupOwner(request.resource.data.groupId))
+        );
       allow update: if isSignedIn()
         && (
-          request.auth.uid == resource.data.userId
-          || canManageGroup(resource.data.groupId)
+          canManageGroup(resource.data.groupId)
+          || (
+            request.auth.uid == resource.data.userId
+            && (
+              request.resource.data.role == resource.data.role
+              || request.resource.data.role == 'PLAYER'
+              || (request.resource.data.role == 'OWNER' && isGroupOwner(resource.data.groupId))
+            )
+          )
         );
       allow delete: if isSignedIn() && canManageGroup(resource.data.groupId);
     }
@@ -308,7 +350,7 @@ service cloud.firestore {
     match /assassinSetups/{setupId} {
       allow read: if isGroupMember(resource.data.groupId);
       allow create, update: if canManageGroup(request.resource.data.groupId);
-      allow delete: if canManageGroup(setupId);
+      allow delete: if canManageGroup(resource.data.groupId);
     }
 
     match /assassinMissionTemplates/{templateId} {
