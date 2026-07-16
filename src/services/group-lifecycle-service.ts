@@ -166,7 +166,7 @@ async function assertCanDeleteGroup(groupId: string, userId: string, options?: R
   const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
   const role = resolveEffectiveRole(member, group, userId, options?.email);
   if (!canDeleteGroup(role)) {
-    throw new Error("Only the trip owner can delete this group.");
+    throw new Error("Only the trip owner or an admin can delete this group.");
   }
 
   return group;
