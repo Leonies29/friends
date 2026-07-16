@@ -571,11 +571,11 @@ export async function removePlannedMemberSlot(groupId: string, slotId: string) {
 export async function claimParticipant(payload: ClaimParticipantPayload) {
   const db = getFirebaseFirestore();
   const memberId = `${payload.groupId}_${payload.userId}`;
+  const groupRef = doc(db, GROUPS_COLLECTION, payload.groupId);
+  const schemaGroupRef = doc(db, GROUPS_SCHEMA_COLLECTION, payload.groupId);
+  const memberRef = doc(db, GROUP_MEMBERS_COLLECTION, memberId);
 
-  await runTransaction(db, async (transaction) => {
-    const groupRef = doc(db, GROUPS_COLLECTION, payload.groupId);
-    const schemaGroupRef = doc(db, GROUPS_SCHEMA_COLLECTION, payload.groupId);
-    const memberRef = doc(db, GROUP_MEMBERS_COLLECTION, memberId);
+  const { resolvedRole, resolvedSlot } = await runTransaction(db, async (transaction) => {
     const groupSnapshot = await transaction.get(groupRef);
 
     if (!groupSnapshot.exists()) {
@@ -617,20 +617,49 @@ export async function claimParticipant(payload: ClaimParticipantPayload) {
       ...ownerPatch,
       updatedAt: serverTimestamp()
     }, { merge: true });
-    transaction.set(memberRef, {
+
+    // Only write the membership doc here when it doesn't need isGroupOwner()'s security-rule
+    // check to see this very transaction's own ownerId write — see the OWNER branch below for why.
+    if (role !== "OWNER") {
+      transaction.set(memberRef, {
+        id: memberId,
+        groupId: payload.groupId,
+        userId: payload.userId,
+        role,
+        nickname: slot.nickname,
+        email: payload.email ?? "",
+        avatarUrl: payload.avatarUrl ?? "",
+        participantSlotId: slot.id,
+        status: "active",
+        joinedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
+
+    return { resolvedRole: role, resolvedSlot: slot };
+  });
+
+  if (resolvedRole === "OWNER" && resolvedSlot) {
+    // Firestore security rules resolve get()/exists() against the transaction's consistent read
+    // snapshot, not other writes made earlier in the SAME transaction — so a groupMembers create
+    // with role "OWNER" can never see the ownerId this same transaction just set on friendGroups,
+    // and the whole transaction gets denied (leaving the group ownerless forever, since retrying
+    // hits the identical deadlock). Write it as a follow-up call instead, once ownerId is actually
+    // committed and visible to a fresh get().
+    await setDoc(memberRef, {
       id: memberId,
       groupId: payload.groupId,
       userId: payload.userId,
-      role,
-      nickname: slot.nickname,
+      role: "OWNER",
+      nickname: resolvedSlot.nickname,
       email: payload.email ?? "",
       avatarUrl: payload.avatarUrl ?? "",
-      participantSlotId: slot.id,
+      participantSlotId: resolvedSlot.id,
       status: "active",
       joinedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true });
-  });
+  }
 
   await updateDoc(doc(db, "users", payload.userId), {
     groupIds: arrayUnion(payload.groupId),

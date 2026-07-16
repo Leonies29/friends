@@ -103,10 +103,14 @@ export async function countUserVotes(voterId: string, groupId: string) {
   };
 }
 
+// Pure read — never auto-seeds. Seeding writes require canManageGroup (see firestore.rules), so
+// triggering it from a plain read that any group member can hit (award page, ceremony page, the
+// dashboard "awards won" stat) crashes every non-admin with a permission error the moment
+// categories happen to be empty. Seeding only ever happens from an explicitly admin-gated call
+// site (ensureAwardCategories, called from the admin dashboard and group reset).
 export async function listAwardCategories(groupId: string) {
   const db = getFirebaseFirestore();
   const snapshot = await getDocs(query(collection(db, AWARD_CATEGORIES_COLLECTION), where("groupId", "==", groupId)));
-  if (!snapshot.size) return ensureAwardCategories(groupId);
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as AwardCategory & { groupId: string });
 }
 

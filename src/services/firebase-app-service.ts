@@ -139,14 +139,14 @@ async function ensureUserDocument(userId: string, email: string, groupId?: strin
   }, { merge: true });
 
   if (resolvedGroupId) {
+    // Ownership is decided by group-service.ts's OWNER/ADMIN role system (groupMembers docs +
+    // friendGroups.ownerId), never by a flag on the user's own doc — a stray legacy `isAdmin`
+    // used to make this silently hand the caller createdBy on the group, which is exactly the
+    // kind of self-service ownership grab the tightened Firestore rules now (correctly) reject.
     const groupPatch: Record<string, unknown> = {
       memberIds: arrayUnion(userId),
       updatedAt: serverTimestamp()
     };
-
-    if (existing.isAdmin) {
-      groupPatch.createdBy = userId;
-    }
 
     await Promise.all([
       setDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId), groupPatch, { merge: true }),

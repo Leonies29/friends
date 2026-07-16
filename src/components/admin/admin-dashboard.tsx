@@ -14,6 +14,7 @@ import { formatFirestoreError } from "@/lib/firebase-errors";
 import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManageMembers, canManageScores, resolveEffectiveRole } from "@/services/permissions";
+import { ensureAwardCategories } from "@/services/award-service";
 import { ensureDefaultGames } from "@/services/game-service";
 import { addXpTransaction } from "@/services/xp-service";
 import type { Game } from "@/types";
@@ -60,7 +61,11 @@ export function AdminDashboard() {
         email: state.currentMember?.email,
         nickname: state.currentMember?.nickname
       });
-      setGames(await ensureDefaultGames(groupId));
+      const [nextGames] = await Promise.all([
+        ensureDefaultGames(groupId),
+        ensureAwardCategories(groupId).catch(() => undefined)
+      ]);
+      setGames(nextGames);
     } catch (error) {
       setLoadError(formatFirestoreError(error, "Unable to load games."));
     } finally {

@@ -6,6 +6,7 @@ import { Badge, Button, Card } from "@/components/ui";
 import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { listGames } from "@/services/game-service";
+import { canManageGames } from "@/services/permissions";
 import { castVote, countUserVotes, ensureAwardCategories, listAwardCategories, listVotes } from "@/services/award-service";
 import type { AwardCategory, AwardVote } from "@/types/game";
 import { Avatar } from "@/components/ui";
@@ -33,7 +34,9 @@ export function AwardsPage() {
   async function load() {
     if (!state.group?.id || !state.userId) return;
     setLoading(true);
-    await ensureAwardCategories(state.group.id);
+    if (canManageGames(state.currentMember?.role)) {
+      await ensureAwardCategories(state.group.id).catch(() => undefined);
+    }
     const [allCategories, allVotes, voteProgress] = await Promise.all([
       listAwardCategories(state.group.id),
       listVotes(state.group.id, state.userId),
