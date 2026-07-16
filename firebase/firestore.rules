@@ -144,7 +144,7 @@ service cloud.firestore {
 
     // Games & scoring
     match /games/{gameId} {
-      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      allow read: if isSignedIn() && (resource == null || isGroupMember(resource.data.groupId));
       allow create: if isSignedIn() && canManageGroup(request.resource.data.groupId);
       allow update, delete: if isSignedIn() && canManageGroup(resource.data.groupId);
     }
@@ -232,13 +232,16 @@ service cloud.firestore {
     }
 
     match /bingoSessions/{sessionId} {
-      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      // resource == null when the session hasn't been launched yet — the client reads this
+      // doc by deterministic id (groupId_gameId) before it necessarily exists, and a bare
+      // `resource.data.groupId` check errors (and therefore denies) on a null resource.
+      allow read: if isSignedIn() && (resource == null || isGroupMember(resource.data.groupId));
       allow create, update: if isSignedIn() && isGroupAdmin(request.resource.data.groupId);
       allow delete: if isSignedIn() && isGroupAdmin(resource.data.groupId);
     }
 
     match /bingoCards/{cardId} {
-      allow read: if isGroupMember(resource.data.groupId);
+      allow read: if resource == null || isGroupMember(resource.data.groupId);
       allow create: if canManageGroup(request.resource.data.groupId)
         || (
           isGroupMember(request.resource.data.groupId)
@@ -271,7 +274,7 @@ service cloud.firestore {
     }
 
     match /bingoPlayers/{playerId} {
-      allow read: if isGroupMember(resource.data.groupId);
+      allow read: if resource == null || isGroupMember(resource.data.groupId);
       allow create, update: if canManageGroup(request.resource.data.groupId)
         || isGroupMember(request.resource.data.groupId);
       allow delete: if canManageGroup(resource.data.groupId);
@@ -286,13 +289,13 @@ service cloud.firestore {
 
     // Quiz
     match /quizQuestions/{questionId} {
-      allow read: if isGroupMember(resource.data.groupId);
+      allow read: if resource == null || isGroupMember(resource.data.groupId);
       allow create: if canManageGroup(request.resource.data.groupId);
       allow update, delete: if canManageGroup(resource.data.groupId);
     }
 
     match /quizSessions/{sessionId} {
-      allow read: if isGroupMember(resource.data.groupId);
+      allow read: if resource == null || isGroupMember(resource.data.groupId);
       allow create: if isGroupMember(request.resource.data.groupId)
         && request.auth.uid == request.resource.data.userId;
       allow update: if isGroupMember(resource.data.groupId)
@@ -348,7 +351,7 @@ service cloud.firestore {
     }
 
     match /assassinSetups/{setupId} {
-      allow read: if isGroupMember(resource.data.groupId);
+      allow read: if resource == null || isGroupMember(resource.data.groupId);
       allow create, update: if canManageGroup(request.resource.data.groupId);
       allow delete: if canManageGroup(resource.data.groupId);
     }
