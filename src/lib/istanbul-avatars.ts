@@ -1,9 +1,15 @@
 import type { ActiveGroup } from "@/hooks/use-active-group";
 
-import { appPath } from "@/lib/app-paths";
+import { getAppBasePath } from "@/lib/app-paths";
 
+// Static files under /public are served as-is (no trailing-slash normalization the way page
+// routes get under output:"export"), so this must NOT go through appPath()'s route-oriented
+// trailing-slash logic — that was turning "/avatars/istanbul/leonie.png" into
+// ".../leonie.png/" on the GitHub Pages build, 404ing every avatar in production while working
+// fine locally (empty base path, so the bug was invisible in dev).
 function publicAsset(path: string) {
-  return appPath(path.startsWith("/") ? path : `/${path}`);
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${getAppBasePath()}${normalized}`;
 }
 
 function normalizeName(value: string) {
