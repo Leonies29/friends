@@ -7,6 +7,7 @@ import { getFirebaseFirestore } from "@/firebase/firestore";
 import type { Challenge } from "@/types";
 
 const inputClass = "w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold";
+const CHALLENGE_XP_REWARD = 50;
 
 export function ChallengeSetupPanel({ groupId }: { groupId: string }) {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -30,7 +31,7 @@ export function ChallengeSetupPanel({ groupId }: { groupId: string }) {
       title: String(form.get("title") ?? ""),
       description: String(form.get("description") ?? ""),
       difficulty: String(form.get("difficulty") ?? "Easy"),
-      xpReward: Number(form.get("xpReward") ?? 100),
+      xpReward: CHALLENGE_XP_REWARD,
       status: "active",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -45,10 +46,8 @@ export function ChallengeSetupPanel({ groupId }: { groupId: string }) {
         <Badge>Add challenge</Badge>
         <input name="title" required placeholder="Title" className={inputClass} />
         <textarea name="description" required placeholder="Description" className={`${inputClass} min-h-20`} />
-        <div className="grid gap-2 md:grid-cols-2">
-          <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
-          <input name="xpReward" type="number" min={1} defaultValue={100} className={inputClass} />
-        </div>
+        <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
+        <p className="text-xs font-semibold text-muted-foreground">Every challenge is worth {CHALLENGE_XP_REWARD} XP.</p>
         <Button type="submit" size="sm">➕ Add</Button>
       </form>
 

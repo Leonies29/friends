@@ -70,18 +70,13 @@ export function HomeDashboard() {
 
   const level = calculateLevel(xp);
   const profileStats = useMemo(() => ([
+    { label: "Ranking position", value: `#${rank}`, icon: Trophy },
     { label: "Completed quests", value: questsDone, icon: Sparkles },
-    { label: "Assassin eliminations", value: eliminations, icon: Crosshair },
+    { label: "Assassin status", value: assassinStatus, icon: Crosshair },
+    { label: "Assassin eliminations", value: eliminations, icon: Map },
     { label: "Awards voted", value: awardsVoted, icon: Crown },
     { label: "Awards won", value: awardsWon, icon: Trophy }
-  ]), [questsDone, eliminations, awardsVoted, awardsWon]);
-
-  const quickStats = useMemo(() => ([
-    { label: "Ranking position", value: `#${rank}`, icon: Trophy },
-    { label: "Completed quests", value: String(questsDone), icon: Map },
-    { label: "Awards voted", value: String(awardsVoted), icon: Crown },
-    { label: "Assassin status", value: assassinStatus, icon: Crosshair }
-  ]), [rank, questsDone, awardsVoted, assassinStatus]);
+  ]), [rank, questsDone, assassinStatus, eliminations, awardsVoted, awardsWon]);
 
   if (state.loading || loading) return <LoadingCard label="Loading your adventure..." />;
   if (!state.group) return <EmptyGroupCard />;
@@ -100,29 +95,14 @@ export function HomeDashboard() {
         <Progress value={getLevelProgress(xp)} className="mt-4" />
       </Card>
 
-      <section className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 sm:gap-4">
+      <section className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-4">
         {profileStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <motion.div key={stat.label} className="w-[140px] min-w-0 sm:w-auto" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
               <Card className="p-3 sm:p-5">
                 <Icon className="h-5 w-5 text-accent sm:h-6 sm:w-6" />
-                <p className="mt-2 text-xl font-black sm:mt-4 sm:text-3xl">{stat.value}</p>
-                <p className="text-[10px] leading-tight text-muted-foreground sm:text-sm">{stat.label}</p>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </section>
-
-      <section className="grid grid-cols-2 justify-items-center gap-1.5 sm:grid-cols-2 sm:justify-items-stretch sm:gap-4 xl:grid-cols-4">
-        {quickStats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div key={`quick-${stat.label}`} className="w-[140px] min-w-0 sm:w-auto" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-              <Card className="p-3 sm:p-5">
-                <Icon className="h-5 w-5 text-accent sm:h-6 sm:w-6" />
-                <p className="mt-2 truncate text-lg font-black sm:mt-4 sm:text-2xl">{stat.value}</p>
+                <p className="mt-2 truncate text-xl font-black sm:mt-4 sm:text-3xl">{stat.value}</p>
                 <p className="text-[10px] leading-tight text-muted-foreground sm:text-sm">{stat.label}</p>
               </Card>
             </motion.div>

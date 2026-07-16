@@ -37,6 +37,8 @@ import { calculateLevel } from "@/lib/utils";
 type GroupState = ReturnType<typeof useActiveGroup>;
 type RelicDoc = { id: string; groupId: string; key: string; label: string; xpReward: number; collectedBy?: string; collectedByName?: string };
 
+const CHALLENGE_XP_REWARD = 50;
+
 const relicTemplates = [
   ["group-selfie", "Group selfie"],
   ["local-snack", "Local snack"],
@@ -327,14 +329,13 @@ export function GroupChallengesPage() {
   if (fallback) return fallback;
   const group = state.group!;
 
-  async function createChallenge(event: FormEvent<HTMLFormElement>, forPlayer = false) {
+  async function createChallenge(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (forPlayer && !state.userId) return;
-    if (!forPlayer && !canEdit) return;
+    if (!state.userId) return;
     setSaving(true);
     const form = new FormData(event.currentTarget);
     const ownerId = String(form.get("ownerId") ?? "");
-    if (forPlayer && ownerId === state.userId) {
+    if (ownerId === state.userId) {
       setProofError("Assign the challenge to another participant.");
       setSaving(false);
       return;
@@ -342,18 +343,19 @@ export function GroupChallengesPage() {
     const owner = state.members.find((member) => member.id === ownerId || member.userId === ownerId);
     const assigner = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
     const [{ addDoc, collection, serverTimestamp }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
+    const scheduledFor = canEdit ? String(form.get("scheduledFor") ?? "") : "";
     await addDoc(collection(getFirebaseFirestore(), "challenges"), {
       groupId: group.id,
       ownerId,
       ownerName: memberName(owner),
-      assignedById: forPlayer ? state.userId : state.userId,
-      assignedByName: forPlayer ? memberName(assigner) : "Admin",
+      assignedById: state.userId,
+      assignedByName: memberName(assigner),
       title: String(form.get("title") ?? ""),
       description: String(form.get("description") ?? ""),
       difficulty: String(form.get("difficulty") ?? "Easy"),
-      xpReward: Number(form.get("xpReward") ?? 50),
-      scheduledFor: String(form.get("scheduledFor") ?? ""),
-      status: String(form.get("scheduledFor") ?? "") ? "scheduled" : "secret",
+      xpReward: CHALLENGE_XP_REWARD,
+      scheduledFor,
+      status: scheduledFor ? "scheduled" : "secret",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -410,8 +412,8 @@ export function GroupChallengesPage() {
       {canAssignToOthers && (
         <Card>
           <Badge>Assign a mission</Badge>
-          <p className="mt-2 text-sm text-muted-foreground">Pick another participant and give them a secret challenge.</p>
-          <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={(event) => void createChallenge(event, true)}>
+          <p className="mt-2 text-sm text-muted-foreground">Pick another participant and give them a secret challenge. Every challenge is worth {CHALLENGE_XP_REWARD} XP.</p>
+          <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={(event) => void createChallenge(event)}>
             <input name="title" required placeholder="Challenge title" className={inputClass} />
             <select name="ownerId" required className={inputClass}>
               <option value="">Choose a participant</option>
@@ -420,23 +422,10 @@ export function GroupChallengesPage() {
                 .map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}
             </select>
             <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
-            <input name="xpReward" type="number" defaultValue={50} className={inputClass} />
+            {canEdit && <input name="scheduledFor" type="datetime-local" className={inputClass} />}
             <textarea name="description" required placeholder="Challenge description" className={`${textareaClass} md:col-span-2`} />
             {proofError && <p className="text-sm font-semibold text-rose-700 md:col-span-2">{proofError}</p>}
             <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />{saving ? "Saving..." : "Assign challenge"}</Button>
-          </form>
-        </Card>
-      )}
-      {canEdit && (
-        <Card>
-          <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void createChallenge(event, false)}>
-            <input name="title" required placeholder="Challenge title" className={inputClass} />
-            <select name="ownerId" required className={inputClass}><option value="">Choose a participant</option>{state.members.map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}</select>
-            <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
-            <input name="xpReward" type="number" defaultValue={50} className={inputClass} />
-            <input name="scheduledFor" type="datetime-local" className={inputClass} />
-            <textarea name="description" required placeholder="Challenge description" className={`${textareaClass} md:col-span-2`} />
-            <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="h-4 w-4" />{saving ? "Saving..." : "Create challenge"}</Button>
           </form>
         </Card>
       )}
