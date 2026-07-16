@@ -1,7 +1,7 @@
-export function formatFirestoreError(error: unknown, fallback = "Une erreur est survenue.") {
+export function formatFirestoreError(error: unknown, fallback = "Something went wrong.") {
   if (!(error instanceof Error)) return fallback;
   if (/insufficient permissions|missing or insufficient permissions/i.test(error.message)) {
-    return "Accès refusé. Reconnecte-toi, vérifie que tu es admin du groupe, puis réessaie.";
+    return "Access denied. Sign in again, confirm you're an admin of this group, then retry.";
   }
   return error.message;
 }

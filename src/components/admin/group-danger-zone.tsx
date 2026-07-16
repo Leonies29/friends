@@ -46,7 +46,7 @@ export function GroupDangerZone({ groupId, groupName, userId, userEmail, role, o
       setShowResetConfirm(false);
       await onResetComplete?.();
     } catch (error) {
-      setResetError(formatFirestoreError(error, "Impossible de réinitialiser ce groupe."));
+      setResetError(formatFirestoreError(error, "Unable to reset this group."));
     } finally {
       setResetting(false);
     }
@@ -67,7 +67,7 @@ export function GroupDangerZone({ groupId, groupName, userId, userEmail, role, o
       clearActiveGroupCookie();
       router.replace("/select-group?switch=1");
     } catch (error) {
-      setDeleteError(formatFirestoreError(error, "Impossible de supprimer ce groupe."));
+      setDeleteError(formatFirestoreError(error, "Unable to delete this group."));
       setDeleting(false);
     }
   }

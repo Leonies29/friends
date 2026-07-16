@@ -68,7 +68,7 @@ async function runStep<T>(label: string, task: () => Promise<T>) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     if (/insufficient permissions/i.test(message)) {
-      throw new Error(`Accès refusé pendant "${label}". Reconnecte-toi avec le compte propriétaire du groupe.`);
+      throw new Error(`Access denied during "${label}". Sign in again with the group owner's account.`);
     }
     throw new Error(`${label}: ${message}`);
   }
@@ -200,11 +200,11 @@ export type ResetGroupOptions = {
 export async function resetGroupProgress(groupId: string, userId: string, options?: ResetGroupOptions) {
   const resolved = resolveResetOptions(userId, options);
 
-  await runStep("synchronisation admin", () =>
+  await runStep("admin sync", () =>
     forceSyncGroupAdminAccess(groupId, userId, resolved)
   );
-  await runStep("suppression des données de jeu", () => wipeGroupGameData(groupId));
-  await runStep("réinitialisation du groupe", () => resetGroupProgressFields(groupId));
+  await runStep("deleting game data", () => wipeGroupGameData(groupId));
+  await runStep("resetting the group", () => resetGroupProgressFields(groupId));
   await Promise.allSettled([
     ensureDefaultGames(groupId),
     ensureAwardCategories(groupId)

@@ -467,7 +467,7 @@ export async function prepareGroupAdminAccess(
   }
 
   if (!canManageGames(role)) {
-    throw new Error("Seuls les admins du groupe peuvent faire cette action.");
+    throw new Error("Only group admins can do this.");
   }
 
   return group;
