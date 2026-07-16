@@ -32,6 +32,11 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"challenges" | "launch" | "moderation">("challenges");
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectComment, setRejectComment] = useState("");
+  const [editingChallengeId, setEditingChallengeId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   const activeCount = useMemo(() => challenges.filter((challenge) => challenge.active).length, [challenges]);
 
@@ -139,11 +144,10 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
     }
   }
 
-  async function handleReview(submission: BingoSubmission, status: "approved" | "rejected") {
+  async function handleReview(submission: BingoSubmission, status: "approved" | "rejected", adminComment = "") {
     setError("");
     try {
       await ensureAdminAccess();
-      const adminComment = status === "rejected" ? window.prompt("Comment (optional)", "") ?? "" : "";
       await reviewBingoSubmission({
         submission,
         status,
@@ -151,6 +155,8 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
         reviewedBy: state.userId ?? "admin"
       });
       setMessage(status === "approved" ? "Proof approved." : "Proof rejected.");
+      setRejectingId(null);
+      setRejectComment("");
       await load();
     } catch (err) {
       setError(formatFirestoreError(err, "Unable to review this proof."));
@@ -214,16 +220,35 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
                       <Badge>{BINGO_CATEGORY_META[challenge.category].emoji} {BINGO_CATEGORY_META[challenge.category].label}</Badge>
                       {!challenge.active && <Badge>Inactive</Badge>}
                     </div>
-                    <p className="mt-2 font-black">{challenge.title}</p>
-                    <p className="text-sm text-muted-foreground">{challenge.description}</p>
+                    {editingChallengeId === challenge.id ? (
+                      <div className="mt-2 grid gap-2">
+                        <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} placeholder="Title" className={inputClass} />
+                        <textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} placeholder="Description" className={`${inputClass} min-h-16`} />
+                      </div>
+                    ) : (
+                      <>
+                        <p className="mt-2 font-black">{challenge.title}</p>
+                        <p className="text-sm text-muted-foreground">{challenge.description}</p>
+                      </>
+                    )}
                   </div>
                   <div className="flex gap-1">
-                    <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Edit" onClick={() => {
-                      const title = window.prompt("Title", challenge.title);
-                      const description = window.prompt("Description", challenge.description);
-                      if (!title || !description) return;
-                      void handleUpdateChallenge(challenge.id, { title, description });
-                    }}>✏️</button>
+                    {editingChallengeId === challenge.id ? (
+                      <>
+                        <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Save" onClick={() => {
+                          if (!editTitle.trim() || !editDescription.trim()) return;
+                          void handleUpdateChallenge(challenge.id, { title: editTitle.trim(), description: editDescription.trim() });
+                          setEditingChallengeId(null);
+                        }}>✅</button>
+                        <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Cancel" onClick={() => setEditingChallengeId(null)}>✖️</button>
+                      </>
+                    ) : (
+                      <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Edit" onClick={() => {
+                        setEditingChallengeId(challenge.id);
+                        setEditTitle(challenge.title);
+                        setEditDescription(challenge.description);
+                      }}>✏️</button>
+                    )}
                     <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Enable/Disable" onClick={() => void handleUpdateChallenge(challenge.id, { active: !challenge.active })}>
                       {challenge.active ? "⏸️" : "▶️"}
                     </button>
@@ -260,10 +285,25 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
               {submission.proofText && (
                 <p className="mt-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">{submission.proofText}</p>
               )}
-              <div className="mt-4 flex gap-2">
-                <Button size="sm" onClick={() => void handleReview(submission, "approved")}>✅ Approve</Button>
-                <Button size="sm" variant="secondary" onClick={() => void handleReview(submission, "rejected")}>❌ Reject</Button>
-              </div>
+              {rejectingId === submission.id ? (
+                <div className="mt-4 grid gap-2">
+                  <textarea
+                    value={rejectComment}
+                    onChange={(event) => setRejectComment(event.target.value)}
+                    placeholder="Comment (optional)"
+                    className={`${inputClass} min-h-16`}
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => void handleReview(submission, "rejected", rejectComment)}>Confirm reject</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setRejectingId(null); setRejectComment(""); }}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 flex gap-2">
+                  <Button size="sm" onClick={() => void handleReview(submission, "approved")}>✅ Approve</Button>
+                  <Button size="sm" variant="secondary" onClick={() => { setRejectingId(submission.id); setRejectComment(""); }}>❌ Reject</Button>
+                </div>
+              )}
             </Card>
           ))}
         </div>

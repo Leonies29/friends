@@ -21,6 +21,9 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editQuestionText, setEditQuestionText] = useState("");
+
   const [questionsPerDay, setQuestionsPerDay] = useState(String(game.settings?.questionsPerDay ?? 3));
   const [timerSeconds, setTimerSeconds] = useState(String(game.settings?.timerSeconds ?? 20));
   const [totalSeries, setTotalSeries] = useState(String(game.settings?.totalSeries ?? 3));
@@ -143,17 +146,31 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
                   <Badge>{QUIZ_DIFFICULTY_META[question.difficulty].emoji} {QUIZ_DIFFICULTY_META[question.difficulty].label}</Badge>
                   {!question.active && <Badge>Inactive</Badge>}
                 </div>
-                <p className="mt-2 font-black">{question.question}</p>
+                {editingQuestionId === question.id ? (
+                  <input value={editQuestionText} onChange={(event) => setEditQuestionText(event.target.value)} placeholder="Question" className={`${inputClass} mt-2`} />
+                ) : (
+                  <p className="mt-2 font-black">{question.question}</p>
+                )}
                 <p className="mt-1 text-sm text-muted-foreground">
                   ✅ {question.answers[question.correctAnswer]}
                 </p>
               </div>
               <div className="flex gap-1">
-                <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Edit" onClick={() => {
-                  const text = window.prompt("Question", question.question);
-                  if (!text) return;
-                  void updateQuizQuestion(question.id, { question: text }).then(load);
-                }}>✏️</button>
+                {editingQuestionId === question.id ? (
+                  <>
+                    <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Save" onClick={() => {
+                      if (!editQuestionText.trim()) return;
+                      void updateQuizQuestion(question.id, { question: editQuestionText.trim() }).then(load);
+                      setEditingQuestionId(null);
+                    }}>✅</button>
+                    <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Cancel" onClick={() => setEditingQuestionId(null)}>✖️</button>
+                  </>
+                ) : (
+                  <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Edit" onClick={() => {
+                    setEditingQuestionId(question.id);
+                    setEditQuestionText(question.question);
+                  }}>✏️</button>
+                )}
                 <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-border" title="Enable / disable" onClick={() => void updateQuizQuestion(question.id, { active: !question.active }).then(load)}>
                   {question.active ? "⏸️" : "▶️"}
                 </button>

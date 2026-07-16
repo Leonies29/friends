@@ -12,6 +12,10 @@ export function QuestSetupPanel({ groupId }: { groupId: string }) {
   const [quests, setQuests] = useState<QuestDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingQuestId, setEditingQuestId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editXpReward, setEditXpReward] = useState("");
 
   async function load() {
     setLoading(true);
@@ -75,25 +79,53 @@ export function QuestSetupPanel({ groupId }: { groupId: string }) {
           <div key={quest.id} className="rounded-2xl border border-border bg-background p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="font-black">{quest.isSecret ? "🔒 " : ""}{quest.title}</p>
-                <p className="text-sm text-muted-foreground">{quest.description}</p>
-                <p className="mt-1 text-xs font-semibold text-muted-foreground">{quest.difficulty} · {quest.xpReward} XP</p>
+                {editingQuestId === quest.id ? (
+                  <div className="grid gap-2">
+                    <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} placeholder="Title" className={inputClass} />
+                    <textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} placeholder="Description" className={`${inputClass} min-h-16`} />
+                    <input value={editXpReward} onChange={(event) => setEditXpReward(event.target.value)} type="number" min={1} placeholder="XP reward" className={inputClass} />
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-black">{quest.isSecret ? "🔒 " : ""}{quest.title}</p>
+                    <p className="text-sm text-muted-foreground">{quest.description}</p>
+                    <p className="mt-1 text-xs font-semibold text-muted-foreground">{quest.difficulty} · {quest.xpReward} XP</p>
+                  </>
+                )}
               </div>
               <div className="flex gap-1">
-                <button
-                  type="button"
-                  title="Edit"
-                  className="grid h-9 w-9 place-items-center rounded-xl border border-border text-base"
-                  onClick={() => {
-                    const title = window.prompt("Title", quest.title);
-                    const description = window.prompt("Description", quest.description);
-                    const xpReward = Number(window.prompt("XP reward", String(quest.xpReward)) ?? quest.xpReward);
-                    if (!title || !description) return;
-                    void updateGroupQuest(quest.id, { title, description, xpReward }).then(load);
-                  }}
-                >
-                  ✏️
-                </button>
+                {editingQuestId === quest.id ? (
+                  <>
+                    <button
+                      type="button"
+                      title="Save"
+                      className="grid h-9 w-9 place-items-center rounded-xl border border-border text-base"
+                      onClick={() => {
+                        if (!editTitle.trim() || !editDescription.trim()) return;
+                        const xpReward = Number(editXpReward) || quest.xpReward;
+                        void updateGroupQuest(quest.id, { title: editTitle.trim(), description: editDescription.trim(), xpReward }).then(load);
+                        setEditingQuestId(null);
+                      }}
+                    >
+                      ✅
+                    </button>
+                    <button type="button" title="Cancel" className="grid h-9 w-9 place-items-center rounded-xl border border-border text-base" onClick={() => setEditingQuestId(null)}>✖️</button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    title="Edit"
+                    className="grid h-9 w-9 place-items-center rounded-xl border border-border text-base"
+                    onClick={() => {
+                      setEditingQuestId(quest.id);
+                      setEditTitle(quest.title);
+                      setEditDescription(quest.description);
+                      setEditXpReward(String(quest.xpReward));
+                    }}
+                  >
+                    ✏️
+                  </button>
+                )}
                 <button
                   type="button"
                   title="Delete"

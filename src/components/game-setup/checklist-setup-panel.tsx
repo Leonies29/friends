@@ -9,6 +9,9 @@ const inputClass = "w-full rounded-2xl border border-border bg-background px-4 p
 
 export function ChecklistSetupPanel({ game, onSaved }: { game: Game; onSaved: () => void }) {
   const [items, setItems] = useState<GameChecklistItem[]>(game.settings?.checklistItems ?? []);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   async function persist(next: GameChecklistItem[]) {
     setItems(next);
@@ -41,18 +44,37 @@ export function ChecklistSetupPanel({ game, onSaved }: { game: Game; onSaved: ()
       <div className="grid gap-2">
         {items.map((item) => (
           <div key={item.id} className="flex items-start justify-between gap-2 rounded-2xl border border-border bg-background p-3">
-            <div>
-              <p className="font-black">{item.title}</p>
-              <p className="text-sm text-muted-foreground">{item.description}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{item.xpReward} XP</p>
+            <div className="min-w-0 flex-1">
+              {editingItemId === item.id ? (
+                <div className="grid gap-2">
+                  <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} placeholder="Title" className={inputClass} />
+                  <input value={editDescription} onChange={(event) => setEditDescription(event.target.value)} placeholder="Description" className={inputClass} />
+                </div>
+              ) : (
+                <>
+                  <p className="font-black">{item.title}</p>
+                  <p className="text-sm text-muted-foreground">{item.description}</p>
+                  <p className="text-xs font-semibold text-muted-foreground">{item.xpReward} XP</p>
+                </>
+              )}
             </div>
             <div className="flex gap-1">
-              <button type="button" title="Edit" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => {
-                const title = window.prompt("Title", item.title);
-                const description = window.prompt("Description", item.description);
-                if (!title) return;
-                void persist(items.map((entry) => entry.id === item.id ? { ...entry, title, description: description ?? entry.description } : entry));
-              }}>✏️</button>
+              {editingItemId === item.id ? (
+                <>
+                  <button type="button" title="Save" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => {
+                    if (!editTitle.trim()) return;
+                    void persist(items.map((entry) => entry.id === item.id ? { ...entry, title: editTitle.trim(), description: editDescription.trim() } : entry));
+                    setEditingItemId(null);
+                  }}>✅</button>
+                  <button type="button" title="Cancel" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => setEditingItemId(null)}>✖️</button>
+                </>
+              ) : (
+                <button type="button" title="Edit" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => {
+                  setEditingItemId(item.id);
+                  setEditTitle(item.title);
+                  setEditDescription(item.description);
+                }}>✏️</button>
+              )}
               <button type="button" title="Delete" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => void persist(items.filter((entry) => entry.id !== item.id))}>🗑️</button>
             </div>
           </div>

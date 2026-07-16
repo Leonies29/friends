@@ -11,6 +11,9 @@ const CHALLENGE_XP_REWARD = 50;
 
 export function ChallengeSetupPanel({ groupId }: { groupId: string }) {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [editingChallengeId, setEditingChallengeId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   async function load() {
     const db = getFirebaseFirestore();
@@ -54,18 +57,37 @@ export function ChallengeSetupPanel({ groupId }: { groupId: string }) {
       <div className="grid gap-2">
         {challenges.map((challenge) => (
           <div key={challenge.id} className="flex items-start justify-between gap-2 rounded-2xl border border-border bg-background p-3">
-            <div>
-              <p className="font-black">{challenge.title}</p>
-              <p className="text-sm text-muted-foreground">{challenge.description}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{challenge.difficulty} · {challenge.xpReward} XP · {challenge.status}</p>
+            <div className="min-w-0 flex-1">
+              {editingChallengeId === challenge.id ? (
+                <div className="grid gap-2">
+                  <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} placeholder="Title" className={inputClass} />
+                  <textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} placeholder="Description" className={`${inputClass} min-h-16`} />
+                </div>
+              ) : (
+                <>
+                  <p className="font-black">{challenge.title}</p>
+                  <p className="text-sm text-muted-foreground">{challenge.description}</p>
+                  <p className="text-xs font-semibold text-muted-foreground">{challenge.difficulty} · {challenge.xpReward} XP · {challenge.status}</p>
+                </>
+              )}
             </div>
             <div className="flex gap-1">
-              <button type="button" title="Edit" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => {
-                const title = window.prompt("Title", challenge.title);
-                const description = window.prompt("Description", challenge.description);
-                if (!title || !description) return;
-                void updateDoc(doc(getFirebaseFirestore(), "challenges", challenge.id), { title, description, updatedAt: serverTimestamp() }).then(load);
-              }}>✏️</button>
+              {editingChallengeId === challenge.id ? (
+                <>
+                  <button type="button" title="Save" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => {
+                    if (!editTitle.trim() || !editDescription.trim()) return;
+                    void updateDoc(doc(getFirebaseFirestore(), "challenges", challenge.id), { title: editTitle.trim(), description: editDescription.trim(), updatedAt: serverTimestamp() }).then(load);
+                    setEditingChallengeId(null);
+                  }}>✅</button>
+                  <button type="button" title="Cancel" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => setEditingChallengeId(null)}>✖️</button>
+                </>
+              ) : (
+                <button type="button" title="Edit" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => {
+                  setEditingChallengeId(challenge.id);
+                  setEditTitle(challenge.title);
+                  setEditDescription(challenge.description);
+                }}>✏️</button>
+              )}
               <button type="button" title="Delete" className="grid h-9 w-9 place-items-center rounded-xl border border-border" onClick={() => void deleteDoc(doc(getFirebaseFirestore(), "challenges", challenge.id)).then(load)}>🗑️</button>
             </div>
           </div>

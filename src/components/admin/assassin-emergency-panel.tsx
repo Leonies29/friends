@@ -31,6 +31,8 @@ export function AssassinEmergencyPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [contested, setContested] = useState<AssassinElimination[]>([]);
+  const [editingMissionFor, setEditingMissionFor] = useState<string | null>(null);
+  const [missionText, setMissionText] = useState("");
 
   const members = groupMembers.map((member) => ({
     id: member.userId || member.id,
@@ -118,11 +120,25 @@ export function AssassinEmergencyPanel({
                 if (!select?.value) return;
                 void runAction(() => emergencyChangeTarget(groupId, member.id, select.value).then(() => setMessage(`Target updated for ${member.name}.`)));
               }}>Change target</Button>
-              <Button size="sm" variant="secondary" onClick={() => {
-                const text = window.prompt("New mission text");
-                if (!text) return;
-                void runAction(() => emergencyChangeMission(groupId, member.id, text).then(() => setMessage(`Mission updated for ${member.name}.`)));
-              }}>Change mission</Button>
+              {editingMissionFor === member.id ? (
+                <>
+                  <input
+                    value={missionText}
+                    onChange={(event) => setMissionText(event.target.value)}
+                    placeholder="New mission text"
+                    className={inputClass}
+                  />
+                  <Button size="sm" variant="secondary" onClick={() => {
+                    if (!missionText.trim()) return;
+                    void runAction(() => emergencyChangeMission(groupId, member.id, missionText.trim()).then(() => setMessage(`Mission updated for ${member.name}.`)));
+                    setEditingMissionFor(null);
+                    setMissionText("");
+                  }}>Save mission</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setEditingMissionFor(null); setMissionText(""); }}>Cancel</Button>
+                </>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={() => { setEditingMissionFor(member.id); setMissionText(""); }}>Change mission</Button>
+              )}
               <Button size="sm" variant="secondary" onClick={() => void runAction(() => emergencySkipMission(groupId, member.id).then(() => setMessage(`Mission skipped for ${member.name}.`)))}>Skip</Button>
               <Button size="sm" variant="ghost" onClick={() => void runAction(() => emergencyReplaceMission(groupId, member.id).then((text) => setMessage(`New mission for ${member.name}: ${text}`)))}>Random mission</Button>
             </div>
