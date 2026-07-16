@@ -47,6 +47,7 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
   const [avatarFile, setAvatarFile] = useState<File | undefined>();
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const content = copy[mode];
   const Icon = content.icon;
@@ -66,6 +67,35 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
     createdBy: "pending"
   }) : null;
   const selectedNickname = searchParams.get("nickname") ?? "";
+
+  function completeAuth(userId: string) {
+    document.cookie = `istanbul_quest_session=${userId}; path=/; max-age=604800; SameSite=Lax`;
+    if (selectedGroup) {
+      setActiveGroupCookie(selectedGroup.id);
+      router.push("/dashboard");
+    } else {
+      router.push("/select-group");
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    setError("");
+    try {
+      const { signInWithGoogleAndJoinGroup } = await import("@/services/firebase-app-service");
+      const user = await signInWithGoogleAndJoinGroup({
+        groupId: selectedGroup?.id,
+        inviteCode: selectedGroup?.inviteCode,
+        nickname: selectedNickname
+      });
+      completeAuth(user.uid);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Google sign-in failed.";
+      setError(message.includes("auth/popup-closed-by-user") ? "" : message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -106,13 +136,7 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
         authenticatedUserId = user.uid;
       }
 
-      document.cookie = `istanbul_quest_session=${authenticatedUserId}; path=/; max-age=604800; SameSite=Lax`;
-      if (selectedGroup) {
-        setActiveGroupCookie(selectedGroup.id);
-        router.push("/dashboard");
-      } else {
-        router.push("/select-group");
-      }
+      completeAuth(authenticatedUserId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Firebase action failed.";
       const friendlyMessage = message.includes("auth/configuration-not-found")
@@ -163,7 +187,33 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
           <h2 className="font-display text-2xl font-black sm:text-4xl">{content.title}</h2>
           <p className="mt-3 text-muted-foreground">{content.description}</p>
 
-          <form className="mt-8 grid gap-4" onSubmit={handleSubmit}>
+          {mode !== "forgot" && (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                className="mt-6 w-full"
+                disabled={googleLoading}
+                onClick={() => void handleGoogleSignIn()}
+              >
+                {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                    <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.54 5.54 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z" />
+                    <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3a7.4 7.4 0 0 1-11-3.89H1.06v3.09A12 12 0 0 0 12 24Z" />
+                    <path fill="#FBBC05" d="M5.07 14.2a7.2 7.2 0 0 1 0-4.4V6.71H1.06a12 12 0 0 0 0 10.58l4.01-3.09Z" />
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.06 6.71l4.01 3.09A7.15 7.15 0 0 1 12 4.75Z" />
+                  </svg>
+                )}
+                {googleLoading ? "Connecting..." : "Continue with Google"}
+              </Button>
+              <div className="mt-6 flex items-center gap-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          )}
+
+          <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
             {mode === "register" && (
               <>
                 <div className="rounded-3xl border border-border bg-surface-elevated p-4">

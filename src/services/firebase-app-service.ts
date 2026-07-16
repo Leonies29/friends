@@ -5,7 +5,13 @@ import {
   serverTimestamp,
   setDoc
 } from "firebase/firestore";
-import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup
+} from "firebase/auth";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { getFirebaseFirestore } from "@/firebase/firestore";
@@ -101,7 +107,7 @@ async function uploadAvatar(userId: string, file?: File) {
   return getDownloadURL(avatarRef);
 }
 
-async function ensureUserDocument(userId: string, email: string, groupId?: string | null) {
+async function ensureUserDocument(userId: string, email: string, groupId?: string | null, fallbackAvatarUrl?: string | null) {
   const db = getFirebaseFirestore();
   const userRef = doc(db, "users", userId);
   const userSnapshot = await getDoc(userRef);
@@ -112,7 +118,7 @@ async function ensureUserDocument(userId: string, email: string, groupId?: strin
   await setDoc(userRef, {
     username,
     email,
-    avatarUrl: existing.avatarUrl || "",
+    avatarUrl: existing.avatarUrl || fallbackAvatarUrl || "",
     level: existing.level || 1,
     totalXp: existing.totalXp || 0,
     joinedAt: existing.joinedAt || new Date().toISOString(),
@@ -151,6 +157,44 @@ async function ensureUserDocument(userId: string, email: string, groupId?: strin
   return resolvedGroupId;
 }
 
+async function joinGroupWithProfile(groupId: string, userId: string, email: string, nickname: string, avatarUrl?: string | null) {
+  const db = getFirebaseFirestore();
+  const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+  const groupData = groupSnapshot.exists() ? groupSnapshot.data() : {};
+  const plannedMembers = Array.isArray(groupData.plannedMembers) ? groupData.plannedMembers as Array<{ nickname?: string; claimedBy?: string | null }> : [];
+  const matchingSlot = plannedMembers.find((member) => member.nickname?.toLowerCase() === nickname.toLowerCase());
+
+  if (matchingSlot) {
+    await claimParticipant({ groupId, userId, nickname, email, avatarUrl: avatarUrl ?? undefined });
+    return;
+  }
+
+  const group = groupData as import("@/types").Group;
+  const role = resolveJoinRole(group, userId, email);
+  const ownerPatch = buildOwnerPatch(group, userId, role, email);
+  await Promise.all([
+    setDoc(doc(db, GROUPS_COLLECTION, groupId), {
+      memberIds: arrayUnion(userId),
+      ...ownerPatch,
+      updatedAt: serverTimestamp()
+    }, { merge: true }),
+    setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), {
+      memberIds: arrayUnion(userId),
+      ...ownerPatch,
+      updatedAt: serverTimestamp()
+    }, { merge: true }),
+    upsertGroupMember({
+      groupId,
+      userId,
+      role,
+      nickname,
+      email,
+      avatarUrl: avatarUrl ?? "",
+      status: "active"
+    })
+  ]);
+}
+
 export async function registerUserAndJoinGroup(input: RegisterInput) {
   const auth = getFirebaseAuth();
   const db = getFirebaseFirestore();
@@ -186,39 +230,7 @@ export async function registerUserAndJoinGroup(input: RegisterInput) {
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
-  const groupData = groupSnapshot.exists() ? groupSnapshot.data() : {};
-  const plannedMembers = Array.isArray(groupData.plannedMembers) ? groupData.plannedMembers as Array<{ nickname?: string; claimedBy?: string | null }> : [];
-  const matchingSlot = plannedMembers.find((member) => member.nickname?.toLowerCase() === username.toLowerCase());
-
-  if (matchingSlot) {
-    await claimParticipant({ groupId, userId, nickname: username, email: input.email, avatarUrl });
-  } else {
-    const group = groupData as import("@/types").Group;
-    const role = resolveJoinRole(group, userId, input.email);
-    const ownerPatch = buildOwnerPatch(group, userId, role, input.email);
-    await Promise.all([
-      setDoc(doc(db, GROUPS_COLLECTION, groupId), {
-        memberIds: arrayUnion(userId),
-        ...ownerPatch,
-        updatedAt: serverTimestamp()
-      }, { merge: true }),
-      setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), {
-        memberIds: arrayUnion(userId),
-        ...ownerPatch,
-        updatedAt: serverTimestamp()
-      }, { merge: true }),
-      upsertGroupMember({
-        groupId,
-        userId,
-        role,
-        nickname: username,
-        email: input.email,
-        avatarUrl,
-        status: "active"
-      })
-    ]);
-  }
+  await joinGroupWithProfile(groupId, userId, input.email, username, avatarUrl);
 
   return credential.user;
 }
@@ -247,38 +259,27 @@ export async function signInAndJoinGroup(email: string, password: string, groupI
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-  if (nickname?.trim()) {
-    await claimParticipant({ groupId: resolvedGroupId, userId, nickname: nickname.trim(), email });
-  } else {
-    const groupSnapshot = await getDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId));
-    const groupData = groupSnapshot.exists() ? groupSnapshot.data() : {};
-    const group = groupData as import("@/types").Group;
-    const displayName = email.split("@")[0] || "Trip member";
-    const role = resolveJoinRole(group, userId, email);
-    const ownerPatch = buildOwnerPatch(group, userId, role, email);
-    await Promise.all([
-      setDoc(doc(db, GROUPS_COLLECTION, resolvedGroupId), {
-        memberIds: arrayUnion(userId),
-        ...ownerPatch,
-        updatedAt: serverTimestamp()
-      }, { merge: true }),
-      setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, resolvedGroupId), {
-        memberIds: arrayUnion(userId),
-        ...ownerPatch,
-        updatedAt: serverTimestamp()
-      }, { merge: true }),
-      upsertGroupMember({
-        groupId: resolvedGroupId,
-        userId,
-        role,
-        nickname: displayName,
-        email,
-        status: "active"
-      })
-    ]);
-  }
+  const displayName = nickname?.trim() || email.split("@")[0] || "Trip member";
+  await joinGroupWithProfile(resolvedGroupId, userId, email, displayName);
 
   return credential.user;
+}
+
+export async function signInWithGoogleAndJoinGroup(options?: { groupId?: string; inviteCode?: string; nickname?: string }) {
+  const auth = getFirebaseAuth();
+  const credential = await signInWithPopup(auth, new GoogleAuthProvider());
+  const user = credential.user;
+  const email = user.email ?? "";
+  const displayName = options?.nickname?.trim() || user.displayName?.trim() || email.split("@")[0] || "Trip member";
+
+  const groupId = options?.groupId || (options?.inviteCode ? await findGroupIdByInviteCode(options.inviteCode) : null) || options?.inviteCode || null;
+  await ensureUserDocument(user.uid, email, groupId, user.photoURL);
+
+  if (groupId) {
+    await joinGroupWithProfile(groupId, user.uid, email, displayName, user.photoURL);
+  }
+
+  return user;
 }
 
 export async function requestPasswordReset(email: string) {
