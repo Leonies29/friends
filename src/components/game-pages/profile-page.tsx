@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Crosshair, Sparkles, Trophy } from "lucide-react";
 import { Avatar, Badge, Card, Progress } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
+import { countAwardsWonByUser } from "@/services/award-service";
 import { loadAssassinState } from "@/services/assassin-service";
 import { listQuestCompletions } from "@/services/quest-service";
 import { listXpTransactions } from "@/services/xp-service";
@@ -30,16 +31,18 @@ export function ProfilePage() {
       setLoading(true);
       const groupId = state.group!.id;
       const userId = state.userId!;
-      const [transactions, completions, assassin] = await Promise.all([
+      const [transactions, completions, assassin, awardsWonCount] = await Promise.all([
         listXpTransactions(groupId),
         listQuestCompletions(groupId),
-        loadAssassinState(groupId)
+        loadAssassinState(groupId),
+        countAwardsWonByUser(groupId, userId)
       ]);
       const userXp = transactions.filter((item) => item.userId === userId).reduce((sum, item) => sum + item.amount, 0);
       const player = assassin.players.find((item) => item.uid === userId);
       setXp(userXp);
       setQuestsDone(completions.filter((item) => item.userId === userId).length);
       setEliminations(player?.eliminationCount ?? 0);
+      setAwardsWon(awardsWonCount);
       setLoading(false);
     }
     void load();

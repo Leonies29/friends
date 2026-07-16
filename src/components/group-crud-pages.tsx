@@ -2,15 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays,
   Camera,
   Check,
   Loader2,
   Plus,
   Star,
   Trash2,
-  Trophy,
-  Users
+  Trophy
 } from "lucide-react";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
 import { filterActiveGameMembers } from "@/lib/game-members";
@@ -32,7 +30,7 @@ import {
   setScheduleAttendance,
   summarizeAttendance
 } from "@/services/schedule-service";
-import { addXpTransaction, getWeekKey, listXpTransactions } from "@/services/xp-service";
+import { getWeekKey, listXpTransactions } from "@/services/xp-service";
 import type { AttendanceStatus, Challenge, Photo, ScheduleEvent, XpTransaction } from "@/types";
 import { calculateLevel } from "@/lib/utils";
 

@@ -1,4 +1,4 @@
-import type { GroupMember, GroupRole, RolePermissions } from "@/types";
+import type { GroupRole, RolePermissions } from "@/types";
 
 function normalizeEmail(email?: string | null) {
   return email?.trim().toLowerCase() ?? "";

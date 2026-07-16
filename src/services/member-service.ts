@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import type { GroupMember, GroupRole } from "@/types";
 import { GROUP_MEMBERS_COLLECTION, listAllGroupMembers, listGroupMembers } from "@/services/group-service";

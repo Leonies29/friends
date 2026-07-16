@@ -83,7 +83,7 @@ export interface Group extends BaseEntity {
   vibe?: string;
 }
 
-export interface FriendGroup extends Group {}
+export type FriendGroup = Group;
 
 export interface GroupMember extends GroupScopedEntity {
   userId: string;

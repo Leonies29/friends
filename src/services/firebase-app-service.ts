@@ -1,14 +1,9 @@
 import {
   arrayUnion,
-  collection,
   doc,
   getDoc,
-  getDocs,
-  query,
   serverTimestamp,
-  setDoc,
-  updateDoc,
-  where
+  setDoc
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -56,15 +51,6 @@ export interface RegisterInput {
   avatarFile?: File;
 }
 
-function slugify(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "quest-group";
-}
-
-function buildInviteCode(groupName: string) {
-  const base = groupName.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase();
-  return `${base || "QUEST"}-${Math.floor(100 + Math.random() * 900)}`;
-}
-
 export async function createFriendGroup(
   input: CreateGroupInput,
   ownerId?: string | null,
@@ -100,22 +86,6 @@ export async function createFriendGroup(
 
 export async function getGroupByInviteCode(inviteCode: string) {
   return getNormalizedGroupByInviteCode(inviteCode);
-}
-
-async function claimPlannedMember(groupId: string, nickname: string, userId: string) {
-  if (!nickname) return;
-
-  const db = getFirebaseFirestore();
-  const groupSnapshot = await getDocs(query(collection(db, "friendGroups"), where("__name__", "==", groupId)));
-  const groupData = groupSnapshot.docs[0]?.data();
-  const plannedMembers = Array.isArray(groupData?.plannedMembers) ? groupData.plannedMembers : [];
-  const nextMembers = plannedMembers.map((member: { nickname?: string; claimedBy?: string | null }) =>
-    member.nickname === nickname ? { ...member, claimedBy: userId } : member
-  );
-
-  if (nextMembers.length) {
-    await setDoc(doc(db, "friendGroups", groupId), { plannedMembers: nextMembers, updatedAt: serverTimestamp() }, { merge: true });
-  }
 }
 
 export async function findGroupIdByInviteCode(inviteCode: string) {

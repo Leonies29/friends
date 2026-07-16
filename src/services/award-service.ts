@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { AWARD_CATEGORIES } from "@/lib/game-data";
 import type { AwardCategory, AwardVote } from "@/types/game";
@@ -73,6 +73,24 @@ export async function getAwardResults(groupId: string) {
   });
 
   return ranked;
+}
+
+export async function countAwardsWonByUser(groupId: string, userId: string) {
+  const [results, categories] = await Promise.all([
+    getAwardResults(groupId),
+    listAwardCategories(groupId)
+  ]);
+  const revealedCategoryIds = new Set(categories.filter((category) => category.visible).map((category) => category.id));
+
+  let won = 0;
+  results.forEach((ranked, awardId) => {
+    if (!revealedCategoryIds.has(awardId) || !ranked.length) return;
+    const topCount = ranked[0].count;
+    if (topCount > 0 && ranked.some((entry) => entry.userId === userId && entry.count === topCount)) {
+      won += 1;
+    }
+  });
+  return won;
 }
 
 export async function countUserVotes(voterId: string, groupId: string) {
