@@ -7,7 +7,7 @@ import { Avatar, Badge, Card, Progress } from "@/components/ui";
 import { filterActiveGameMembers } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { listRecentActivity } from "@/services/activity-service";
-import { countUserVotes } from "@/services/award-service";
+import { countAwardsWonByUser, countUserVotes } from "@/services/award-service";
 import { loadAssassinState } from "@/services/assassin-service";
 import { listQuestCompletions } from "@/services/quest-service";
 import { listXpTransactions } from "@/services/xp-service";
@@ -23,6 +23,7 @@ export function HomeDashboard() {
   const [rank, setRank] = useState(1);
   const [questsDone, setQuestsDone] = useState(0);
   const [awardsVoted, setAwardsVoted] = useState(0);
+  const [awardsWon, setAwardsWon] = useState(0);
   const [eliminations, setEliminations] = useState(0);
   const [assassinStatus, setAssassinStatus] = useState("Survivor");
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -37,10 +38,11 @@ export function HomeDashboard() {
       setLoading(true);
       const groupId = state.group!.id;
       const userId = state.userId!;
-      const [transactions, completions, votes, assassin, feed] = await Promise.all([
+      const [transactions, completions, votes, awardsWonCount, assassin, feed] = await Promise.all([
         listXpTransactions(groupId),
         listQuestCompletions(groupId),
         countUserVotes(userId, groupId),
+        countAwardsWonByUser(groupId, userId),
         loadAssassinState(groupId),
         listRecentActivity(groupId).catch(() => [])
       ]);
@@ -57,6 +59,7 @@ export function HomeDashboard() {
       setRank(position || 1);
       setQuestsDone(completions.filter((item) => item.userId === userId).length);
       setAwardsVoted(votes.voted);
+      setAwardsWon(awardsWonCount);
       setEliminations(player?.eliminationCount ?? 0);
       setAssassinStatus(player?.isAlive ? "Survivor" : "Eliminated");
       setActivity(feed);
@@ -69,8 +72,9 @@ export function HomeDashboard() {
   const profileStats = useMemo(() => ([
     { label: "Completed quests", value: questsDone, icon: Sparkles },
     { label: "Assassin eliminations", value: eliminations, icon: Crosshair },
-    { label: "Awards voted", value: awardsVoted, icon: Crown }
-  ]), [questsDone, eliminations, awardsVoted]);
+    { label: "Awards voted", value: awardsVoted, icon: Crown },
+    { label: "Awards won", value: awardsWon, icon: Trophy }
+  ]), [questsDone, eliminations, awardsVoted, awardsWon]);
 
   const quickStats = useMemo(() => ([
     { label: "Ranking position", value: `#${rank}`, icon: Trophy },
@@ -96,7 +100,7 @@ export function HomeDashboard() {
         <Progress value={getLevelProgress(xp)} className="mt-4" />
       </Card>
 
-      <section className="grid grid-cols-3 gap-1.5 sm:gap-4">
+      <section className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 sm:gap-4">
         {profileStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
