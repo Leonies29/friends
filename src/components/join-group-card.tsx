@@ -48,7 +48,7 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
 
       setGroup(foundGroup);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to find this group in Firebase.");
+      setError(error instanceof Error ? error.message : "Unable to find this group right now.");
     } finally {
       setLoading(false);
     }

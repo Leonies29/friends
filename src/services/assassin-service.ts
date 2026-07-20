@@ -2,6 +2,8 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimes
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { pickRandomTemplate, ensureMissionLibrary } from "@/services/assassin-mission-library-service";
 import { getAssassinSetup, validateAssignments } from "@/services/assassin-setup-service";
+import { addXpTransaction } from "@/services/xp-service";
+import { getAssassinMissionRewards, getAssassinVictoryReward } from "@/lib/assassin-progression";
 import type { AssassinElimination, AssassinGame, AssassinMission, AssassinPlayer, AssassinSetupMode } from "@/types/game";
 
 const GAMES = "assassinGames";
@@ -27,7 +29,7 @@ export async function loadAssassinState(groupId: string) {
   };
 }
 
-export async function createSetupGame(groupId: string, mode: AssassinSetupMode) {
+export async function createSetupGame(groupId: string, mode: AssassinSetupMode, startingLives = 5) {
   const db = getFirebaseFirestore();
   const existing = await getDocs(query(collection(db, GAMES), where("groupId", "==", groupId)));
   if (existing.docs[0]) {
@@ -36,6 +38,7 @@ export async function createSetupGame(groupId: string, mode: AssassinSetupMode) 
       setupMode: mode,
       phase: "normal",
       winnerId: null,
+      startingLives,
       updatedAt: serverTimestamp()
     });
     return existing.docs[0].id;
@@ -45,9 +48,20 @@ export async function createSetupGame(groupId: string, mode: AssassinSetupMode) 
     groupId,
     status: "setup",
     setupMode: mode,
-    phase: "normal"
+    phase: "normal",
+    startingLives
   } satisfies Omit<AssassinGame, "id">);
   return created.id;
+}
+
+export async function updateAssassinGameSettings(groupId: string, settings: { startingLives?: number }) {
+  const db = getFirebaseFirestore();
+  const gameDoc = await getDocs(query(collection(db, GAMES), where("groupId", "==", groupId)));
+  if (!gameDoc.docs[0]) return;
+  await updateDoc(doc(db, GAMES, gameDoc.docs[0].id), {
+    ...settings,
+    updatedAt: serverTimestamp()
+  });
 }
 
 export async function startAssassinGame(groupId: string, members: Array<{ id: string; username: string; avatarUrl?: string | null }>) {
@@ -66,12 +80,14 @@ export async function startAssassinGame(groupId: string, members: Array<{ id: st
   const state = await loadAssassinState(groupId);
   const gameId = state.game?.id ?? (await createSetupGame(groupId, setup.mode));
   const isDuelStart = members.length === 2;
+  const startingLives = state.game?.startingLives ?? 5;
 
   await updateDoc(doc(db, GAMES, gameId), {
     status: "active",
     setupMode: setup.mode,
     phase: isDuelStart ? "duel" : "normal",
     winnerId: null,
+    startingLives,
     startedAt: new Date().toISOString(),
     updatedAt: serverTimestamp()
   });
@@ -88,7 +104,16 @@ export async function startAssassinGame(groupId: string, members: Array<{ id: st
         avatarUrl: member.avatarUrl ?? "",
         isAlive: true,
         currentTargetId: assignment.targetId,
-        eliminationCount: 0
+        eliminationCount: 0,
+        lives: startingLives,
+        maxLives: startingLives,
+        assassinPoints: 0,
+        missionsCompleted: 0,
+        victories: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        xpEarned: 0,
+        lastCompletedAt: null
       } satisfies Omit<AssassinPlayer, "id">),
       setDoc(doc(db, MISSIONS, playerDocId), {
         groupId,
@@ -96,6 +121,10 @@ export async function startAssassinGame(groupId: string, members: Array<{ id: st
         targetId: assignment.targetId,
         missionText: assignment.missionText,
         templateId: assignment.templateId ?? null,
+        difficulty: "Easy",
+        xpReward: 10,
+        assassinPointsReward: 10,
+        status: "active",
         skipped: false,
         assignedAt: new Date().toISOString()
       } satisfies Omit<AssassinMission, "id">)
@@ -157,11 +186,19 @@ function resolveNextAliveTarget(
 async function assignMission(groupId: string, playerId: string, targetId: string) {
   const db = getFirebaseFirestore();
   const playerDocId = `${groupId}_${playerId}`;
+  const templates = await ensureMissionLibrary(groupId);
+  const template = pickRandomTemplate(templates);
+  const rewards = getAssassinMissionRewards(template?.difficulty ?? "Easy");
   await setDoc(doc(db, MISSIONS, playerDocId), {
     groupId,
     playerId,
     targetId,
-    missionText: await randomMissionText(groupId),
+    missionText: template?.text ?? await randomMissionText(groupId),
+    templateId: template?.id ?? null,
+    difficulty: template?.difficulty ?? "Easy",
+    xpReward: template?.xpReward ?? rewards.xpReward,
+    assassinPointsReward: template?.assassinPointsReward ?? rewards.assassinPointsReward,
+    status: "active",
     skipped: false,
     assignedAt: new Date().toISOString()
   }, { merge: true });
@@ -190,13 +227,21 @@ async function checkAndUpdateGamePhase(groupId: string) {
   const db = getFirebaseFirestore();
 
   if (survivors.length === 1) {
-    await updateDoc(doc(db, GAMES, game.id), {
-      status: "finished",
-      phase: "normal",
-      winnerId: survivors[0].uid,
-      endedAt: new Date().toISOString(),
-      updatedAt: serverTimestamp()
-    });
+    const winner = survivors[0];
+    const victoryReward = getAssassinVictoryReward();
+    await Promise.all([
+      updateDoc(doc(db, GAMES, game.id), {
+        status: "finished",
+        phase: "normal",
+        winnerId: winner.uid,
+        endedAt: new Date().toISOString(),
+        updatedAt: serverTimestamp()
+      }),
+      updateDoc(doc(db, PLAYERS, `${groupId}_${winner.uid}`), {
+        victories: (winner.victories ?? 0) + 1,
+        assassinPoints: (winner.assassinPoints ?? 0) + victoryReward.assassinPointsReward
+      })
+    ]);
     return;
   }
 
@@ -220,19 +265,56 @@ async function applyConfirmedElimination(elimination: AssassinElimination) {
   }
 
   const victimTargetId = victim.currentTargetId;
-  await updateDoc(doc(db, PLAYERS, victim.id), { isAlive: false, currentTargetId: null });
+  const nextLives = Math.max(0, (victim.lives ?? victim.maxLives ?? 0) - 1);
+  const victimPlayerRef = doc(db, PLAYERS, victim.id);
+  await updateDoc(victimPlayerRef, {
+    isAlive: nextLives > 0 ? true : false,
+    currentTargetId: nextLives > 0 ? victim.currentTargetId : null,
+    lives: nextLives,
+    lastCompletedAt: null
+  });
 
   players = players.map((player) =>
-    player.uid === elimination.victimId ? { ...player, isAlive: false, currentTargetId: null } : player
+    player.uid === elimination.victimId ? { ...player, isAlive: nextLives > 0 ? true : false, currentTargetId: nextLives > 0 ? victim.currentTargetId : null, lives: nextLives } : player
   );
 
   const excludeIds = new Set([elimination.killerId, elimination.victimId]);
   const nextTargetId = resolveNextAliveTarget(victimTargetId, excludeIds, players);
 
   if (killer.isAlive) {
-    await updateDoc(doc(db, PLAYERS, killer.id), {
-      currentTargetId: nextTargetId,
-      eliminationCount: (killer.eliminationCount ?? 0) + 1
+    const killerRef = doc(db, PLAYERS, killer.id);
+    const killerMissionRef = doc(db, MISSIONS, `${elimination.groupId}_${elimination.killerId}`);
+    const killerMissionSnapshot = await getDoc(killerMissionRef);
+    const killerMission = killerMissionSnapshot.exists() ? (killerMissionSnapshot.data() as Partial<AssassinMission>) : null;
+    const killerNextLives = Math.max(0, killer.lives ?? killer.maxLives ?? 0);
+    const missionReward = Number(killerMission?.assassinPointsReward ?? 10);
+    const missionXpReward = Number(killerMission?.xpReward ?? 10);
+    const rewardPoints = 100 + missionReward;
+    const rewardXp = 100 + missionXpReward;
+    await Promise.all([
+      updateDoc(killerRef, {
+        currentTargetId: nextTargetId,
+        eliminationCount: (killer.eliminationCount ?? 0) + 1,
+        assassinPoints: (killer.assassinPoints ?? 0) + rewardPoints,
+        missionsCompleted: (killer.missionsCompleted ?? 0) + 1,
+        xpEarned: (killer.xpEarned ?? 0) + rewardXp,
+        currentStreak: (killer.currentStreak ?? 0) + 1,
+        bestStreak: Math.max(killer.bestStreak ?? 0, (killer.currentStreak ?? 0) + 1),
+        lives: killerNextLives
+      }),
+      updateDoc(killerMissionRef, {
+        status: "completed",
+        completedAt: new Date().toISOString()
+      })
+    ]);
+    await addXpTransaction({
+      groupId: elimination.groupId,
+      userId: elimination.killerId,
+      amount: rewardXp,
+      sourceType: "game",
+      sourceId: elimination.id,
+      reason: "Mission and elimination completed",
+      createdBy: elimination.killerId
     });
     if (nextTargetId) {
       await assignMission(elimination.groupId, elimination.killerId, nextTargetId);

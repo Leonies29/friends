@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Copy, Loader2, Minus, Plus } from "lucide-react";
+import { Check, Copy, Loader2, Minus, Plus } from "lucide-react";
 import { AssassinEmergencySection } from "@/components/admin/assassin-emergency-panel";
 import { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
@@ -44,6 +44,7 @@ export function AdminDashboard() {
   const [loadingGames, setLoadingGames] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const role = resolveEffectiveRole(state.currentMember, state.group, state.userId, state.currentMember?.email);
   const canAdmin = canManageGames(role) || canManageScores(role) || canManageMembers(role);
@@ -108,7 +109,7 @@ export function AdminDashboard() {
       <Card>
         <Badge>Player access</Badge>
         <h1 className="mt-3 text-3xl font-black">Admin is for owners and admins</h1>
-        <p className="mt-2 text-muted-foreground">Ask the trip owner to grant you admin rights in Firebase if needed.</p>
+        <p className="mt-2 text-muted-foreground">Ask the trip owner to grant you admin rights if needed.</p>
       </Card>
     );
   }
@@ -130,6 +131,17 @@ export function AdminDashboard() {
       createdBy: state.userId
     });
     event.currentTarget.reset();
+  }
+
+  async function handleCopyInviteLink() {
+    const nextLink = inviteLink || buildInviteLink(inviteCode);
+    try {
+      await navigator.clipboard?.writeText(nextLink);
+      setCopiedLink(true);
+      window.setTimeout(() => setCopiedLink(false), 1800);
+    } catch {
+      setCopiedLink(false);
+    }
   }
 
   const inviteCode = group.inviteCode ?? "";
@@ -173,9 +185,9 @@ export function AdminDashboard() {
       <AssassinEmergencySection groupId={group.id} members={state.members} />
 
       <AdminCollapsibleSection
-        title="Ceremony"
-        emoji="🏆"
-        summary="Reveal award winners when everyone has voted."
+        title="Awards"
+        emoji="🏅"
+        summary="Reveal winners and manage which award categories are visible."
       >
         <AwardsRevealSection members={state.members} groupId={group.id} embedded />
       </AdminCollapsibleSection>
@@ -191,9 +203,16 @@ export function AdminDashboard() {
             <p className="text-xl font-black">{inviteCode}</p>
             <p className="mt-2 break-all text-xs font-semibold text-muted-foreground">{inviteLink || buildInviteLink(inviteCode)}</p>
           </div>
-          <Button variant="secondary" size="sm" className="w-full sm:w-fit" onClick={() => navigator.clipboard?.writeText(inviteLink || buildInviteLink(inviteCode))}>
-            <Copy className="h-4 w-4" />Copy link
+          <Button
+            variant={copiedLink ? "primary" : "secondary"}
+            size="sm"
+            className={`w-full sm:w-fit ${copiedLink ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+            onClick={() => void handleCopyInviteLink()}
+          >
+            {copiedLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copiedLink ? "Link copied" : "Copy link"}
           </Button>
+          {copiedLink && <p className="text-sm font-semibold text-emerald-700">The invite link has been copied.</p>}
         </div>
       </AdminCollapsibleSection>
 

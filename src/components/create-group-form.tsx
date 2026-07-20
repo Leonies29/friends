@@ -102,7 +102,7 @@ export function CreateGroupForm() {
       setInviteCode(group.inviteCode);
       setCreated(true);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to create the group in Firebase.");
+      setError(error instanceof Error ? error.message : "Unable to create the group right now.");
     } finally {
       setSaving(false);
     }
@@ -207,7 +207,7 @@ export function CreateGroupForm() {
           <div className="flex flex-wrap gap-3">
             <Button type="submit" size="lg" disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              {saving ? "Creating in Firebase..." : "Create Group Space"}
+              {saving ? "Creating group..." : "Create Group Space"}
             </Button>
             <Button asChild type="button" variant="secondary" size="lg">
               <Link href="/">Cancel</Link>

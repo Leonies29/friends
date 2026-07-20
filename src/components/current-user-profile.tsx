@@ -97,7 +97,7 @@ export function CurrentUserProfile() {
             }
           }
         } catch (error) {
-          setError(error instanceof Error ? error.message : "Unable to load Firebase profile.");
+          setError(error instanceof Error ? error.message : "Unable to load your profile.");
         } finally {
           setLoading(false);
         }
@@ -120,7 +120,7 @@ export function CurrentUserProfile() {
       {loading && (
         <Card className="flex items-center gap-3">
           <Loader2 className="h-5 w-5 animate-spin text-accent" />
-          <p className="font-semibold text-muted-foreground">Loading your Firebase profile...</p>
+          <p className="font-semibold text-muted-foreground">Loading your profile...</p>
         </Card>
       )}
       {error && <Card className="text-sm font-semibold text-rose-600">{error}</Card>}

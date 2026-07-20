@@ -12,7 +12,8 @@ import {
   emergencySkipMission,
   loadAssassinState,
   resetAssassinGame,
-  resolveContestedElimination
+  resolveContestedElimination,
+  updateAssassinGameSettings
 } from "@/services/assassin-service";
 
 const inputClass = "max-w-xs rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold";
@@ -33,6 +34,7 @@ export function AssassinEmergencyPanel({
   const [contested, setContested] = useState<AssassinElimination[]>([]);
   const [editingMissionFor, setEditingMissionFor] = useState<string | null>(null);
   const [missionText, setMissionText] = useState("");
+  const [startingLives, setStartingLives] = useState(5);
 
   const members = groupMembers.map((member) => ({
     id: member.userId || member.id,
@@ -43,6 +45,7 @@ export function AssassinEmergencyPanel({
     const assassin = await loadAssassinState(groupId);
     setActive(assassin.game?.status === "active");
     setContested(assassin.eliminations.filter((item) => item.status === "contested"));
+    setStartingLives(assassin.game?.startingLives ?? 5);
   }
 
   useEffect(() => {
@@ -75,6 +78,18 @@ export function AssassinEmergencyPanel({
       )}
       {message && <p className={`text-sm font-semibold text-emerald-700 ${embedded ? "mb-3" : "mt-3"}`}>{message}</p>}
       {error && <p className="mt-3 text-sm font-semibold text-rose-700">{error}</p>}
+
+      <div className="mt-4 rounded-2xl border border-border bg-background p-4">
+        <p className="font-black">Starting lives</p>
+        <p className="mt-1 text-sm text-muted-foreground">Set the default number of lives for each player at the start of the game.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input type="number" min={3} max={10} step={1} value={startingLives} onChange={(event) => setStartingLives(Number(event.target.value))} className={inputClass} />
+          <Button size="sm" onClick={() => void runAction(async () => {
+            await updateAssassinGameSettings(groupId, { startingLives });
+            setMessage(`Starting lives set to ${startingLives}.`);
+          })}>Save lives</Button>
+        </div>
+      </div>
 
       {contested.length > 0 && (
         <div className="mt-4 grid gap-3">

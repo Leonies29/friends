@@ -8,6 +8,7 @@ import { useActiveGroup } from "@/hooks/use-active-group";
 import { claimElimination, loadAssassinState, respondElimination } from "@/services/assassin-service";
 import type { AssassinElimination, AssassinGame, AssassinMission, AssassinPlayer } from "@/types/game";
 import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
+import { getAssassinProgression } from "@/lib/assassin-progression";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
 
 function findMember(members: ReturnType<typeof useActiveGroup>["members"], id?: string | null) {
@@ -65,6 +66,10 @@ export function AssassinPage() {
   const myPlayer = players.find((player) => player.uid === state.userId);
   const myMission = missions.find((mission) => mission.playerId === state.userId);
   const myTarget = findMember(state.members, myPlayer?.currentTargetId);
+  const progression = getAssassinProgression(myPlayer?.xpEarned ?? 0);
+  const leaderboardPlayers = [...players]
+    .sort((a, b) => (b.assassinPoints ?? 0) - (a.assassinPoints ?? 0))
+    .slice(0, 5);
   const survivors = players.filter((player) => player.isAlive);
   const eliminated = players.filter((player) => !player.isAlive);
   const pendingForMe = eliminations.filter((item) => item.victimId === state.userId && item.status === "pending");
@@ -199,6 +204,61 @@ export function AssassinPage() {
       )}
 
       {rosterSection}
+
+      {myPlayer && (
+        <Card className="border-accent/30 bg-accent/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <Badge>Player profile</Badge>
+              <p className="mt-2 text-xl font-black">{myPlayer.displayName}</p>
+              <p className="text-sm text-muted-foreground">{progression.title} · Level {progression.level}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-black uppercase tracking-wide text-muted-foreground">Lives</p>
+              <p className="text-2xl font-black">{myPlayer.lives}/{myPlayer.maxLives}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-border bg-background p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">Assassin points</p>
+              <p className="mt-1 text-xl font-black">{myPlayer.assassinPoints}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-background p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">Missions completed</p>
+              <p className="mt-1 text-xl font-black">{myPlayer.missionsCompleted}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-background p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">Best streak</p>
+              <p className="mt-1 text-xl font-black">{myPlayer.bestStreak}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <Badge>Leaderboard</Badge>
+        <div className="mt-4 grid gap-3">
+          {leaderboardPlayers.map((player, index) => {
+            const member = findMember(state.members, player.uid);
+            return (
+              <div key={player.id} className="flex items-center justify-between rounded-2xl border border-border bg-background p-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black text-muted-foreground">#{index + 1}</span>
+                  <Avatar src={resolveMemberAvatar(state.group, member ?? { username: player.displayName, avatarUrl: player.avatarUrl })} alt={player.displayName} className="h-8 w-8" />
+                  <div>
+                    <p className="font-black">{player.displayName}</p>
+                    <p className="text-xs text-muted-foreground">{player.assassinPoints ?? 0} points · {player.missionsCompleted ?? 0} missions</p>
+                  </div>
+                </div>
+                <div className="text-right text-sm text-muted-foreground">
+                  <p>{player.eliminationCount ?? 0} eliminations</p>
+                  <p>{player.bestStreak ?? 0} streak</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
       {myPlayer?.isAlive && myMission && (
         missionExpanded ? (

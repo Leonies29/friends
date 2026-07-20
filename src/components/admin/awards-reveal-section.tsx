@@ -48,10 +48,10 @@ export function AwardsRevealSection({
   }, [groupId, members]);
 
   const activeAward = categories.find((award) => award.id === revealed);
-  const podium = useMemo(() => {
+  const rankedEntries = useMemo(() => {
     if (!revealed) return [];
     const rows = results.get(revealed) ?? [];
-    return rows.slice(0, 3).map((row) => {
+    return rows.map((row) => {
       const member = members.find((item) => (item.userId || item.id) === row.userId);
       return {
         userId: row.userId,
@@ -61,13 +61,16 @@ export function AwardsRevealSection({
       };
     });
   }, [revealed, results, members]);
+  const podium = rankedEntries.slice(0, 3);
+  const totalVotes = rankedEntries.reduce((sum, entry) => sum + entry.count, 0);
 
   const body = (
     <>
       {!embedded && (
         <>
-          <Badge>Ceremony</Badge>
-          <p className="mt-2 text-sm text-muted-foreground">Reveal award winners when everyone has voted.</p>
+          <Badge>Awards</Badge>
+          <h3 className="mt-2 text-lg font-black">Ceremony controls</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Reveal winners after voting closes, then show or hide categories before the big reveal.</p>
         </>
       )}
       {loading && <p className={`text-sm text-muted-foreground ${embedded ? "" : "mt-4"}`}>Loading votes...</p>}
@@ -109,25 +112,54 @@ export function AwardsRevealSection({
             ))}
           </div>
 
-          {activeAward && podium.length > 0 && (
+          {activeAward && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-5 rounded-2xl border border-border bg-surface-warm p-5">
-              <p className="font-black">{activeAward.emoji} {activeAward.title}</p>
-              <div className="mt-4 grid items-end gap-3 md:grid-cols-3">
-                {[1, 0, 2].map((index) => {
-                  const row = podium[index];
-                  if (!row) return <div key={index} />;
-                  const medals = ["🥇", "🥈", "🥉"];
-                  return (
-                    <div key={row.userId} className={`rounded-2xl border border-border bg-background p-4 text-center ${index === 0 ? "md:-translate-y-2" : ""}`}>
-                      <p className="text-3xl">{medals[index]}</p>
-                      <Avatar src={row.avatarUrl} alt={row.name} className="mx-auto mt-3 h-16 w-16" />
-                      <p className="mt-2 font-black">{row.name}</p>
-                      <p className="text-sm text-muted-foreground">{row.count} votes</p>
-                    </div>
-                  );
-                })}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-black">{activeAward.emoji} {activeAward.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {rankedEntries.length} person{rankedEntries.length === 1 ? "" : "s"} received votes · {totalVotes} total vote{totalVotes === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <Button variant="secondary" size="sm" onClick={() => setRevealed(null)}>Close reveal</Button>
               </div>
-              <Button className="mt-4" variant="secondary" size="sm" onClick={() => setRevealed(null)}>Close reveal</Button>
+
+              {podium.length > 0 ? (
+                <>
+                  <div className="mt-4 grid items-end gap-3 md:grid-cols-3">
+                    {[1, 0, 2].map((index) => {
+                      const row = podium[index];
+                      if (!row) return <div key={index} />;
+                      const medals = ["🥇", "🥈", "🥉"];
+                      return (
+                        <div key={row.userId} className={`rounded-2xl border border-border bg-background p-4 text-center ${index === 0 ? "md:-translate-y-2" : ""}`}>
+                          <p className="text-3xl">{medals[index]}</p>
+                          <Avatar src={row.avatarUrl} alt={row.name} className="mx-auto mt-3 h-16 w-16" />
+                          <p className="mt-2 font-black">{row.name}</p>
+                          <p className="text-sm text-muted-foreground">{row.count} vote{row.count === 1 ? "" : "s"}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 grid gap-2">
+                    {rankedEntries.map((row, index) => (
+                      <div key={row.userId} className="flex items-center justify-between rounded-2xl border border-border bg-background px-3 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-black text-primary">{index + 1}</div>
+                          <div>
+                            <p className="font-semibold">{row.name}</p>
+                            <p className="text-sm text-muted-foreground">{row.count} vote{row.count === 1 ? "" : "s"}</p>
+                          </div>
+                        </div>
+                        <Badge>{row.count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="mt-4 text-sm text-muted-foreground">No votes have been recorded for this category yet.</p>
+              )}
             </motion.div>
           )}
         </>

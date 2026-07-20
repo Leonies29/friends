@@ -66,11 +66,12 @@ export interface AssassinGame {
   startedAt?: string;
   endedAt?: string;
   winnerId?: string;
+  startingLives?: number;
 }
 
 export type AssassinSetupMode = "random" | "designer" | "hybrid";
 export type AssassinMissionCategory = "Speech" | "Photo" | "Object" | "Location" | "Social" | "Funny";
-export type AssassinMissionDifficulty = "Easy" | "Medium" | "Hard" | "Legendary";
+export type AssassinMissionDifficulty = "Easy" | "Medium" | "Hard" | "Epic";
 
 export interface AssassinMissionTemplate {
   id: string;
@@ -79,6 +80,8 @@ export interface AssassinMissionTemplate {
   text: string;
   difficulty: AssassinMissionDifficulty;
   category: AssassinMissionCategory;
+  xpReward: number;
+  assassinPointsReward: number;
   active: boolean;
   archived?: boolean;
 }
@@ -110,6 +113,15 @@ export interface AssassinPlayer {
   isAlive: boolean;
   currentTargetId: string | null;
   eliminationCount: number;
+  lives: number;
+  maxLives: number;
+  assassinPoints: number;
+  missionsCompleted: number;
+  victories: number;
+  currentStreak: number;
+  bestStreak: number;
+  xpEarned: number;
+  lastCompletedAt?: string | null;
 }
 
 export interface AssassinMission {
@@ -119,8 +131,13 @@ export interface AssassinMission {
   targetId: string;
   missionText: string;
   templateId?: string | null;
+  difficulty?: AssassinMissionDifficulty;
+  xpReward?: number;
+  assassinPointsReward?: number;
+  status?: "active" | "completed";
   skipped?: boolean;
   assignedAt?: string;
+  completedAt?: string | null;
 }
 
 export interface AssassinElimination {
@@ -131,6 +148,9 @@ export interface AssassinElimination {
   status: "pending" | "confirmed" | "contested" | "rejected";
   createdAt: string;
   resolvedAt?: string;
+  missionId?: string | null;
+  rewardXp?: number;
+  rewardPoints?: number;
 }
 
 export interface ActivityItem {

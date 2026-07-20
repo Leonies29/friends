@@ -31,7 +31,7 @@ const copy = {
   forgot: {
     icon: Camera,
     title: "Recover your portal key",
-    description: "Enter your email and Firebase Auth will send a reset link once connected.",
+    description: "Enter your email and we will send a reset link once your account is connected.",
     cta: "Send Reset Link",
     alt: "Remembered it?",
     href: "/login",
@@ -105,6 +105,13 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "");
     const password = String(formData.get("password") ?? "");
+    const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+    if (mode === "register" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const firebaseService = await import("@/services/firebase-app-service");
@@ -138,11 +145,11 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
 
       completeAuth(authenticatedUserId);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Firebase action failed.";
+      const message = error instanceof Error ? error.message : "Account action failed.";
       const friendlyMessage = message.includes("auth/configuration-not-found")
-        ? "Firebase Authentication is not configured yet. Enable Authentication > Email/Password in Firebase Console, then try again."
+        ? "Authentication is not configured yet. Please check your account setup and try again."
         : message.includes("auth/unauthorized-domain")
-          ? "This domain is not authorized in Firebase Authentication. Add your GitHub Pages domain in Firebase Auth settings."
+          ? "This domain is not authorized for sign-in. Please check your account settings and try again."
           : message;
       setError(friendlyMessage);
     } finally {
@@ -244,15 +251,16 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
                 <Field name="username" label="Nickname" placeholder="Choose your group nickname" defaultValue={selectedNickname} readOnly={Boolean(selectedNickname)} required />
                 <Field name="email" label="Email" type="email" placeholder="Email" required />
                 <Field name="password" label="Password" type="password" placeholder="Password" required />
+                <Field name="confirmPassword" label="Confirm password" type="password" placeholder="Confirm password" required />
               </>
             )}
 
             {mode === "login" && <Link href="/forgot-password" className="text-right text-sm font-bold text-accent">Forgot password?</Link>}
-            {sent && <p className="rounded-2xl bg-accent/15 p-3 text-sm font-semibold text-accent">Reset link sent by Firebase Auth.</p>}
+            {sent && <p className="rounded-2xl bg-accent/15 p-3 text-sm font-semibold text-accent">Reset link sent successfully.</p>}
             {error && <p className="rounded-2xl bg-rose-500/10 p-3 text-sm font-semibold text-rose-600">{error}</p>}
             <Button type="submit" size="lg" className="mt-2" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {loading ? "Saving to Firebase..." : content.cta}
+              {loading ? (mode === "register" ? "Creating your account..." : "Saving your account...") : content.cta}
             </Button>
           </form>
 
