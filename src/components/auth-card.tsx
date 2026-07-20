@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { DragEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useState } from "react";
-import { ArrowRight, Camera, ImagePlus, Loader2, Mail, UserPlus } from "lucide-react";
-import { Avatar, Badge, Button, Card, Field } from "@/components/ui";
+import { ArrowRight, Camera, Loader2, Mail, UserPlus } from "lucide-react";
+import { Badge, Button, Card, Field } from "@/components/ui";
 import { friendGroups } from "@/lib/mock-data";
 import { setActiveGroupCookie } from "@/lib/session-cookies";
 
@@ -22,7 +22,7 @@ const copy = {
   register: {
     icon: UserPlus,
     title: "Join your friend group",
-    description: "Create your hero profile, upload a real avatar, and link it to the selected group.",
+    description: "Create your hero profile and link it to the selected group.",
     cta: "Create Account",
     alt: "Already invited?",
     href: "/login",
@@ -43,9 +43,6 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sent, setSent] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = useState<File | undefined>();
-  const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
@@ -137,8 +134,7 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
           email,
           password,
           groupId: selectedGroup?.id ?? "",
-          inviteCode: selectedGroup?.inviteCode ?? "",
-          avatarFile
+          inviteCode: selectedGroup?.inviteCode ?? ""
         });
         authenticatedUserId = user.uid;
       }
@@ -157,17 +153,6 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
     }
   }
 
-  function handleFile(file?: File) {
-    if (!file || !file.type.startsWith("image/")) return;
-    setAvatarFile(file);
-    setPreview(URL.createObjectURL(file));
-  }
-
-  function handleDrop(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault();
-    setDragging(false);
-    handleFile(event.dataTransfer.files[0]);
-  }
 
   return (
     <main className="grid min-h-screen place-items-center px-3 py-6 sm:px-4 sm:py-10">
@@ -229,18 +214,6 @@ export function AuthCard({ mode }: { mode: keyof typeof copy }) {
                   <p className="mt-1 text-sm text-muted-foreground">Invite code: {selectedGroup?.inviteCode ?? "Required"}</p>
                   <p className="mt-1 text-sm text-muted-foreground">Destination: {selectedGroup?.destination ?? "Group destination"}</p>
                 </div>
-
-                <label
-                  onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={handleDrop}
-                  className={`grid cursor-pointer place-items-center rounded-[2rem] border-2 border-dashed p-6 text-center transition ${dragging ? "border-accent bg-accent/15" : "border-border bg-surface-elevated"}`}
-                >
-                  <input name="avatar" type="file" accept="image/*" className="hidden" onChange={(event) => handleFile(event.target.files?.[0])} />
-                  {preview ? <Avatar src={preview} alt="Profile preview" className="h-24 w-24" /> : <ImagePlus className="h-12 w-12 text-accent" />}
-                  <p className="mt-3 font-black">Drag and drop your profile photo</p>
-                  <p className="text-sm text-muted-foreground">or click to choose an image</p>
-                </label>
               </>
             )}
 

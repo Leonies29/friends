@@ -131,6 +131,7 @@ export async function createGame(groupId: string, input: {
   xpRules?: XpRule[];
 }) {
   const db = getFirebaseFirestore();
+  const createdAt = Date.now();
   const created = await addDoc(collection(db, GAMES_COLLECTION), {
     groupId,
     title: input.title,
@@ -141,7 +142,7 @@ export async function createGame(groupId: string, input: {
     visible: true,
     archived: false,
     status: "draft",
-    order: Date.now(),
+    order: createdAt,
     xpRules: input.xpRules ?? [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -160,13 +161,14 @@ export async function updateGame(gameId: string, data: Partial<Omit<Game, "id" |
 export async function duplicateGame(game: Game) {
   const db = getFirebaseFirestore();
   const { id: duplicatedFromId, createdAt: _createdAt, updatedAt: _updatedAt, ...gameData } = game;
+  const duplicatedAt = Date.now();
   const created = await addDoc(collection(db, GAMES_COLLECTION), {
     ...gameData,
     title: `${game.title} copy`,
     enabled: false,
     status: "draft",
     duplicatedFromId,
-    order: Date.now(),
+    order: duplicatedAt,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });

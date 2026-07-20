@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Copy, Loader2, LogIn, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { buildInviteLink, buildJoinPath } from "@/lib/app-paths";
+import { setActiveGroupCookie, setSessionCookie } from "@/lib/session-cookies";
 import { Badge, Button, Card, Field } from "@/components/ui";
 
 const gameModes = [
@@ -30,6 +32,7 @@ const tripVibes = [
 ];
 
 export function CreateGroupForm() {
+  const router = useRouter();
   const [groupName, setGroupName] = useState("");
   const [destination, setDestination] = useState("");
   const [groupId, setGroupId] = useState("");
@@ -43,6 +46,7 @@ export function CreateGroupForm() {
   const [addingFriend, setAddingFriend] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const displayName = groupName.trim() || "Your new quest group";
   const displayDestination = destination.trim() || "your destination";
@@ -60,6 +64,14 @@ export function CreateGroupForm() {
   const registerHref = `/register?${groupQuery}`;
   const loginHref = `/login?${groupQuery}`;
   const joinHref = inviteCode ? buildJoinPath(inviteCode) : "";
+
+  useEffect(() => {
+    void (async () => {
+      const [{ getFirebaseAuth }] = await Promise.all([import("@/firebase/auth")]);
+      const auth = getFirebaseAuth();
+      setCurrentUserId(auth.currentUser?.uid ?? null);
+    })();
+  }, []);
 
   async function handleCreate(formData: FormData) {
     setSaving(true);
@@ -101,6 +113,13 @@ export function CreateGroupForm() {
       setGroupId(group.id);
       setInviteCode(group.inviteCode);
       setCreated(true);
+
+      if (currentUser?.uid) {
+        setSessionCookie(currentUser.uid);
+        setActiveGroupCookie(group.id);
+        router.push("/dashboard");
+        return;
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to create the group right now.");
     } finally {

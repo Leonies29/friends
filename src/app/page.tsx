@@ -21,6 +21,9 @@ export default function Home() {
                 <Plus className="h-5 w-5" />
               </Link>
             </Button>
+            <Button asChild variant="ghost" size="lg" className="border-white/20 text-white/90 hover:bg-white/10">
+              <Link href="/login">Log in</Link>
+            </Button>
           </div>
         </div>
 
