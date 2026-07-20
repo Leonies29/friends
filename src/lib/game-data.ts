@@ -55,18 +55,18 @@ export const SECRET_QUEST_TEMPLATES_BY_DESTINATION: Record<DestinationId, QuestT
 };
 
 export const AWARD_CATEGORIES: AwardCategory[] = [
-  { id: "kebab-machine", emoji: "🍔", title: "Kebab Machine", description: "Most likely to eat kebab again tomorrow." },
-  { id: "lost-tourist", emoji: "🧭", title: "Lost Tourist", description: "Most likely to get lost." },
-  { id: "influencer", emoji: "📸", title: "Influencer", description: "Most likely to turn the trip into content." },
-  { id: "bargaining-king", emoji: "💰", title: "Bargaining King", description: "Best negotiator in the bazaar." },
-  { id: "tea-addict", emoji: "☕", title: "Tea Addict", description: "Most tea consumed." },
-  { id: "bosphorus-sleeper", emoji: "😴", title: "Bosphorus Sleeper", description: "Most likely to fall asleep on the ferry." },
-  { id: "mood-maker", emoji: "🎉", title: "Mood Maker", description: "Best energy in the group." },
-  { id: "transport-survivor", emoji: "🚌", title: "Transport Survivor", description: "Survived Istanbul transport like a pro." },
-  { id: "lucky-duck", emoji: "🦆", title: "Lucky Duck", description: "Luckiest person of the trip." },
-  { id: "future-incident", emoji: "🚨", title: "Future International Incident", description: "Most likely to cause chaos abroad." },
-  { id: "goat", emoji: "🐐", title: "GOAT of the Trip", description: "Greatest of all trip." },
-  { id: "sultans-choice", emoji: "👑", title: "Sultan's Choice", description: "The ultimate trip legend." }
+  { id: "kebab-machine", emoji: "🍔", title: "Kebab Machine", description: "Most likely to eat kebab again tomorrow.", order: 10 },
+  { id: "lost-tourist", emoji: "🧭", title: "Lost Tourist", description: "Most likely to get lost.", order: 20 },
+  { id: "influencer", emoji: "📸", title: "Influencer", description: "Most likely to turn the trip into content.", order: 30 },
+  { id: "bargaining-king", emoji: "💰", title: "Bargaining King", description: "Best negotiator in the bazaar.", order: 40 },
+  { id: "tea-addict", emoji: "☕", title: "Tea Addict", description: "Most tea consumed.", order: 50 },
+  { id: "bosphorus-sleeper", emoji: "😴", title: "Bosphorus Sleeper", description: "Most likely to fall asleep on the ferry.", order: 60 },
+  { id: "mood-maker", emoji: "🎉", title: "Mood Maker", description: "Best energy in the group.", order: 70 },
+  { id: "transport-survivor", emoji: "🚌", title: "Transport Survivor", description: "Survived Istanbul transport like a pro.", order: 80 },
+  { id: "lucky-duck", emoji: "🦆", title: "Lucky Duck", description: "Luckiest person of the trip.", order: 90 },
+  { id: "future-incident", emoji: "🚨", title: "Future International Incident", description: "Most likely to cause chaos abroad.", order: 100 },
+  { id: "goat", emoji: "🐐", title: "GOAT of the Trip", description: "Greatest of all trip.", order: 110 },
+  { id: "sultans-choice", emoji: "👑", title: "Sultan's Choice", description: "The ultimate trip legend.", order: 120 }
 ];
 
 export function difficultyLabel(difficulty: QuestDifficulty | SecretQuestDifficulty) {

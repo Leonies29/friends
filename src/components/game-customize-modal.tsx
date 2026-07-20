@@ -24,7 +24,6 @@ export function GameCustomizeModal({
   const [icon, setIcon] = useState(game.icon);
   const [category, setCategory] = useState(game.category);
   const [xpRules, setXpRules] = useState<XpRule[]>(game.xpRules ?? []);
-  const [awardsFormat, setAwardsFormat] = useState<"classic" | "quiz">(game.settings?.awardsFormat ?? "classic");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -33,7 +32,6 @@ export function GameCustomizeModal({
     setIcon(game.icon);
     setCategory(game.category);
     setXpRules(game.xpRules ?? []);
-    setAwardsFormat(game.settings?.awardsFormat ?? "classic");
   }, [game]);
 
   async function handleSubmit(event: FormEvent) {
@@ -44,11 +42,7 @@ export function GameCustomizeModal({
       description,
       icon,
       category,
-      xpRules,
-      settings: {
-        ...game.settings,
-        ...(game.title.toLowerCase().includes("award") ? { awardsFormat } : {})
-      }
+      xpRules
     });
     setSaving(false);
     onSaved();

@@ -59,8 +59,8 @@ export function CeremonyPage() {
       : [...assassin.players].filter((player) => player.isAlive)[0]
         ?? [...assassin.players].sort((a, b) => b.eliminationCount - a.eliminationCount)[0];
 
-    const visibleCategories = categories.filter((category) => category.visible !== false);
-    const winners = visibleCategories.map((category) => {
+    const revealedCategories = categories.filter((category) => category.resultsRevealed);
+    const winners = revealedCategories.map((category) => {
       const ranked = awardResults.get(category.id) ?? [];
       const top = ranked[0];
       const winnerMember = top

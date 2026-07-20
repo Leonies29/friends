@@ -1,9 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { Check, Copy, Loader2, Minus, Plus } from "lucide-react";
 import { AssassinEmergencySection } from "@/components/admin/assassin-emergency-panel";
-import { AwardsRevealSection } from "@/components/admin/awards-reveal-section";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
 import { GroupDangerZone } from "@/components/admin/group-danger-zone";
 import { MembersManagementPanel } from "@/components/admin/members-management-panel";
@@ -187,9 +187,14 @@ export function AdminDashboard() {
       <AdminCollapsibleSection
         title="Awards"
         emoji="🏅"
-        summary="Reveal winners and manage which award categories are visible."
+        summary="Launch the awards ceremony and reveal winners category by category."
       >
-        <AwardsRevealSection members={state.members} groupId={group.id} embedded />
+        <Card className="border-0 p-0 shadow-none">
+          <p className="text-sm text-muted-foreground">Ceremony controls now live on the Awards page — open its Ceremony tab to launch the reveal.</p>
+          <Button asChild size="sm" className="mt-4">
+            <Link href="/awards">Open Awards</Link>
+          </Button>
+        </Card>
       </AdminCollapsibleSection>
 
       <AdminCollapsibleSection

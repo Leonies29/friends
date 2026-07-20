@@ -44,6 +44,21 @@ export interface AwardCategory {
   title: string;
   description: string;
   visible?: boolean;
+  order?: number;
+  resultsRevealed?: boolean;
+}
+
+export type AwardCeremonyStatus = "idle" | "active" | "complete";
+export type AwardCeremonyPhase = "suspense" | "revealed";
+
+export interface AwardCeremonyDoc {
+  groupId: string;
+  status: AwardCeremonyStatus;
+  step: number;
+  phase: AwardCeremonyPhase;
+  orderedCategoryIds: string[];
+  startedAt?: string;
+  updatedAt?: string;
 }
 
 export interface AwardVote {

@@ -401,5 +401,11 @@ service cloud.firestore {
       allow create: if canManageGroup(request.resource.data.groupId);
       allow update, delete: if canManageGroup(resource.data.groupId);
     }
+
+    // One ceremony doc per group (id == groupId) drives the live, synced awards reveal.
+    match /awardCeremony/{groupId} {
+      allow read: if isGroupMember(groupId);
+      allow create, update, delete: if canManageGroup(groupId);
+    }
   }
 }

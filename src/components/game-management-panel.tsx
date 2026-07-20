@@ -7,11 +7,7 @@ import { GameCustomizeModal } from "@/components/game-customize-modal";
 import { GameSetupModal } from "@/components/game-setup-modal";
 import { notifyGamesUpdated } from "@/lib/game-events";
 import { getGameNavTarget, isGameInMenu } from "@/lib/game-navigation";
-import {
-  archiveGame,
-  duplicateGame,
-  toggleGameActive
-} from "@/services/game-service";
+import { toggleGameActive } from "@/services/game-service";
 import type { Game } from "@/types";
 
 function EmojiControl({
@@ -127,8 +123,6 @@ export function GameManagementPanel({
                   active={inMenu}
                   onClick={() => void handleToggle(game)}
                 />
-                <EmojiControl emoji="📋" label="Duplicate" onClick={() => void duplicateGame(game).then(refresh)} />
-                <EmojiControl emoji="🗑️" label="Archive" onClick={() => void archiveGame(game.id).then(refresh)} />
               </div>
             </div>
           );

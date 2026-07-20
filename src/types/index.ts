@@ -142,7 +142,6 @@ export interface GameSettings {
   questionsPerDay?: number;
   timerSeconds?: number;
   totalSeries?: number;
-  awardsFormat?: "classic" | "quiz";
 }
 
 export interface GameChecklistItem {

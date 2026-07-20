@@ -1,10 +1,11 @@
-import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { AWARD_CATEGORIES } from "@/lib/game-data";
-import type { AwardCategory, AwardVote } from "@/types/game";
+import type { AwardCategory, AwardCeremonyDoc, AwardVote } from "@/types/game";
 
 const AWARD_CATEGORIES_COLLECTION = "awardCategories";
 const VOTES = "votes";
+const AWARD_CEREMONY_COLLECTION = "awardCeremony";
 
 export async function ensureAwardCategories(groupId: string) {
   const db = getFirebaseFirestore();
@@ -80,7 +81,7 @@ export async function countAwardsWonByUser(groupId: string, userId: string) {
     getAwardResults(groupId),
     listAwardCategories(groupId)
   ]);
-  const revealedCategoryIds = new Set(categories.filter((category) => category.visible).map((category) => category.id));
+  const revealedCategoryIds = new Set(categories.filter((category) => category.resultsRevealed).map((category) => category.id));
 
   let won = 0;
   results.forEach((ranked, awardId) => {
@@ -167,13 +168,57 @@ export async function getVoteParticipationStats(groupId: string, memberIds: stri
   };
 }
 
-export async function updateAwardCategoryVisibility(categoryId: string, visible: boolean) {
-  const db = getFirebaseFirestore();
-  await setDoc(doc(db, AWARD_CATEGORIES_COLLECTION, categoryId), { visible, updatedAt: serverTimestamp() }, { merge: true });
-}
-
 export async function deleteAwardCategory(categoryId: string) {
   const db = getFirebaseFirestore();
   const { deleteDoc } = await import("firebase/firestore");
   await deleteDoc(doc(db, AWARD_CATEGORIES_COLLECTION, categoryId));
+}
+
+export async function updateAwardCategoryResultsRevealed(categoryId: string, revealed: boolean) {
+  const db = getFirebaseFirestore();
+  await setDoc(doc(db, AWARD_CATEGORIES_COLLECTION, categoryId), { resultsRevealed: revealed, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+// Ceremony state is one doc per group (id == groupId) so every viewer can subscribe to the same
+// live reveal — the admin's "next category" click is what advances everyone's screen in sync.
+export async function getAwardCeremony(groupId: string): Promise<AwardCeremonyDoc | null> {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDoc(doc(db, AWARD_CEREMONY_COLLECTION, groupId));
+  return snapshot.exists() ? (snapshot.data() as AwardCeremonyDoc) : null;
+}
+
+export function subscribeAwardCeremony(groupId: string, onChange: (ceremony: AwardCeremonyDoc | null) => void) {
+  const db = getFirebaseFirestore();
+  return onSnapshot(doc(db, AWARD_CEREMONY_COLLECTION, groupId), (snapshot) => {
+    onChange(snapshot.exists() ? (snapshot.data() as AwardCeremonyDoc) : null);
+  });
+}
+
+export async function startAwardCeremony(groupId: string, orderedCategoryIds: string[]) {
+  const db = getFirebaseFirestore();
+  await setDoc(doc(db, AWARD_CEREMONY_COLLECTION, groupId), {
+    groupId,
+    status: "active",
+    step: 0,
+    phase: "suspense",
+    orderedCategoryIds,
+    startedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export async function revealAwardCeremonyWinner(groupId: string, categoryId: string) {
+  const db = getFirebaseFirestore();
+  await Promise.all([
+    setDoc(doc(db, AWARD_CEREMONY_COLLECTION, groupId), { phase: "revealed", updatedAt: serverTimestamp() }, { merge: true }),
+    updateAwardCategoryResultsRevealed(categoryId, true)
+  ]);
+}
+
+export async function advanceAwardCeremony(groupId: string, nextStep: number, isLast: boolean) {
+  const db = getFirebaseFirestore();
+  await setDoc(doc(db, AWARD_CEREMONY_COLLECTION, groupId), isLast
+    ? { status: "complete", phase: "revealed", updatedAt: serverTimestamp() }
+    : { status: "active", step: nextStep, phase: "suspense", updatedAt: serverTimestamp() },
+  { merge: true });
 }
