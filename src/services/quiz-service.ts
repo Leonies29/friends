@@ -12,7 +12,8 @@ import {
   writeBatch
 } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
-import { ISTANBUL_HISTORY_QUIZ_SEED } from "@/lib/quiz-seed";
+import { ISTANBUL_HISTORY_QUIZ_SEED, QUIZ_SEEDS_BY_DESTINATION } from "@/lib/quiz-seed";
+import { pickForDestination, type DestinationId } from "@/lib/destinations";
 import { scoreQuizAnswer, shuffle, successRate } from "@/lib/quiz-logic";
 import { addXpTransaction } from "@/services/xp-service";
 import type {
@@ -37,11 +38,11 @@ function leaderboardDocId(groupId: string, gameId: string, userId: string) {
   return `${groupId}_${gameId}_${userId}`;
 }
 
-export async function ensureQuizQuestions(groupId: string, gameId: string) {
+export async function ensureQuizQuestions(groupId: string, gameId: string, destinationId?: DestinationId) {
   const existing = await listQuizQuestions(groupId, gameId, true);
   if (existing.length) return existing.filter((question) => !question.archived);
 
-  await importQuizQuestions(groupId, gameId, ISTANBUL_HISTORY_QUIZ_SEED);
+  await importQuizQuestions(groupId, gameId, pickForDestination(QUIZ_SEEDS_BY_DESTINATION, destinationId));
   return listQuizQuestions(groupId, gameId);
 }
 

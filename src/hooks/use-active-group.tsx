@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { getActiveGroupCookie } from "@/lib/session-cookies";
+import type { DestinationId } from "@/lib/destinations";
 
 export type ActiveGroup = {
   id: string;
   name?: string;
   destination?: string;
+  destinationId?: DestinationId;
   inviteCode?: string;
   currentDay?: number;
   gameStarted?: boolean;
@@ -38,7 +40,7 @@ type ActiveGroupState = {
   reload: () => void;
 };
 
-export function useActiveGroup(): ActiveGroupState {
+function useActiveGroupState(): ActiveGroupState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export function useActiveGroup(): ActiveGroupState {
                   Object.assign(groupData, refreshedGroupSnapshot.data());
                 }
               }
-              const [{ getGroupMember, listAllGroupMembers }] = await Promise.all([import("@/services/member-service")]);
+              const [{ listAllGroupMembers }] = await Promise.all([import("@/services/member-service")]);
               const membershipDocs = groupData ? await listAllGroupMembers(groupData.id) : [];
               const memberProfiles = await Promise.all(
                 (groupData?.memberIds ?? []).map(async (memberId) => {
@@ -135,7 +137,7 @@ export function useActiveGroup(): ActiveGroupState {
                 ...member,
                 avatarUrl: resolveMemberAvatar(groupData, member)
               }));
-              const currentMembership = groupData ? await getGroupMember(groupData.id, firebaseUser.uid) : null;
+              const currentMembership = membershipDocs.find((member) => member.userId === firebaseUser.uid) ?? null;
               const [{ resolveEffectiveRole }] = await Promise.all([import("@/services/permissions")]);
               const effectiveRole = resolveEffectiveRole(
                 currentMembership,
@@ -201,4 +203,19 @@ export function useActiveGroup(): ActiveGroupState {
     currentMember,
     reload: () => setVersion((value) => value + 1)
   };
+}
+
+const ActiveGroupContext = createContext<ActiveGroupState | null>(null);
+
+export function ActiveGroupProvider({ children }: { children: React.ReactNode }) {
+  const state = useActiveGroupState();
+  return <ActiveGroupContext.Provider value={state}>{children}</ActiveGroupContext.Provider>;
+}
+
+export function useActiveGroup(): ActiveGroupState {
+  const context = useContext(ActiveGroupContext);
+  if (!context) {
+    throw new Error("useActiveGroup must be used within an ActiveGroupProvider");
+  }
+  return context;
 }

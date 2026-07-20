@@ -16,6 +16,7 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { getFirebaseStorage } from "@/firebase/storage";
+import type { DestinationId } from "@/lib/destinations";
 import {
   claimParticipant,
   createGroup,
@@ -32,6 +33,7 @@ import {
 export interface CreateGroupInput {
   name: string;
   destination: string;
+  destinationId?: DestinationId;
   startDate: string;
   endDate: string;
   invitees: string;
@@ -46,6 +48,7 @@ export interface CreatedGroup {
   inviteCode: string;
   name: string;
   destination: string;
+  destinationId?: DestinationId;
 }
 
 export interface RegisterInput {
@@ -67,6 +70,7 @@ export async function createFriendGroup(
   const group = await createGroup({
     name: input.name,
     destination: input.destination,
+    destinationId: input.destinationId,
     startDate: input.startDate,
     endDate: input.endDate,
     description: `Private quest space for ${input.destination.trim() || "a new destination"}.`,
@@ -85,7 +89,8 @@ export async function createFriendGroup(
     id: group.id,
     inviteCode: group.inviteCode,
     name: group.name,
-    destination: group.destination
+    destination: group.destination,
+    destinationId: group.destinationId
   };
 }
 

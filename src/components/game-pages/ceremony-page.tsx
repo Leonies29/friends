@@ -11,6 +11,7 @@ import { loadAssassinState } from "@/services/assassin-service";
 import { listGroupQuests } from "@/services/quest-service";
 import { listXpTransactions } from "@/services/xp-service";
 import { calculateLevel } from "@/lib/utils";
+import { DESTINATIONS, DEFAULT_DESTINATION_ID } from "@/lib/destinations";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
 
 function memberName(member: { nickname?: string; username?: string }) {
@@ -107,7 +108,7 @@ export function CeremonyPage() {
       <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
         <Card className="overflow-hidden bg-surface-warm text-center">
           <p className="text-5xl">🎉</p>
-          <h2 className="mt-4 font-display text-5xl font-black">Istanbul Quest Ceremony</h2>
+          <h2 className="mt-4 font-display text-5xl font-black">{DESTINATIONS[state.group?.destinationId ?? DEFAULT_DESTINATION_ID].name} Quest Ceremony</h2>
         </Card>
       </motion.div>
 

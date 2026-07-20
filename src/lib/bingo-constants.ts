@@ -1,4 +1,5 @@
 import type { BingoCategory, BingoDifficulty } from "@/types/bingo";
+import type { DestinationId } from "@/lib/destinations";
 
 export const BINGO_GRID_SIZE = 5;
 export const BINGO_CENTER_INDEX = 12;
@@ -58,3 +59,7 @@ export const DEFAULT_BINGO_CHALLENGES: Array<{
   { title: "Stranger high five", description: "Give a high five to a stranger.", category: "social", difficulty: "rare" },
   { title: "Turkish menu order", description: "Order something by pointing at a Turkish menu.", category: "istanbul", difficulty: "legendary" }
 ];
+
+export const BINGO_CHALLENGES_BY_DESTINATION: Record<DestinationId, typeof DEFAULT_BINGO_CHALLENGES> = {
+  istanbul: DEFAULT_BINGO_CHALLENGES
+};

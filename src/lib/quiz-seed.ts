@@ -1,4 +1,5 @@
 import type { QuizCategory, QuizDifficulty } from "@/types/quiz";
+import type { DestinationId } from "@/lib/destinations";
 
 export const QUIZ_BASE_POINTS = 10;
 export const QUIZ_SPEED_BONUS = 5;
@@ -235,3 +236,7 @@ export const ISTANBUL_HISTORY_QUIZ_SEED: QuizSeedQuestion[] = [
     difficulty: "easy"
   }
 ];
+
+export const QUIZ_SEEDS_BY_DESTINATION: Record<DestinationId, QuizSeedQuestion[]> = {
+  istanbul: ISTANBUL_HISTORY_QUIZ_SEED
+};

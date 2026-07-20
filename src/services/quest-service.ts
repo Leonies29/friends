@@ -1,6 +1,7 @@
 import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
-import { QUEST_TEMPLATES, SECRET_QUEST_TEMPLATES } from "@/lib/game-data";
+import { QUEST_TEMPLATES_BY_DESTINATION, SECRET_QUEST_TEMPLATES_BY_DESTINATION } from "@/lib/game-data";
+import { pickForDestination, type DestinationId } from "@/lib/destinations";
 import { addXpTransaction } from "@/services/xp-service";
 import type { QuestCompletion, QuestDoc } from "@/types/game";
 
@@ -8,14 +9,17 @@ const QUESTS = "quests";
 const QUEST_COMPLETIONS = "questCompletions";
 const ACTIVITY = "activityFeed";
 
-export async function ensureGroupQuests(groupId: string) {
+export async function ensureGroupQuests(groupId: string, destinationId?: DestinationId) {
   const db = getFirebaseFirestore();
   const existing = await getDocs(query(collection(db, QUESTS), where("groupId", "==", groupId)));
   if (existing.size) {
     return existing.docs.map((item) => ({ id: item.id, ...item.data() }) as QuestDoc);
   }
 
-  const templates = [...QUEST_TEMPLATES, ...SECRET_QUEST_TEMPLATES];
+  const templates = [
+    ...pickForDestination(QUEST_TEMPLATES_BY_DESTINATION, destinationId),
+    ...pickForDestination(SECRET_QUEST_TEMPLATES_BY_DESTINATION, destinationId)
+  ];
   await Promise.all(templates.map((template) =>
     setDoc(doc(db, QUESTS, `${groupId}_${template.key}`), {
       groupId,

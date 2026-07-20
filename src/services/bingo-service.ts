@@ -12,7 +12,8 @@ import {
   writeBatch
 } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
-import { DEFAULT_BINGO_CHALLENGES } from "@/lib/bingo-constants";
+import { BINGO_CHALLENGES_BY_DESTINATION } from "@/lib/bingo-constants";
+import { pickForDestination, type DestinationId } from "@/lib/destinations";
 import {
   bingoBonusPoints,
   countValidatedCells,
@@ -52,13 +53,14 @@ function leaderboardDocId(groupId: string, gameId: string, userId: string) {
   return `${groupId}_${gameId}_${userId}`;
 }
 
-export async function ensureBingoChallenges(groupId: string, gameId: string, options?: { seedIfEmpty?: boolean }) {
+export async function ensureBingoChallenges(groupId: string, gameId: string, destinationId?: DestinationId, options?: { seedIfEmpty?: boolean }) {
   const existing = await listBingoChallenges(groupId, gameId);
   if (existing.length) return existing;
   if (options?.seedIfEmpty === false) return existing;
 
   const db = getFirebaseFirestore();
-  await Promise.all(DEFAULT_BINGO_CHALLENGES.map((template, index) =>
+  const templates = pickForDestination(BINGO_CHALLENGES_BY_DESTINATION, destinationId);
+  await Promise.all(templates.map((template, index) =>
     setDoc(doc(db, BINGO_CHALLENGES, `${groupId}_${gameId}_${index}`), {
       groupId,
       gameId,

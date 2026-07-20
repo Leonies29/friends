@@ -37,7 +37,7 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
     try {
       const [setup, missionTemplates, assassin] = await Promise.all([
         getAssassinSetup(groupId),
-        ensureMissionLibrary(groupId),
+        ensureMissionLibrary(groupId, state.group?.destinationId),
         loadAssassinState(groupId)
       ]);
       setTemplates(missionTemplates);

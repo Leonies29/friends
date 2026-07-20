@@ -7,6 +7,7 @@ import { ArrowRight, CheckCircle2, Copy, Loader2, LogIn, Plus, Trash2, UserPlus,
 import { buildInviteLink, buildJoinPath } from "@/lib/app-paths";
 import { setActiveGroupCookie, setSessionCookie } from "@/lib/session-cookies";
 import { Badge, Button, Card, Field } from "@/components/ui";
+import { DESTINATION_LIST, DESTINATIONS, DEFAULT_DESTINATION_ID, type DestinationId } from "@/lib/destinations";
 
 const gameModes = [
   "Daily secret challenges",
@@ -34,7 +35,7 @@ const tripVibes = [
 export function CreateGroupForm() {
   const router = useRouter();
   const [groupName, setGroupName] = useState("");
-  const [destination, setDestination] = useState("");
+  const [destinationId, setDestinationId] = useState<DestinationId>(DEFAULT_DESTINATION_ID);
   const [groupId, setGroupId] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [myNickname, setMyNickname] = useState("");
@@ -49,7 +50,7 @@ export function CreateGroupForm() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const displayName = groupName.trim() || "Your new quest group";
-  const displayDestination = destination.trim() || "your destination";
+  const displayDestination = DESTINATIONS[destinationId].name;
   const groupQuery = useMemo(() => {
     const ownerNickname = myNickname.trim();
     const params = new URLSearchParams({
@@ -100,7 +101,8 @@ export function CreateGroupForm() {
       const currentUser = getFirebaseAuth().currentUser;
       const group = await createFriendGroup({
         name: String(formData.get("groupName") ?? ""),
-        destination: String(formData.get("destination") ?? ""),
+        destination: DESTINATIONS[destinationId].name,
+        destinationId,
         startDate: String(formData.get("startDate") ?? ""),
         endDate: String(formData.get("endDate") ?? ""),
         invitees: "",
@@ -134,7 +136,21 @@ export function CreateGroupForm() {
         <h2 className="mt-3 text-3xl font-black">Blank Group Builder</h2>
         <form className="mt-6 grid gap-4" onSubmit={(event) => { event.preventDefault(); void handleCreate(new FormData(event.currentTarget)); }}>
           <Field name="groupName" label="Group name" placeholder="Example: Summer Crew 2026" value={groupName} onChange={(event) => setGroupName(event.target.value)} required />
-          <Field name="destination" label="Destination" placeholder="Example: Lisbon, Portugal" value={destination} onChange={(event) => setDestination(event.target.value)} required />
+          <label className="grid gap-2 text-sm font-bold text-muted-foreground">
+            Destination
+            <select
+              name="destinationId"
+              value={destinationId}
+              onChange={(event) => setDestinationId(event.target.value as DestinationId)}
+              className="rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/15"
+            >
+              {DESTINATION_LIST.map((destinationOption) => (
+                <option key={destinationOption.id} value={destinationOption.id}>
+                  {destinationOption.name}, {destinationOption.country}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field name="startDate" label="Start date" type="date" />
             <Field name="endDate" label="End date" type="date" />
@@ -169,7 +185,7 @@ export function CreateGroupForm() {
                 {friendNicknames.map((nickname, index) => (
                   <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto]">
                     <Field
-                      label={`Friend ${index + 1}`}
+                      label="Friend"
                       placeholder="Example: Yaman, Max, Marko..."
                       value={nickname}
                       onChange={(event) => setFriendNicknames((items) => items.map((item, itemIndex) => itemIndex === index ? event.target.value : item))}

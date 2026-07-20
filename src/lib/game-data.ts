@@ -1,4 +1,5 @@
 import type { AwardCategory, QuestCategory, QuestDifficulty, QuestTemplate, SecretQuestDifficulty } from "@/types/game";
+import type { DestinationId } from "@/lib/destinations";
 
 export const SHARED_ALBUM_URL = "https://www.icloud.com/sharedalbum/#B2PGI9HKKipq3Zt";
 
@@ -44,6 +45,14 @@ export const SECRET_QUEST_TEMPLATES: QuestTemplate[] = [
   { key: "hidden-passage", title: "Hidden Passage", description: "Find a hidden passage in the old city.", category: "istanbul_legends", difficulty: "Epic", xpReward: 320, isSecret: true, secretDifficulty: "Epic" },
   { key: "sultans-secret", title: "Sultan's Secret", description: "Discover all secret quests.", category: "istanbul_legends", difficulty: "Legendary", xpReward: 1000, isSecret: true, secretDifficulty: "Legendary", unlockRequiresAllSecrets: true }
 ];
+
+export const QUEST_TEMPLATES_BY_DESTINATION: Record<DestinationId, QuestTemplate[]> = {
+  istanbul: QUEST_TEMPLATES
+};
+
+export const SECRET_QUEST_TEMPLATES_BY_DESTINATION: Record<DestinationId, QuestTemplate[]> = {
+  istanbul: SECRET_QUEST_TEMPLATES
+};
 
 export const AWARD_CATEGORIES: AwardCategory[] = [
   { id: "kebab-machine", emoji: "🍔", title: "Kebab Machine", description: "Most likely to eat kebab again tomorrow." },

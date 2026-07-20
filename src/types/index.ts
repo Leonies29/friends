@@ -1,3 +1,5 @@
+import type { DestinationId } from "@/lib/destinations";
+
 export type EntityTimestamp = string | Date | { seconds: number; nanoseconds: number } | null;
 
 export type Difficulty = "Easy" | "Medium" | "Hard";
@@ -66,6 +68,7 @@ export interface Group extends BaseEntity {
   inviteCode: string;
   description: string;
   destination: string;
+  destinationId?: DestinationId;
   dates: string;
   startDate?: string;
   endDate?: string;

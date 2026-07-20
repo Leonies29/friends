@@ -1,4 +1,5 @@
 import type { AssassinMissionCategory, AssassinMissionDifficulty } from "@/types/game";
+import type { DestinationId } from "@/lib/destinations";
 
 export const ASSASSIN_MISSION_CATEGORIES: AssassinMissionCategory[] = [
   "Speech",
@@ -154,3 +155,7 @@ export const DEFAULT_ASSASSIN_MISSION_TEMPLATES: Array<{
   { key: "grand-riddle", title: "Grand Riddle", text: "Have the target solve a silly riddle and explain the answer like a legend.", difficulty: "Epic", category: "Social" },
   { key: "duo-legend", title: "Duo Legend", text: "Make the target stand beside you in a grand duo pose for 20 seconds.", difficulty: "Epic", category: "Photo" }
 ];
+
+export const ASSASSIN_MISSIONS_BY_DESTINATION: Record<DestinationId, typeof DEFAULT_ASSASSIN_MISSION_TEMPLATES> = {
+  istanbul: DEFAULT_ASSASSIN_MISSION_TEMPLATES
+};

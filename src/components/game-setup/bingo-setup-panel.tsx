@@ -51,7 +51,7 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
       const [items, session] = await Promise.all([
         listBingoChallenges(groupId, game.id).then(async (loaded) => {
           if (loaded.length) return loaded;
-          return ensureBingoChallenges(groupId, game.id, { seedIfEmpty: true });
+          return ensureBingoChallenges(groupId, game.id, state.group?.destinationId, { seedIfEmpty: true });
         }),
         getBingoSession(groupId, game.id)
       ]);

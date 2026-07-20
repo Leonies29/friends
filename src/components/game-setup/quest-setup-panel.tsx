@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Badge, Button } from "@/components/ui";
+import { useActiveGroup } from "@/hooks/use-active-group";
 import { QUEST_CATEGORIES } from "@/lib/game-data";
 import { createGroupQuest, ensureGroupQuests, removeGroupQuest, updateGroupQuest } from "@/services/quest-service";
 import type { QuestCategory, QuestDoc } from "@/types/game";
@@ -9,6 +10,7 @@ import type { QuestCategory, QuestDoc } from "@/types/game";
 const inputClass = "w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold";
 
 export function QuestSetupPanel({ groupId }: { groupId: string }) {
+  const state = useActiveGroup();
   const [quests, setQuests] = useState<QuestDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,7 +23,7 @@ export function QuestSetupPanel({ groupId }: { groupId: string }) {
     setLoading(true);
     setError("");
     try {
-      const items = await ensureGroupQuests(groupId);
+      const items = await ensureGroupQuests(groupId, state.group?.destinationId);
       setQuests(items);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load quests.");

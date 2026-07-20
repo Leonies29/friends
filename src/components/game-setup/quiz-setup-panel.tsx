@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
+import { useActiveGroup } from "@/hooks/use-active-group";
 import { QUIZ_CATEGORY_META, QUIZ_DIFFICULTY_META } from "@/lib/quiz-seed";
 import {
   createQuizQuestion,
@@ -17,6 +18,7 @@ import type { QuizCategory, QuizDifficulty, QuizQuestion } from "@/types/quiz";
 const inputClass = "w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold";
 
 export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string }) {
+  const state = useActiveGroup();
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -42,7 +44,7 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
 
   async function load() {
     setLoading(true);
-    setQuestions(await ensureQuizQuestions(groupId, game.id));
+    setQuestions(await ensureQuizQuestions(groupId, game.id, state.group?.destinationId));
     setLoading(false);
   }
 

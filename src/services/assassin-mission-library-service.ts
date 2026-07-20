@@ -1,18 +1,20 @@
 import { collection, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { getFirebaseFirestore } from "@/firebase/firestore";
-import { DEFAULT_ASSASSIN_MISSION_TEMPLATES } from "@/lib/assassin-default-missions";
+import { ASSASSIN_MISSIONS_BY_DESTINATION } from "@/lib/assassin-default-missions";
+import { pickForDestination, type DestinationId } from "@/lib/destinations";
 import type { AssassinMissionTemplate } from "@/types/game";
 
 export const MISSION_TEMPLATES = "assassinMissionTemplates";
 
-export async function ensureMissionLibrary(groupId: string) {
+export async function ensureMissionLibrary(groupId: string, destinationId?: DestinationId) {
   const db = getFirebaseFirestore();
   const existing = await getDocs(query(collection(db, MISSION_TEMPLATES), where("groupId", "==", groupId)));
   if (existing.size) {
     return listMissionTemplates(groupId);
   }
 
-  await Promise.all(DEFAULT_ASSASSIN_MISSION_TEMPLATES.map((template) =>
+  const templates = pickForDestination(ASSASSIN_MISSIONS_BY_DESTINATION, destinationId);
+  await Promise.all(templates.map((template) =>
     setDoc(doc(db, MISSION_TEMPLATES, `${groupId}_${template.key}`), {
       groupId,
       title: template.title,

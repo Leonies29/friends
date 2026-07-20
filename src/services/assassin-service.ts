@@ -12,45 +12,59 @@ const MISSIONS = "assassinMissions";
 const ELIMINATIONS = "assassinEliminations";
 const ACTIVITY = "activityFeed";
 
+type AssassinGameDoc = AssassinGame & {
+  createdAt?: string;
+  updatedAt?: string;
+  startedAt?: string;
+};
+
+function selectCurrentGame(games: AssassinGameDoc[]) {
+  const activeGame = games.find((game) => game.status === "active");
+  if (activeGame) return activeGame;
+  const setupGame = games.find((game) => game.status === "setup");
+  if (setupGame) return setupGame;
+
+  return [...games].sort((a, b) => {
+    const aKey = a.startedAt ?? a.updatedAt ?? a.createdAt ?? "";
+    const bKey = b.startedAt ?? b.updatedAt ?? b.createdAt ?? "";
+    return bKey.localeCompare(aKey);
+  })[0] ?? null;
+}
+
+async function listAssassinGames(groupId: string) {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDocs(query(collection(db, GAMES), where("groupId", "==", groupId)));
+  return snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Record<string, unknown>) } as AssassinGameDoc));
+}
+
 export async function loadAssassinState(groupId: string) {
   const db = getFirebaseFirestore();
   const [games, players, missions, eliminations] = await Promise.all([
-    getDocs(query(collection(db, GAMES), where("groupId", "==", groupId))),
+    listAssassinGames(groupId),
     getDocs(query(collection(db, PLAYERS), where("groupId", "==", groupId))),
     getDocs(query(collection(db, MISSIONS), where("groupId", "==", groupId))),
     getDocs(query(collection(db, ELIMINATIONS), where("groupId", "==", groupId)))
   ]);
 
   return {
-    game: games.docs[0] ? ({ id: games.docs[0].id, ...games.docs[0].data() } as AssassinGame) : null,
+    game: selectCurrentGame(games),
     players: players.docs.map((item) => ({ id: item.id, ...item.data() }) as AssassinPlayer),
     missions: missions.docs.map((item) => ({ id: item.id, ...item.data() }) as AssassinMission),
-    eliminations: eliminations.docs.map((item) => ({ id: item.id, ...item.data() }) as AssassinElimination)
+    eliminations: eliminations.docs.map((item) => ({ id: item.id, ...item.data() } as AssassinElimination))
   };
 }
 
 export async function createSetupGame(groupId: string, mode: AssassinSetupMode, startingLives = 5) {
   const db = getFirebaseFirestore();
-  const existing = await getDocs(query(collection(db, GAMES), where("groupId", "==", groupId)));
-  if (existing.docs[0]) {
-    await updateDoc(doc(db, GAMES, existing.docs[0].id), {
-      status: "setup",
-      setupMode: mode,
-      phase: "normal",
-      winnerId: null,
-      startingLives,
-      updatedAt: serverTimestamp()
-    });
-    return existing.docs[0].id;
-  }
-
   const created = await addDoc(collection(db, GAMES), {
     groupId,
     status: "setup",
     setupMode: mode,
     phase: "normal",
-    startingLives
-  } satisfies Omit<AssassinGame, "id">);
+    startingLives,
+    createdAt: new Date().toISOString(),
+    updatedAt: serverTimestamp()
+  } satisfies Omit<AssassinGame, "id"> & { createdAt: string; updatedAt: unknown });
   return created.id;
 }
 
@@ -62,6 +76,11 @@ export async function updateAssassinGameSettings(groupId: string, settings: { st
     ...settings,
     updatedAt: serverTimestamp()
   });
+}
+
+async function getCurrentAssassinGame(groupId: string) {
+  const games = await listAssassinGames(groupId);
+  return selectCurrentGame(games);
 }
 
 export async function startAssassinGame(groupId: string, members: Array<{ id: string; username: string; avatarUrl?: string | null }>) {
@@ -77,10 +96,10 @@ export async function startAssassinGame(groupId: string, members: Array<{ id: st
   if (error) throw new Error(error);
 
   const db = getFirebaseFirestore();
-  const state = await loadAssassinState(groupId);
-  const gameId = state.game?.id ?? (await createSetupGame(groupId, setup.mode));
+  const currentGame = await getCurrentAssassinGame(groupId);
+  const gameId = currentGame?.id ?? (await createSetupGame(groupId, setup.mode));
   const isDuelStart = members.length === 2;
-  const startingLives = state.game?.startingLives ?? 5;
+  const startingLives = currentGame?.startingLives ?? 5;
 
   await updateDoc(doc(db, GAMES, gameId), {
     status: "active",

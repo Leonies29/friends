@@ -16,6 +16,7 @@ import { getFirebaseAuth } from "@/firebase/auth";
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
 import type { Group, GroupMember, GroupRole, ParticipantSlot } from "@/types";
+import { DEFAULT_DESTINATION_ID, type DestinationId } from "@/lib/destinations";
 
 export const GROUPS_COLLECTION = "friendGroups";
 export const GROUPS_SCHEMA_COLLECTION = "groups";
@@ -24,6 +25,7 @@ export const GROUP_MEMBERS_COLLECTION = "groupMembers";
 export type CreateGroupPayload = {
   name: string;
   destination: string;
+  destinationId?: DestinationId;
   startDate?: string;
   endDate?: string;
   description?: string;
@@ -185,6 +187,7 @@ export async function createGroup(payload: CreateGroupPayload) {
     inviteCode,
     description: payload.description || `Private travel game for ${payload.destination.trim() || "your trip"}.`,
     destination: payload.destination.trim(),
+    destinationId: payload.destinationId ?? DEFAULT_DESTINATION_ID,
     dates,
     startDate: payload.startDate,
     endDate: payload.endDate,
@@ -215,6 +218,7 @@ export async function createGroup(payload: CreateGroupPayload) {
       activeGroupId: id,
       name: group.name,
       destination: group.destination,
+      destinationId: group.destinationId,
       inviteCode,
       currentDay: 0,
       totalDays: 7,
