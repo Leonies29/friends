@@ -1,22 +1,23 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Copy, Loader2, Minus, Plus } from "lucide-react";
 import { AssassinEmergencySection } from "@/components/admin/assassin-emergency-panel";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
 import { GroupDangerZone } from "@/components/admin/group-danger-zone";
 import { MembersManagementPanel } from "@/components/admin/members-management-panel";
+import { TeamManagementPanel } from "@/components/admin/team-management-panel";
 import { GameManagementPanel } from "@/components/game-management-panel";
 import { Badge, Button, Card } from "@/components/ui";
 import { buildInviteLink } from "@/lib/app-paths";
 import { formatFirestoreError } from "@/lib/firebase-errors";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManageMembers, canManageScores, resolveEffectiveRole } from "@/services/permissions";
 import { ensureAwardCategories } from "@/services/award-service";
 import { ensureDefaultGames } from "@/services/game-service";
-import { addXpTransaction } from "@/services/xp-service";
+import { addXpTransaction, awardGameXp } from "@/services/xp-service";
 import type { Game } from "@/types";
 
 const inputClass = "rounded-2xl border border-border bg-background px-4 py-3 font-semibold outline-none focus:border-accent focus:ring-4 focus:ring-accent/15";
@@ -45,13 +46,15 @@ export function AdminDashboard() {
   const [loadError, setLoadError] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
+  const [xpError, setXpError] = useState("");
+  const [xpSaving, setXpSaving] = useState(false);
 
   const role = resolveEffectiveRole(state.currentMember, state.group, state.userId, state.currentMember?.email);
   const canAdmin = canManageGames(role) || canManageScores(role) || canManageMembers(role);
   const canMembers = canManageMembers(role);
   const activeMembers = filterActiveGameMembers(state.members);
 
-  async function loadAdmin(groupId = state.group?.id) {
+  const loadAdmin = useCallback(async (groupId = state.group?.id) => {
     if (!groupId || !state.userId) return;
     setLoadingGames(true);
     setLoadError("");
@@ -72,9 +75,9 @@ export function AdminDashboard() {
     } finally {
       setLoadingGames(false);
     }
-  }
+  }, [state.group?.id, state.userId, role, state.currentMember?.email, state.currentMember?.nickname]);
 
-  useEffect(() => { void loadAdmin(); }, [state.group?.id, state.userId]);
+  useEffect(() => { void loadAdmin(); }, [loadAdmin]);
 
   useEffect(() => {
     if (state.group?.inviteCode) {
@@ -118,19 +121,49 @@ export function AdminDashboard() {
 
   async function handleXp(event: FormEvent<HTMLFormElement>, amountSign: 1 | -1) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const amount = Math.abs(Number(form.get("amount") ?? 0)) * amountSign;
-    const userId = String(form.get("userId") ?? "");
-    if (!state.userId || !userId || !amount) return;
-    await addXpTransaction({
-      groupId: group.id,
-      userId,
-      amount,
-      sourceType: "admin_adjustment",
-      reason: String(form.get("reason") ?? "Admin correction"),
-      createdBy: state.userId
-    });
-    event.currentTarget.reset();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const amount = Math.abs(Number(data.get("amount") ?? 0)) * amountSign;
+    const reason = String(data.get("reason") ?? "Admin correction");
+    const userId = String(data.get("userId") ?? "");
+    const gameId = String(data.get("gameId") ?? "");
+    setXpError("");
+
+    if (!state.userId || !userId || !amount) {
+      setXpError("Choose a player and a non-zero XP amount.");
+      return;
+    }
+
+    setXpSaving(true);
+    try {
+      // If a game is picked and that game is in team mode, awardGameXp fans this out to the
+      // player's whole team automatically — no separate "give to a team" UI needed.
+      if (gameId) {
+        await awardGameXp({
+          groupId: group.id,
+          gameId,
+          userId,
+          amount,
+          sourceType: "admin_adjustment",
+          reason,
+          createdBy: state.userId
+        });
+      } else {
+        await addXpTransaction({
+          groupId: group.id,
+          userId,
+          amount,
+          sourceType: "admin_adjustment",
+          reason,
+          createdBy: state.userId
+        });
+      }
+      form.reset();
+    } catch (error) {
+      setXpError(formatFirestoreError(error, "Unable to save the XP adjustment."));
+    } finally {
+      setXpSaving(false);
+    }
   }
 
   async function handleCopyInviteLink() {
@@ -179,6 +212,16 @@ export function AdminDashboard() {
           summary="Activate guests, deactivate players, and manage invite slots."
         >
           <MembersManagementPanel embedded />
+        </AdminCollapsibleSection>
+      )}
+
+      {canMembers && (
+        <AdminCollapsibleSection
+          title="Teams"
+          emoji="🧑‍🤝‍🧑"
+          summary="Switch between individual and team scoring, then assign players manually or shuffle them."
+        >
+          <TeamManagementPanel embedded />
         </AdminCollapsibleSection>
       )}
 
@@ -239,22 +282,33 @@ export function AdminDashboard() {
           summary="Add or remove XP for a player."
         >
           <form className="grid max-w-md gap-3" onSubmit={(event) => void handleXp(event, 1)}>
+            <select name="gameId" className={`${inputClass} w-full text-sm`}>
+              <option value="">General (no game)</option>
+              {games.map((game) => (
+                <option key={game.id} value={game.id}>{game.title}</option>
+              ))}
+            </select>
             <select name="userId" required className={`${inputClass} w-full text-sm`}>
               <option value="">Choose player</option>
               {activeMembers.map((member) => (
-                <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>
+                <option key={member.id} value={memberUserId(member)}>{memberName(member)}</option>
               ))}
             </select>
+            <p className="text-xs text-muted-foreground">
+              If the selected game is in team mode, the player&apos;s whole team gets the same amount automatically.
+            </p>
             <div className="grid gap-3">
               <input name="amount" type="number" min={1} required placeholder="XP" className={`${inputClass} text-sm`} />
               <input name="reason" placeholder="Reason" className={`${inputClass} text-sm`} />
             </div>
+            {xpError && <p className="text-sm font-semibold text-rose-600">{xpError}</p>}
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button type="submit" size="sm"><Plus className="h-4 w-4" />Add XP</Button>
+              <Button type="submit" size="sm" disabled={xpSaving}><Plus className="h-4 w-4" />Add XP</Button>
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
+                disabled={xpSaving}
                 onClick={(event) => {
                   const form = event.currentTarget.closest("form");
                   if (form) void handleXp({ preventDefault: () => undefined, currentTarget: form } as FormEvent<HTMLFormElement>, -1);

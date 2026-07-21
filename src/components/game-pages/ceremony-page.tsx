@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { getAwardResults, getVoteParticipationStats, listAwardCategories } from "@/services/award-service";
 import { loadAssassinState } from "@/services/assassin-service";
 import { listGroupQuests } from "@/services/quest-service";
 import { listXpTransactions } from "@/services/xp-service";
+import { listGames } from "@/services/game-service";
+import { getTeamXpTotalsForGame, listGameTeamMemberships, listTeams } from "@/services/team-service";
 import { calculateLevel } from "@/lib/utils";
 import { DESTINATIONS, DEFAULT_DESTINATION_ID } from "@/lib/destinations";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
@@ -17,6 +19,12 @@ import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/
 function memberName(member: { nickname?: string; username?: string }) {
   return member.nickname || member.username || "Player";
 }
+
+type TeamGameRanking = {
+  gameId: string;
+  gameTitle: string;
+  teams: Array<{ id: string; name: string; xp: number }>;
+};
 
 export function CeremonyPage() {
   const state = useActiveGroup();
@@ -27,14 +35,17 @@ export function CeremonyPage() {
   const [secretCount, setSecretCount] = useState(0);
   const [participation, setParticipation] = useState<Awaited<ReturnType<typeof getVoteParticipationStats>> | null>(null);
   const [awardWinners, setAwardWinners] = useState<Array<{ id: string; emoji: string; title: string; winnerName: string }>>([]);
+  const [teamGameRankings, setTeamGameRankings] = useState<TeamGameRanking[]>([]);
+  const latestRequestId = useRef(0);
 
   const load = useCallback(async (silent = false) => {
     if (!state.group?.id) return;
+    const requestId = ++latestRequestId.current;
     if (silent) setRefreshing(true);
     else setLoading(true);
 
     const groupId = state.group.id;
-    const activeMemberIds = filterActiveGameMembers(state.members).map((member) => member.userId || member.id);
+    const activeMemberIds = filterActiveGameMembers(state.members).map((member) => memberUserId(member));
     const [transactions, assassin, quests, awardResults, voteStats, categories] = await Promise.all([
       listXpTransactions(groupId),
       loadAssassinState(groupId),
@@ -45,7 +56,7 @@ export function CeremonyPage() {
     ]);
 
     const xpRows = filterActiveGameMembers(state.members).map((member) => {
-      const id = member.userId || member.id;
+      const id = memberUserId(member);
       return {
         id,
         name: memberName(member),
@@ -59,12 +70,29 @@ export function CeremonyPage() {
       : [...assassin.players].filter((player) => player.isAlive)[0]
         ?? [...assassin.players].sort((a, b) => b.eliminationCount - a.eliminationCount)[0];
 
+    const games = await listGames(groupId);
+    const teamGames = games.filter((item) => item.settings?.scoringMode === "team");
+    const nextTeamGameRankings = (await Promise.all(teamGames.map(async (teamGame) => {
+      const [teams, memberships] = await Promise.all([
+        listTeams(groupId, teamGame.id),
+        listGameTeamMemberships(groupId, teamGame.id)
+      ]);
+      const totals = getTeamXpTotalsForGame(teamGame.id, memberships, transactions);
+      return {
+        gameId: teamGame.id,
+        gameTitle: teamGame.title,
+        teams: teams
+          .map((team) => ({ id: team.id, name: team.name, xp: totals.get(team.id) ?? 0 }))
+          .sort((a, b) => b.xp - a.xp)
+      };
+    }))).filter((ranking) => ranking.teams.length > 0);
+
     const revealedCategories = categories.filter((category) => category.resultsRevealed);
     const winners = revealedCategories.map((category) => {
       const ranked = awardResults.get(category.id) ?? [];
       const top = ranked[0];
       const winnerMember = top
-        ? state.members.find((member) => (member.userId || member.id) === top.userId)
+        ? state.members.find((member) => (memberUserId(member)) === top.userId)
         : null;
       return {
         id: category.id,
@@ -74,11 +102,16 @@ export function CeremonyPage() {
       };
     });
 
+    // A newer load() may have started (Refresh double-click, or state.members changing identity
+    // mid-flight) and already resolved. Discard this stale response instead of overwriting it.
+    if (latestRequestId.current !== requestId) return;
+
     setXpWinner(xpRows[0] ?? null);
     setAssassinWinner(winnerPlayer ? { name: winnerPlayer.displayName, avatarUrl: winnerPlayer.avatarUrl } : null);
     setSecretCount(quests.filter((quest) => quest.isSecret && quest.completedBy.length > 0).length);
     setParticipation(voteStats);
     setAwardWinners(winners);
+    setTeamGameRankings(nextTeamGameRankings);
 
     if (silent) setRefreshing(false);
     else setLoading(false);
@@ -159,6 +192,23 @@ export function CeremonyPage() {
           <p className="mt-1 text-[10px] text-muted-foreground sm:mt-2 sm:text-sm">discoveries unlocked</p>
         </Card>
       </section>
+
+      {teamGameRankings.map((ranking) => (
+        <Card key={ranking.gameId}>
+          <Badge>Team Ranking — {ranking.gameTitle}</Badge>
+          <div className="mt-4 grid gap-2">
+            {ranking.teams.map((team, index) => (
+              <div key={team.id} className="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">{["🥇", "🥈", "🥉"][index] ?? `#${index + 1}`}</span>
+                  <p className="font-black">{team.name}</p>
+                </div>
+                <p className="text-lg font-black">{team.xp} XP</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ))}
 
       <Card>
         <Badge>Awards Winners</Badge>

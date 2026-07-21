@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Badge, Button, Card } from "@/components/ui";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { canManageGames } from "@/services/permissions";
 import { castVote, countUserVotes, ensureAwardCategories, getAwardCeremony, listAwardCategories } from "@/services/award-service";
@@ -30,13 +30,20 @@ export function AwardsPage() {
     [categories]
   );
 
+  // An admin can hide/show a category while a voter is mid-quiz, shrinking visibleCategories
+  // under a quizIndex that was valid a moment ago. Without this, quizAward silently becomes
+  // undefined and the quiz screen disappears (falls back to the classic view) mid-flow.
+  useEffect(() => {
+    setQuizIndex((current) => Math.min(current, Math.max(visibleCategories.length - 1, 0)));
+  }, [visibleCategories.length]);
+
   function preserveScrollPosition() {
     if (typeof window === "undefined") return;
     const currentTop = window.scrollY;
     requestAnimationFrame(() => window.scrollTo({ top: currentTop, behavior: "auto" }));
   }
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!state.group?.id || !state.userId) return;
     setLoading(true);
     if (canManageGames(state.currentMember?.role)) {
@@ -50,9 +57,9 @@ export function AwardsPage() {
     setProgress(voteProgress);
     setLoading(false);
     preserveScrollPosition();
-  }
+  }, [state.group?.id, state.userId, state.currentMember?.role]);
 
-  useEffect(() => { void load(); }, [state.group?.id, state.userId]);
+  useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
     if (!state.group?.id) return;
@@ -134,7 +141,7 @@ export function AwardsPage() {
                       key={member.id}
                       type="button"
                       className="flex items-center gap-3 rounded-3xl border border-border bg-background p-4 text-left transition hover:border-accent"
-                      onClick={() => void submitQuizVote(member.userId || member.id)}
+                      onClick={() => void submitQuizVote(memberUserId(member))}
                     >
                       <Avatar src={member.avatarUrl ?? ""} alt={memberName(member)} />
                       <p className="font-black">{memberName(member)}</p>

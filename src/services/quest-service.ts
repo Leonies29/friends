@@ -2,7 +2,8 @@ import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, se
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { QUEST_TEMPLATES_BY_DESTINATION, SECRET_QUEST_TEMPLATES_BY_DESTINATION } from "@/lib/game-data";
 import { pickForDestination, type DestinationId } from "@/lib/destinations";
-import { addXpTransaction } from "@/services/xp-service";
+import { addXpTransaction, awardGameXp } from "@/services/xp-service";
+import { resolveGameByCategory } from "@/services/game-service";
 import type { QuestCompletion, QuestDoc } from "@/types/game";
 
 const QUESTS = "quests";
@@ -71,15 +72,21 @@ export async function completeQuest(input: {
     completedAt: new Date().toISOString()
   } satisfies Omit<QuestCompletion, "id">);
 
-  await addXpTransaction({
+  const treasureGame = await resolveGameByCategory(input.groupId, "treasure");
+  const xpInput = {
     groupId: input.groupId,
     userId: input.userId,
     amount: input.quest.xpReward,
-    sourceType: "quest",
+    sourceType: "quest" as const,
     sourceId: input.quest.id,
     reason: `Completed quest: ${input.quest.title}`,
     createdBy: input.userId
-  });
+  };
+  if (treasureGame) {
+    await awardGameXp({ ...xpInput, gameId: treasureGame.id });
+  } else {
+    await addXpTransaction(xpInput);
+  }
 
   await addDoc(collection(db, ACTIVITY), {
     groupId: input.groupId,

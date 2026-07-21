@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Lock, Sparkles } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
@@ -95,17 +95,17 @@ export function QuestsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todo");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!state.group?.id) return;
     setLoading(true);
     const items = await ensureGroupQuests(state.group.id);
     setQuests(items);
     setLoading(false);
-  }
+  }, [state.group?.id]);
 
   useEffect(() => {
     void load();
-  }, [state.group?.id]);
+  }, [load]);
 
   const visibleQuests = useMemo(() => quests.filter(isQuestVisible), [quests]);
   const secretLocked = useMemo(() => quests.filter((quest) => quest.isSecret && !quest.unlocked), [quests]);

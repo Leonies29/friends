@@ -2,7 +2,8 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimes
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import { pickRandomTemplate, ensureMissionLibrary } from "@/services/assassin-mission-library-service";
 import { getAssassinSetup, validateAssignments } from "@/services/assassin-setup-service";
-import { addXpTransaction } from "@/services/xp-service";
+import { addXpTransaction, awardGameXp } from "@/services/xp-service";
+import { resolveGameByCategory } from "@/services/game-service";
 import { getAssassinMissionRewards, getAssassinVictoryReward } from "@/lib/assassin-progression";
 import type { AssassinElimination, AssassinGame, AssassinMission, AssassinPlayer, AssassinSetupMode } from "@/types/game";
 
@@ -326,15 +327,21 @@ async function applyConfirmedElimination(elimination: AssassinElimination) {
         completedAt: new Date().toISOString()
       })
     ]);
-    await addXpTransaction({
+    const assassinGame = await resolveGameByCategory(elimination.groupId, "assassin");
+    const xpInput = {
       groupId: elimination.groupId,
       userId: elimination.killerId,
       amount: rewardXp,
-      sourceType: "game",
+      sourceType: "game" as const,
       sourceId: elimination.id,
       reason: "Mission and elimination completed",
       createdBy: elimination.killerId
-    });
+    };
+    if (assassinGame) {
+      await awardGameXp({ ...xpInput, gameId: assassinGame.id });
+    } else {
+      await addXpTransaction(xpInput);
+    }
     if (nextTargetId) {
       await assignMission(elimination.groupId, elimination.killerId, nextTargetId);
     }

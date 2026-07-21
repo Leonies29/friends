@@ -21,7 +21,7 @@ import {
   generatePlayerGrid,
   pointsForDifficulty
 } from "@/lib/bingo-logic";
-import { addXpTransaction } from "@/services/xp-service";
+import { awardGameXp } from "@/services/xp-service";
 import type {
   BingoCard,
   BingoCategory,
@@ -412,8 +412,9 @@ export async function reviewBingoSubmission(input: {
   }, { merge: true });
 
   if (gainedPoints > 0) {
-    await addXpTransaction({
+    await awardGameXp({
       groupId: card.groupId,
+      gameId: card.gameId,
       userId: card.userId,
       amount: gainedPoints,
       sourceType: "game",

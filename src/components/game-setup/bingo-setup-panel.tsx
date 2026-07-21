@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { Badge, Button, Card } from "@/components/ui";
 import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
@@ -40,7 +40,17 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
 
   const activeCount = useMemo(() => challenges.filter((challenge) => challenge.active).length, [challenges]);
 
-  async function load() {
+  const ensureAdminAccess = useCallback(async () => {
+    if (!state.userId) throw new Error("You must be signed in.");
+    const { prepareGroupAdminAccess } = await import("@/services/group-service");
+    await prepareGroupAdminAccess(groupId, state.userId, {
+      appRole: state.currentMember?.role,
+      email: getFirebaseAuth().currentUser?.email ?? state.currentMember?.email,
+      nickname: state.currentMember?.nickname
+    });
+  }, [groupId, state.userId, state.currentMember?.role, state.currentMember?.email, state.currentMember?.nickname]);
+
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -68,9 +78,9 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
     } finally {
       setLoading(false);
     }
-  }
+  }, [groupId, game.id, state.userId, state.group?.destinationId, ensureAdminAccess]);
 
-  useEffect(() => { void load(); }, [groupId, game.id]);
+  useEffect(() => { void load(); }, [load]);
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,16 +122,6 @@ export function BingoSetupPanel({ game, groupId }: { game: Game; groupId: string
     } catch (err) {
       setError(formatFirestoreError(err, "Unable to delete this challenge."));
     }
-  }
-
-  async function ensureAdminAccess() {
-    if (!state.userId) throw new Error("You must be signed in.");
-    const { prepareGroupAdminAccess } = await import("@/services/group-service");
-    await prepareGroupAdminAccess(groupId, state.userId, {
-      appRole: state.currentMember?.role,
-      email: getFirebaseAuth().currentUser?.email ?? state.currentMember?.email,
-      nickname: state.currentMember?.nickname
-    });
   }
 
   async function handleLaunch() {

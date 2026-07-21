@@ -2,6 +2,8 @@ import { addDoc, collection, doc, getDocs, increment, query, serverTimestamp, se
 import { getFirebaseFirestore } from "@/firebase/firestore";
 import type { LeaderboardEntry, XpSourceType, XpTransaction } from "@/types";
 import { calculateLevel } from "@/lib/utils";
+import { getGame } from "@/services/game-service";
+import { getGameTeamMembership, listGameTeamMembers } from "@/services/team-service";
 
 export const XP_TRANSACTIONS_COLLECTION = "xpTransactions";
 export const LEADERBOARDS_COLLECTION = "leaderboards";
@@ -18,6 +20,7 @@ export function getWeekKey(date = new Date()) {
 export async function addXpTransaction(input: {
   groupId: string;
   userId: string;
+  gameId?: string;
   amount: number;
   sourceType: XpSourceType;
   sourceId?: string;
@@ -46,6 +49,35 @@ export async function addXpTransaction(input: {
     weekKey,
     updatedAt: serverTimestamp()
   }, { merge: true });
+}
+
+// Single entry point for any XP tied to a specific game — the only place that decides who
+// actually receives it. If the game is in team mode, it fans out to every teammate of the
+// acting player in that game (same amount each, no split); otherwise it's a plain individual
+// award. A player with no team assignment yet in a team-mode game gets nothing until an admin
+// assigns them (see team-management-panel.tsx's "unassigned" banner).
+export async function awardGameXp(input: {
+  groupId: string;
+  gameId: string;
+  userId: string;
+  amount: number;
+  sourceType: XpSourceType;
+  sourceId?: string;
+  reason: string;
+  createdBy: string;
+}) {
+  const game = await getGame(input.gameId);
+
+  if (game?.settings?.scoringMode !== "team") {
+    await addXpTransaction(input);
+    return;
+  }
+
+  const membership = await getGameTeamMembership(input.groupId, input.gameId, input.userId);
+  if (!membership?.teamId) return;
+
+  const teammateUserIds = await listGameTeamMembers(input.groupId, input.gameId, membership.teamId);
+  await Promise.all(teammateUserIds.map((userId) => addXpTransaction({ ...input, userId })));
 }
 
 export async function listXpTransactions(groupId: string) {

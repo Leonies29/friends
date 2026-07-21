@@ -771,3 +771,12 @@ export async function activateGroupForUser(userId: string, groupId: string) {
   await setActiveGroupForUser(userId, groupId);
   return { ...groupData, id: groupSnapshot.id } as Group;
 }
+
+export async function setGroupScoringMode(groupId: string, mode: "individual" | "team") {
+  const db = getFirebaseFirestore();
+  const patch = { scoringMode: mode, updatedAt: serverTimestamp() };
+  await Promise.all([
+    setDoc(doc(db, GROUPS_COLLECTION, groupId), patch, { merge: true }),
+    setDoc(doc(db, GROUPS_SCHEMA_COLLECTION, groupId), patch, { merge: true })
+  ]);
+}
