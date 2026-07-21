@@ -3,17 +3,21 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
+import { formatFirestoreError } from "@/lib/firebase-errors";
 import { QUIZ_CATEGORY_META, QUIZ_DIFFICULTY_META } from "@/lib/quiz-seed";
 import {
   createQuizQuestion,
   deleteQuizQuestion,
   ensureQuizQuestions,
   importQuizQuestions,
+  listQuizSessions,
+  setQuizAnswersRevealed,
   updateQuizQuestion
 } from "@/services/quiz-service";
 import { updateGame } from "@/services/game-service";
 import type { Game } from "@/types";
-import type { QuizCategory, QuizDifficulty, QuizQuestion } from "@/types/quiz";
+import type { QuizCategory, QuizDifficulty, QuizQuestion, QuizSession } from "@/types/quiz";
 
 const inputClass = "w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold";
 
@@ -29,6 +33,14 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
   const [questionsPerDay, setQuestionsPerDay] = useState(String(game.settings?.questionsPerDay ?? 3));
   const [timerSeconds, setTimerSeconds] = useState(String(game.settings?.timerSeconds ?? 20));
   const [totalSeries, setTotalSeries] = useState(String(game.settings?.totalSeries ?? 3));
+  const [sessions, setSessions] = useState<QuizSession[]>([]);
+  const [answersRevealed, setAnswersRevealed] = useState(Boolean(game.settings?.answersRevealed));
+  const [revealSaving, setRevealSaving] = useState(false);
+  const [revealError, setRevealError] = useState("");
+
+  const activeUserIds = filterActiveGameMembers(state.members).map((member) => memberUserId(member));
+  const completedCount = sessions.filter((session) => activeUserIds.includes(session.userId) && session.status === "completed").length;
+  const allActivePlayersDone = activeUserIds.length > 0 && completedCount === activeUserIds.length;
 
   async function saveSettings() {
     await updateGame(game.id, {
@@ -44,11 +56,31 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
 
   const load = useCallback(async () => {
     setLoading(true);
-    setQuestions(await ensureQuizQuestions(groupId, game.id, state.group?.destinationId));
+    const [loadedQuestions, loadedSessions] = await Promise.all([
+      ensureQuizQuestions(groupId, game.id, state.group?.destinationId),
+      listQuizSessions(groupId, game.id)
+    ]);
+    setQuestions(loadedQuestions);
+    setSessions(loadedSessions);
     setLoading(false);
   }, [groupId, game.id, state.group?.destinationId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  async function handleToggleReveal() {
+    const next = !answersRevealed;
+    setRevealSaving(true);
+    setRevealError("");
+    try {
+      await setQuizAnswersRevealed(groupId, game.id, activeUserIds, next);
+      setAnswersRevealed(next);
+      setMessage(next ? "Answers are now visible to players." : "Answers are hidden again.");
+    } catch (error) {
+      setRevealError(formatFirestoreError(error, "Unable to update answer visibility."));
+    } finally {
+      setRevealSaving(false);
+    }
+  }
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -97,6 +129,24 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
           </label>
         </div>
         <Button className="mt-3" size="sm" variant="secondary" onClick={() => void saveSettings()}>Save settings</Button>
+      </Card>
+
+      <Card className="p-4">
+        <Badge>Reveal answers</Badge>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Let players see the correct answer for every question they have done. Only unlocks once every active player has finished the quiz — otherwise it could tip off someone still playing.
+        </p>
+        <p className="mt-2 text-sm font-black">{completedCount} / {activeUserIds.length} active players finished</p>
+        {revealError && <p className="mt-2 text-sm font-semibold text-rose-700">{revealError}</p>}
+        <Button
+          className="mt-3"
+          size="sm"
+          variant={answersRevealed ? "secondary" : "primary"}
+          disabled={revealSaving || (!answersRevealed && !allActivePlayersDone)}
+          onClick={() => void handleToggleReveal()}
+        >
+          {answersRevealed ? "Hide answers" : "Reveal answers to players"}
+        </Button>
       </Card>
 
       <Card className="p-4">

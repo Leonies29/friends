@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { NotificationBell } from "@/components/notification-bell";
+import { AdminApprovalsBadge } from "@/components/admin-approvals-badge";
 import { memberUserId } from "@/lib/game-members";
 import { signOut } from "firebase/auth";
 import { useTheme } from "next-themes";
@@ -151,6 +152,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             🛠 Dev
           </Link>
         )}
+        <AdminApprovalsBadge groupId={state.group?.id ?? null} canAdmin={canAdmin} />
         <NotificationBell userId={state.userId} />
         <Button variant="secondary" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
           <Sun className="h-4 w-4 dark:hidden" />

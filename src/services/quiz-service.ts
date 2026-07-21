@@ -16,6 +16,7 @@ import { ISTANBUL_HISTORY_QUIZ_SEED, QUIZ_SEEDS_BY_DESTINATION } from "@/lib/qui
 import { pickForDestination, type DestinationId } from "@/lib/destinations";
 import { scoreQuizAnswer, shuffle, successRate } from "@/lib/quiz-logic";
 import { awardGameXp } from "@/services/xp-service";
+import { GAMES_COLLECTION } from "@/services/game-service";
 import type {
   QuizAnswer,
   QuizCategory,
@@ -299,4 +300,33 @@ export async function listUserQuizAnswers(sessionId: string) {
   const db = getFirebaseFirestore();
   const snapshot = await getDocs(query(collection(db, QUIZ_ANSWERS), where("sessionId", "==", sessionId)));
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuizAnswer);
+}
+
+export async function listQuizSessions(groupId: string, gameId: string) {
+  const db = getFirebaseFirestore();
+  const snapshot = await getDocs(query(
+    collection(db, QUIZ_SESSIONS),
+    where("groupId", "==", groupId),
+    where("gameId", "==", gameId)
+  ));
+  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuizSession);
+}
+
+// Revealing is deliberately gated: it's only meaningful (and fair) once no active player can
+// still be influenced by seeing the correct answers. Hiding again has no such precondition.
+export async function setQuizAnswersRevealed(groupId: string, gameId: string, activeUserIds: string[], revealed: boolean) {
+  if (revealed) {
+    const sessions = await listQuizSessions(groupId, gameId);
+    const completedUserIds = new Set(sessions.filter((session) => session.status === "completed").map((session) => session.userId));
+    const allDone = activeUserIds.length > 0 && activeUserIds.every((userId) => completedUserIds.has(userId));
+    if (!allDone) {
+      throw new Error("All active players must finish the quiz before revealing answers.");
+    }
+  }
+
+  const db = getFirebaseFirestore();
+  await updateDoc(doc(db, GAMES_COLLECTION, gameId), {
+    "settings.answersRevealed": revealed,
+    updatedAt: serverTimestamp()
+  });
 }

@@ -203,11 +203,25 @@ function resolveNextAliveTarget(
   return null;
 }
 
+// Safety net for resolveNextAliveTarget: if the target chain fails to land anywhere (e.g. it
+// cycles back on itself, or only one other survivor is left), fall back to any other living
+// player. This is what guarantees a target only ever becomes null when the killer is the sole
+// survivor — never as a side effect of a broken chain walk.
+function pickAnyAliveTarget(players: AssassinPlayer[], excludeIds: Set<string>): string | null {
+  return players.find((player) => player.isAlive && !excludeIds.has(player.uid))?.uid ?? null;
+}
+
 async function assignMission(groupId: string, playerId: string, targetId: string) {
   const db = getFirebaseFirestore();
   const playerDocId = `${groupId}_${playerId}`;
-  const templates = await ensureMissionLibrary(groupId);
-  const template = pickRandomTemplate(templates);
+  const [templates, previousMissionSnapshot] = await Promise.all([
+    ensureMissionLibrary(groupId),
+    getDoc(doc(db, MISSIONS, playerDocId))
+  ]);
+  const previousTemplateId = previousMissionSnapshot.exists()
+    ? ((previousMissionSnapshot.data() as Partial<AssassinMission>).templateId ?? null)
+    : null;
+  const template = pickRandomTemplate(templates, previousTemplateId);
   const rewards = getAssassinMissionRewards(template?.difficulty ?? "Easy");
   await setDoc(doc(db, MISSIONS, playerDocId), {
     groupId,
@@ -298,8 +312,13 @@ async function applyConfirmedElimination(elimination: AssassinElimination) {
     player.uid === elimination.victimId ? { ...player, isAlive: nextLives > 0 ? true : false, currentTargetId: nextLives > 0 ? victim.currentTargetId : null, lives: nextLives } : player
   );
 
-  const excludeIds = new Set([elimination.killerId, elimination.victimId]);
-  const nextTargetId = resolveNextAliveTarget(victimTargetId, excludeIds, players);
+  // The victim only drops out of the target pool once truly eliminated (out of lives). If they
+  // survive the hit, they're still a valid — sometimes the only remaining — target, which is
+  // exactly the "only 2 players left" case: there's nobody else to reassign to.
+  const victimEliminated = nextLives <= 0;
+  const excludeIds = new Set([elimination.killerId, ...(victimEliminated ? [elimination.victimId] : [])]);
+  const nextTargetId = resolveNextAliveTarget(victimTargetId, excludeIds, players)
+    ?? pickAnyAliveTarget(players, new Set([elimination.killerId]));
 
   if (killer.isAlive) {
     const killerRef = doc(db, PLAYERS, killer.id);
@@ -347,20 +366,27 @@ async function applyConfirmedElimination(elimination: AssassinElimination) {
     }
   }
 
-  const stranded = players.filter(
-    (player) =>
-      player.isAlive &&
-      player.uid !== elimination.killerId &&
-      player.currentTargetId === elimination.victimId
-  );
+  // Only reassign third parties who were hunting the victim if the victim is genuinely gone —
+  // if they survived the hit, whoever was already targeting them still has a valid, unchanged
+  // target and must not be disturbed.
+  if (victimEliminated) {
+    const stranded = players.filter(
+      (player) =>
+        player.isAlive &&
+        player.uid !== elimination.killerId &&
+        player.currentTargetId === elimination.victimId
+    );
 
-  await Promise.all(stranded.map(async (player) => {
-    const newTarget = resolveNextAliveTarget(victimTargetId, new Set([player.uid, elimination.victimId]), players);
-    await updateDoc(doc(db, PLAYERS, player.id), { currentTargetId: newTarget });
-    if (newTarget) {
-      await assignMission(elimination.groupId, player.uid, newTarget);
-    }
-  }));
+    await Promise.all(stranded.map(async (player) => {
+      const excludeForPlayer = new Set([player.uid, elimination.victimId]);
+      const newTarget = resolveNextAliveTarget(victimTargetId, excludeForPlayer, players)
+        ?? pickAnyAliveTarget(players, new Set([player.uid]));
+      await updateDoc(doc(db, PLAYERS, player.id), { currentTargetId: newTarget });
+      if (newTarget) {
+        await assignMission(elimination.groupId, player.uid, newTarget);
+      }
+    }));
+  }
 
   await addDoc(collection(db, ACTIVITY), {
     groupId: elimination.groupId,

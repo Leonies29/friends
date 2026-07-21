@@ -10,7 +10,7 @@ import { Badge, Button, Card, Field } from "@/components/ui";
 import { DESTINATION_LIST, DESTINATIONS, DEFAULT_DESTINATION_ID, type DestinationId } from "@/lib/destinations";
 
 const gameModes = [
-  "Daily secret challenges",
+  "Daily challenges",
   "Assassin game",
   "Photo wall",
   "City questline",

@@ -7,6 +7,7 @@ import { Badge, Button, Card } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { QUEST_CATEGORIES } from "@/lib/game-data";
 import { cn } from "@/lib/utils";
+import { formatFirestoreError } from "@/lib/firebase-errors";
 import { completeQuest, ensureGroupQuests } from "@/services/quest-service";
 import type { QuestCategory, QuestDoc } from "@/types/game";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
@@ -91,6 +92,7 @@ export function QuestsPage() {
   const [quests, setQuests] = useState<QuestDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [unlockBanner, setUnlockBanner] = useState("");
+  const [completeError, setCompleteError] = useState("");
   const [comment, setComment] = useState<Record<string, string>>({});
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todo");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
@@ -159,14 +161,19 @@ export function QuestsPage() {
 
   async function handleComplete(quest: QuestDoc) {
     if (!state.group?.id || !state.userId || isQuestDone(quest, state.userId)) return;
-    const result = await completeQuest({
-      groupId: state.group.id,
-      quest,
-      userId: state.userId,
-      comment: comment[quest.id] ?? ""
-    });
-    if (result.unlockedSecret) setUnlockBanner(`🎉 New Secret Quest Unlocked: ${result.unlockedSecret}`);
-    await load();
+    setCompleteError("");
+    try {
+      const result = await completeQuest({
+        groupId: state.group.id,
+        quest,
+        userId: state.userId,
+        comment: comment[quest.id] ?? ""
+      });
+      if (result.unlockedSecret) setUnlockBanner(`🎉 New Secret Quest Unlocked: ${result.unlockedSecret}`);
+      await load();
+    } catch (error) {
+      setCompleteError(formatFirestoreError(error, "Unable to complete this quest."));
+    }
   }
 
   if (state.loading || loading) return <LoadingCard />;
@@ -192,6 +199,10 @@ export function QuestsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {completeError && (
+        <Card className="border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700">{completeError}</Card>
+      )}
 
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-3">

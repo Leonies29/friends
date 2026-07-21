@@ -208,7 +208,18 @@ service cloud.firestore {
     match /quests/{questId} {
       allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
       allow create: if isSignedIn() && canManageGroup(request.resource.data.groupId);
-      allow update, delete: if isSignedIn() && canManageGroup(resource.data.groupId);
+      // completeQuest() is called by any player marking their own quest done (and, for secret
+      // quests, unlocking a different quest doc as a side effect) — it must not require admin
+      // rights. Scoped to just the fields that flow, so a player still can't rewrite the quest
+      // itself (title, xpReward, etc.).
+      allow update: if isSignedIn() && (
+        canManageGroup(resource.data.groupId)
+        || (
+          isGroupMember(resource.data.groupId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completedBy', 'unlocked', 'updatedAt'])
+        )
+      );
+      allow delete: if isSignedIn() && canManageGroup(resource.data.groupId);
     }
 
     match /questRelics/{relicId} {

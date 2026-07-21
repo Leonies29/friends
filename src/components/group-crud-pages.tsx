@@ -30,7 +30,8 @@ import {
   setScheduleAttendance,
   summarizeAttendance
 } from "@/services/schedule-service";
-import { getWeekKey, listXpTransactions } from "@/services/xp-service";
+import { addXpTransaction, awardGameXp, getWeekKey, listXpTransactions } from "@/services/xp-service";
+import { resolveGameByCategory } from "@/services/game-service";
 import type { AttendanceStatus, Challenge, Photo, ScheduleEvent, XpTransaction } from "@/types";
 import { calculateLevel } from "@/lib/utils";
 
@@ -370,6 +371,35 @@ export function GroupChallengesPage() {
     await loadChallenges(group.id);
   }
 
+  // Approving used to only flip the doc's status — it never actually wrote an xpTransaction, so
+  // the reward never reached the real leaderboard/ceremony (both read xpTransactions only).
+  async function approveChallenge(challenge: Challenge) {
+    if (!state.userId) return;
+    await updateGroupDoc("challenges", challenge.id, {
+      status: "approved",
+      approvedBy: state.userId,
+      approvedAt: new Date().toISOString()
+    });
+
+    const challengeGame = await resolveGameByCategory(group.id, "challenge");
+    const xpInput = {
+      groupId: group.id,
+      userId: challenge.ownerId,
+      amount: challenge.xpReward,
+      sourceType: "challenge" as const,
+      sourceId: challenge.id,
+      reason: `Completed challenge: ${challenge.title}`,
+      createdBy: state.userId
+    };
+    if (challengeGame) {
+      await awardGameXp({ ...xpInput, gameId: challengeGame.id });
+    } else {
+      await addXpTransaction(xpInput);
+    }
+
+    await loadChallenges(group.id);
+  }
+
   async function submitChallengeProof(event: FormEvent<HTMLFormElement>, challengeId: string) {
     event.preventDefault();
     if (!state.userId) return;
@@ -408,11 +438,11 @@ export function GroupChallengesPage() {
 
   return (
     <div className="grid gap-6">
-      <PageHero eyebrow="Secret challenges" title="Challenges" description="Everyone can assign private missions to other participants. Admins approve proofs." group={group} />
+      <PageHero eyebrow="Challenges" title="Challenges" description="Everyone can assign private missions to other participants. Admins approve proofs." group={group} />
       {canAssignToOthers && (
         <Card>
           <Badge>Assign a mission</Badge>
-          <p className="mt-2 text-sm text-muted-foreground">Pick another participant and give them a secret challenge. Every challenge is worth {CHALLENGE_XP_REWARD} XP.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Pick another participant and give them a challenge. Every challenge is worth {CHALLENGE_XP_REWARD} XP.</p>
           <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={(event) => void createChallenge(event)}>
             <input name="title" required placeholder="Challenge title" className={inputClass} />
             <select name="ownerId" required className={inputClass}>
@@ -441,7 +471,7 @@ export function GroupChallengesPage() {
                 {(challenge.ownerId === state.userId || challenge.status !== "secret") && <p className="mt-3 text-sm text-muted-foreground">{challenge.description}</p>}
               </div>
               <div className="flex flex-wrap gap-2">
-                {canScore && challenge.status === "submitted" && <Button variant="gold" onClick={() => updateChallenge(challenge.id, { status: "approved", approvedBy: state.userId, approvedAt: new Date().toISOString() })}>Approve</Button>}
+                {canScore && challenge.status === "submitted" && <Button variant="gold" onClick={() => void approveChallenge(challenge)}>Approve</Button>}
                 {canEdit && <Button variant="ghost" size="sm" onClick={() => void deleteGroupDoc("challenges", challenge.id).then(() => loadChallenges(group.id))}><Trash2 className="h-4 w-4" />Delete</Button>}
               </div>
             </div>

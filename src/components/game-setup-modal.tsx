@@ -9,7 +9,7 @@ import type { Game } from "@/types";
 const SETUP_LABELS: Record<Game["category"], string> = {
   treasure: "Configure quests before players start",
   assassin: "Configure targets and missions before starting",
-  challenge: "Configure secret challenges",
+  challenge: "Configure challenges",
   photo: "Configure travel album link",
   quiz: "Manage Istanbul & Turkey history questions",
   bingo: "Configure the challenge pool and launch the game",

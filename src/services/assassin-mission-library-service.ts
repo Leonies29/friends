@@ -88,8 +88,12 @@ export async function duplicateMissionTemplate(groupId: string, template: Assass
   });
 }
 
-export function pickRandomTemplate(templates: AssassinMissionTemplate[]) {
+// excludeTemplateId keeps a player from getting the exact same mission twice in a row after
+// being reassigned. Falls back to allowing a repeat only when it's genuinely the only option.
+export function pickRandomTemplate(templates: AssassinMissionTemplate[], excludeTemplateId?: string | null) {
   const active = templates.filter((item) => item.active && !item.archived);
   if (!active.length) return null;
-  return active[Math.floor(Math.random() * active.length)];
+  const pool = excludeTemplateId ? active.filter((item) => item.id !== excludeTemplateId) : active;
+  const finalPool = pool.length ? pool : active;
+  return finalPool[Math.floor(Math.random() * finalPool.length)];
 }

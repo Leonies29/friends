@@ -157,6 +157,7 @@ export interface GameSettings {
   timerSeconds?: number;
   totalSeries?: number;
   scoringMode?: "individual" | "team";
+  answersRevealed?: boolean;
 }
 
 export interface GameChecklistItem {

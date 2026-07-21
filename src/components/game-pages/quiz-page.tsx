@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { QuizLeaderboardPanel } from "@/components/quiz/quiz-leaderboard-panel";
 import { QuizProgressBar } from "@/components/quiz/quiz-progress-bar";
 import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
 import { QuizResultsScreen } from "@/components/quiz/quiz-results-screen";
+import { QuizAnswerReview } from "@/components/quiz/quiz-answer-review";
 import { EmptyGroupCard, LoadingCard, PageShell } from "@/components/game-pages/page-shell";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { useQuizResponseTimer, useQuizTimer } from "@/hooks/use-quiz-timer";
@@ -35,6 +36,7 @@ export function QuizPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [timerActive, setTimerActive] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const displayName = useMemo(
     () => state.currentMember?.nickname || state.currentMember?.username || "Player",
@@ -92,10 +94,19 @@ export function QuizPage() {
       setCurrent(null);
       setTimerActive(false);
     } else {
+      setReady(false);
       await loadQuestion(playerSession);
+      // Arriving on the page (or coming back to it) must not start the countdown by itself —
+      // wait for the player to confirm they're ready via the Start button below.
+      setTimerActive(false);
     }
     setLoading(false);
   }, [state.group, state.userId, displayName, loadQuestion]);
+
+  function handleStart() {
+    setReady(true);
+    setTimerActive(true);
+  }
 
   useEffect(() => { void load(); }, [load]);
 
@@ -162,6 +173,9 @@ export function QuizPage() {
       <PageShell eyebrow="History Quiz" title={quizGame.title} description="Discover the story of Istanbul and Turkey" group={state.group}>
         {session && !showLeaderboard && <QuizResultsScreen session={session} onReplayLeaderboard={() => setShowLeaderboard(true)} />}
         {(showLeaderboard || !session) && <QuizLeaderboardPanel entries={leaderboard} />}
+        {session && quizGame.settings?.answersRevealed && (
+          <QuizAnswerReview groupId={state.group.id} gameId={quizGame.id} sessionId={session.id} />
+        )}
       </PageShell>
     );
   }
@@ -187,7 +201,22 @@ export function QuizPage() {
         </div>
       </Card>
 
-      {current && (
+      {current && !ready && (
+        <Card className="text-center">
+          <Badge>How to play</Badge>
+          <h2 className="mt-3 text-2xl font-black">Ready for the quiz?</h2>
+          <ul className="mx-auto mt-4 grid max-w-sm gap-2 text-left text-sm text-muted-foreground">
+            <li>⏱️ You have {timerSeconds} seconds to answer each question.</li>
+            <li>⭐ +{QUIZ_BASE_POINTS} points for every correct answer.</li>
+            <li>⚡ +{QUIZ_SPEED_BONUS} speed bonus if you answer within the time limit.</li>
+            <li>🚫 No answer or running out of time counts as wrong.</li>
+          </ul>
+          <p className="mt-4 text-sm text-muted-foreground">The timer starts as soon as you hit Start.</p>
+          <Button className="mt-5" onClick={handleStart}>Start quiz</Button>
+        </Card>
+      )}
+
+      {current && ready && (
         <QuizQuestionCard
           item={current}
           remainingSeconds={remaining}

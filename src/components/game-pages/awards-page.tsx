@@ -149,7 +149,6 @@ export function AwardsPage() {
                   ))}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => void submitQuizVote(state.userId ?? null)}>Vote for myself</Button>
                   <Button variant="secondary" onClick={() => void submitQuizVote(null, true)}>White vote</Button>
                   {quizIndex > 0 && <Button variant="ghost" onClick={() => { preserveScrollPosition(); setQuizIndex((value) => value - 1); }}>Previous</Button>}
                 </div>

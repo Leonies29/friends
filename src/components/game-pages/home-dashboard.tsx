@@ -7,7 +7,7 @@ import { Avatar, Badge, Card, Progress } from "@/components/ui";
 import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { listRecentActivity } from "@/services/activity-service";
-import { countAwardsWonByUser, countUserVotes } from "@/services/award-service";
+import { countAwardsWonByUser, countUserVotes, subscribeAwardCeremony } from "@/services/award-service";
 import { loadAssassinState } from "@/services/assassin-service";
 import { listQuestCompletions } from "@/services/quest-service";
 import { listXpTransactions } from "@/services/xp-service";
@@ -61,12 +61,27 @@ export function HomeDashboard() {
       setAwardsVoted(votes.voted);
       setAwardsWon(awardsWonCount);
       setEliminations(player?.eliminationCount ?? 0);
-      setAssassinStatus(player?.isAlive ? "Survivor" : "Eliminated");
+      // No assassinPlayers doc yet means the game hasn't started (group just initialized) —
+      // that's not the same as being eliminated, so it must default to Survivor, not Eliminated.
+      setAssassinStatus(!player || player.isAlive ? "Survivor" : "Eliminated");
       setActivity(feed);
       setLoading(false);
     }
     void load();
   }, [state.group, state.userId, state.members]);
+
+  // The one-shot load above only reflects awards revealed at the moment this page mounted. During
+  // a live ceremony, other categories keep getting revealed while someone might already be sitting
+  // on the dashboard — this keeps the "Awards won" stat in sync without needing a manual refresh.
+  useEffect(() => {
+    if (!state.group?.id || !state.userId) return;
+    const groupId = state.group.id;
+    const userId = state.userId;
+    const unsubscribe = subscribeAwardCeremony(groupId, () => {
+      void countAwardsWonByUser(groupId, userId).then(setAwardsWon).catch(() => undefined);
+    });
+    return () => unsubscribe();
+  }, [state.group?.id, state.userId]);
 
   const level = calculateLevel(xp);
   const profileStats = useMemo(() => ([

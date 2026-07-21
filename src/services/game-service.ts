@@ -30,7 +30,7 @@ export const defaultGameTemplates: Array<Pick<Game, "title" | "description" | "i
     xpRules: [{ id: "elimination", label: "Successful elimination", amount: 250, sourceType: "game" }]
   },
   {
-    title: "Secret Challenges",
+    title: "Challenges",
     description: "Assign private dares and approve proof when completed.",
     icon: "Sparkles",
     category: "challenge",
