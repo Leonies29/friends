@@ -15,7 +15,7 @@ import { getFirebaseFirestore } from "@/firebase/firestore";
 import { ISTANBUL_HISTORY_QUIZ_SEED, QUIZ_SEEDS_BY_DESTINATION } from "@/lib/quiz-seed";
 import { pickForDestination, type DestinationId } from "@/lib/destinations";
 import { scoreQuizAnswer, shuffle, successRate } from "@/lib/quiz-logic";
-import { addXpTransaction } from "@/services/xp-service";
+import { awardGameXp } from "@/services/xp-service";
 import type {
   QuizAnswer,
   QuizCategory,
@@ -268,8 +268,9 @@ export async function submitQuizAnswer(input: {
   }, { merge: true });
 
   if (points > 0) {
-    await addXpTransaction({
+    await awardGameXp({
       groupId: input.session.groupId,
+      gameId: input.session.gameId,
       userId: input.session.userId,
       amount: points,
       sourceType: "game",

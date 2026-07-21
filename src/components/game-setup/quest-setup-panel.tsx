@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Badge, Button } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { QUEST_CATEGORIES } from "@/lib/game-data";
@@ -19,7 +19,7 @@ export function QuestSetupPanel({ groupId }: { groupId: string }) {
   const [editDescription, setEditDescription] = useState("");
   const [editXpReward, setEditXpReward] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -30,9 +30,9 @@ export function QuestSetupPanel({ groupId }: { groupId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [groupId, state.group?.destinationId]);
 
-  useEffect(() => { void load(); }, [groupId]);
+  useEffect(() => { void load(); }, [load]);
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

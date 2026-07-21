@@ -99,6 +99,14 @@ export async function listGames(groupId: string) {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
+// Quests and Assassin eliminations never carry a gameId at their point of completion — this
+// resolves the group's canonical game doc for that category so their XP can still go through
+// awardGameXp (and therefore respect that game's per-game team mode).
+export async function resolveGameByCategory(groupId: string, category: GameCategory) {
+  const games = await listGames(groupId);
+  return games.find((game) => game.category === category) ?? null;
+}
+
 export async function getGame(gameId: string) {
   const db = getFirebaseFirestore();
   const snapshot = await getDoc(doc(db, GAMES_COLLECTION, gameId));
@@ -154,6 +162,17 @@ export async function updateGame(gameId: string, data: Partial<Omit<Game, "id" |
   const db = getFirebaseFirestore();
   await updateDoc(doc(db, GAMES_COLLECTION, gameId), {
     ...data,
+    updatedAt: serverTimestamp()
+  });
+}
+
+// Dot-path update so this only ever touches settings.scoringMode — a plain `updateGame(gameId,
+// { settings: { scoringMode } })` would replace the whole settings map and wipe out sibling
+// fields like awardsFormat/checklistItems.
+export async function setGameScoringMode(gameId: string, mode: "individual" | "team") {
+  const db = getFirebaseFirestore();
+  await updateDoc(doc(db, GAMES_COLLECTION, gameId), {
+    "settings.scoringMode": mode,
     updatedAt: serverTimestamp()
   });
 }

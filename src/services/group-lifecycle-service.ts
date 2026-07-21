@@ -59,7 +59,9 @@ const GROUP_SCOPED_COLLECTIONS = [
   "assassinPlayers",
   "assassinMissions",
   "assassinEliminations",
-  "assassinMissionTemplates"
+  "assassinMissionTemplates",
+  "teams",
+  "gameTeamMemberships"
 ] as const;
 
 async function runStep<T>(label: string, task: () => Promise<T>) {
@@ -211,9 +213,7 @@ export async function resetGroupProgress(groupId: string, userId: string, option
   ]);
 }
 
-export async function deleteGroupPermanently(groupId: string, userId: string, options?: ResetGroupOptions) {
-  const group = await assertCanDeleteGroup(groupId, userId, options);
-
+async function performFullGroupWipe(groupId: string, group: Group) {
   const membersSnapshot = await getDocs(query(collection(getFirebaseFirestore(), GROUP_MEMBERS_COLLECTION), where("groupId", "==", groupId)));
   const memberUserIds = [
     ...(group.memberIds ?? []),
@@ -230,4 +230,23 @@ export async function deleteGroupPermanently(groupId: string, userId: string, op
   ]);
 
   await detachUsersFromGroup(groupId, memberUserIds);
+}
+
+export async function deleteGroupPermanently(groupId: string, userId: string, options?: ResetGroupOptions) {
+  const group = await assertCanDeleteGroup(groupId, userId, options);
+  await performFullGroupWipe(groupId, group);
+}
+
+// Used by the dev/superadmin flow. Deliberately skips assertCanDeleteGroup — that call chain
+// goes through prepareGroupAdminAccess, which would add the caller as a member/admin of a group
+// they don't belong to (correct for an OWNER managing their own trip, wrong for a dev deleting
+// someone else's). Authorization here is enforced entirely by Firestore rules (canManageGroup
+// includes isSuperAdmin()), not by any client-side role check.
+export async function deleteGroupAsSuperAdmin(groupId: string) {
+  const groupSnapshot = await getDoc(doc(getFirebaseFirestore(), GROUPS_COLLECTION, groupId));
+  if (!groupSnapshot.exists()) {
+    throw new Error("This group no longer exists.");
+  }
+  const group = { id: groupSnapshot.id, ...groupSnapshot.data() } as Group;
+  await performFullGroupWipe(groupId, group);
 }

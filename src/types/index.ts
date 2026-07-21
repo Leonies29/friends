@@ -100,6 +100,20 @@ export interface GroupMember extends GroupScopedEntity {
   removedAt?: EntityTimestamp;
 }
 
+export interface Team extends GroupScopedEntity {
+  gameId: string;
+  name: string;
+  color?: string;
+}
+
+// Per-game team assignment — a player can be on a different team in each game, so this can't
+// live on GroupMember (which is scoped to the whole trip, not one game).
+export interface GameTeamMembership extends GroupScopedEntity {
+  gameId: string;
+  userId: string;
+  teamId: string | null;
+}
+
 export interface RolePermissions {
   canDeleteGroup: boolean;
   canManageSettings: boolean;
@@ -143,6 +157,7 @@ export interface GameSettings {
   timerSeconds?: number;
   totalSeries?: number;
   awardsFormat?: "classic" | "quiz";
+  scoringMode?: "individual" | "team";
 }
 
 export interface GameChecklistItem {
@@ -299,6 +314,7 @@ export interface LeaderboardEntry extends GroupScopedEntity {
 
 export interface XpTransaction extends GroupScopedEntity {
   userId: string;
+  gameId?: string;
   amount: number;
   sourceType: XpSourceType;
   sourceId?: string;
@@ -313,6 +329,16 @@ export interface Notification extends GroupScopedEntity {
   body: string;
   readBy: string[];
   type: "system" | "game" | "photo" | "planning" | "admin";
+}
+
+// Not group-scoped on purpose: a player must still be able to read this after their group (and
+// its own notifications collection) has been permanently deleted.
+export interface UserNotification extends BaseEntity {
+  userId: string;
+  title: string;
+  body: string;
+  type: "group_deleted";
+  readAt?: EntityTimestamp | null;
 }
 
 export interface AssassinMission extends GroupScopedEntity {

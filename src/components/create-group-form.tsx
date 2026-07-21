@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Copy, Loader2, LogIn, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { buildInviteLink, buildJoinPath } from "@/lib/app-paths";
@@ -47,7 +47,6 @@ export function CreateGroupForm() {
   const [addingFriend, setAddingFriend] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const displayName = groupName.trim() || "Your new quest group";
   const displayDestination = DESTINATIONS[destinationId].name;
@@ -65,14 +64,6 @@ export function CreateGroupForm() {
   const registerHref = `/register?${groupQuery}`;
   const loginHref = `/login?${groupQuery}`;
   const joinHref = inviteCode ? buildJoinPath(inviteCode) : "";
-
-  useEffect(() => {
-    void (async () => {
-      const [{ getFirebaseAuth }] = await Promise.all([import("@/firebase/auth")]);
-      const auth = getFirebaseAuth();
-      setCurrentUserId(auth.currentUser?.uid ?? null);
-    })();
-  }, []);
 
   async function handleCreate(formData: FormData) {
     setSaving(true);

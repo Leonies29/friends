@@ -11,6 +11,7 @@ import { LoadingCard } from "@/components/game-pages/page-shell";
 import { getFirebaseAuth } from "@/firebase/auth";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
+import { memberUserId } from "@/lib/game-members";
 import { clearActiveGroupCookie } from "@/lib/session-cookies";
 import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
 import {
@@ -59,7 +60,7 @@ export function SettingsPage() {
   const [form, setForm] = useState<PersonalForm>(emptyForm);
   const [initialEmail, setInitialEmail] = useState("");
 
-  const member = state.members.find((item) => item.id === state.userId || item.userId === state.userId);
+  const member = state.members.find((item) => memberUserId(item) === state.userId);
   const displayName = member?.nickname || member?.username || "Traveler";
   const avatarUrl = resolveMemberAvatar(state.group, member ?? {});
   const role = resolveEffectiveRole(state.currentMember, state.group, state.userId);

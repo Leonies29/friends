@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { QUIZ_CATEGORY_META, QUIZ_DIFFICULTY_META } from "@/lib/quiz-seed";
@@ -42,13 +42,13 @@ export function QuizSetupPanel({ game, groupId }: { game: Game; groupId: string 
     setMessage("Quiz settings saved.");
   }
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setQuestions(await ensureQuizQuestions(groupId, game.id, state.group?.destinationId));
     setLoading(false);
-  }
+  }, [groupId, game.id, state.group?.destinationId]);
 
-  useEffect(() => { void load(); }, [groupId, game.id]);
+  useEffect(() => { void load(); }, [load]);
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

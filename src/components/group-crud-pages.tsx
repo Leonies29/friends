@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Camera,
   Check,
@@ -11,7 +11,7 @@ import {
   Trophy
 } from "lucide-react";
 import { Avatar, Badge, Button, Card, Progress } from "@/components/ui";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup, type ActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { canManageGames, canManagePlanning, canManageScores, canModeratePhotos } from "@/services/permissions";
 import {
@@ -117,7 +117,7 @@ async function deleteGroupDoc(collectionName: string, id: string) {
 
 function attendancePercent(event: ScheduleEvent, members: GroupMember[]) {
   if (!members.length) return 0;
-  const summary = summarizeAttendance(event, members.map((member) => member.userId || member.id));
+  const summary = summarizeAttendance(event, members.map((member) => memberUserId(member)));
   return Math.round((summary.ready / members.length) * 100);
 }
 
@@ -128,14 +128,14 @@ export function GroupSchedulePage() {
   const [saving, setSaving] = useState(false);
   const canEdit = canManagePlanning(state.currentMember?.role);
 
-  async function loadEvents(groupId = state.group?.id) {
+  const loadEvents = useCallback(async (groupId = state.group?.id) => {
     if (!groupId) return;
     setLoadingItems(true);
     setEvents(await listScheduleEvents(groupId));
     setLoadingItems(false);
-  }
+  }, [state.group?.id]);
 
-  useEffect(() => { void loadEvents(); }, [state.group?.id]);
+  useEffect(() => { void loadEvents(); }, [loadEvents]);
 
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
@@ -189,7 +189,7 @@ export function GroupSchedulePage() {
         {loadingItems && <Card>Loading events...</Card>}
         {!loadingItems && events.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No events yet for this group.</p></Card>}
         {events.map((item) => {
-          const summary = summarizeAttendance(item, state.members.map((member) => member.userId || member.id));
+          const summary = summarizeAttendance(item, state.members.map((member) => memberUserId(member)));
           return (
             <Card key={item.id}>
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -225,17 +225,17 @@ export function GroupPhotosPage() {
   const [uploadError, setUploadError] = useState("");
   const canModerate = canModeratePhotos(state.currentMember?.role);
 
-  async function loadPhotos(groupId = state.group?.id) {
+  const loadPhotos = useCallback(async (groupId = state.group?.id) => {
     if (!groupId) return;
     setPhotos((await listPhotos(groupId)).filter((photo) => photo.status !== "deleted"));
-  }
+  }, [state.group?.id]);
 
-  useEffect(() => { void loadPhotos(); }, [state.group?.id]);
+  useEffect(() => { void loadPhotos(); }, [loadPhotos]);
 
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
   const group = state.group!;
-  const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
+  const currentMember = state.members.find((member) => memberUserId(member) === state.userId);
 
   async function uploadPhoto(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -318,12 +318,12 @@ export function GroupChallengesPage() {
   const canScore = canManageScores(state.currentMember?.role);
   const canAssignToOthers = Boolean(state.userId);
 
-  async function loadChallenges(groupId = state.group?.id) {
+  const loadChallenges = useCallback(async (groupId = state.group?.id) => {
     if (!groupId) return;
     setChallenges(await listGroupDocs<Challenge>("challenges", groupId));
-  }
+  }, [state.group?.id]);
 
-  useEffect(() => { void loadChallenges(); }, [state.group?.id]);
+  useEffect(() => { void loadChallenges(); }, [loadChallenges]);
 
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
@@ -341,7 +341,7 @@ export function GroupChallengesPage() {
       return;
     }
     const owner = state.members.find((member) => member.id === ownerId || member.userId === ownerId);
-    const assigner = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
+    const assigner = state.members.find((member) => memberUserId(member) === state.userId);
     const [{ addDoc, collection, serverTimestamp }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
     const scheduledFor = canEdit ? String(form.get("scheduledFor") ?? "") : "";
     await addDoc(collection(getFirebaseFirestore(), "challenges"), {
@@ -418,8 +418,8 @@ export function GroupChallengesPage() {
             <select name="ownerId" required className={inputClass}>
               <option value="">Choose a participant</option>
               {filterActiveGameMembers(state.members)
-                .filter((member) => (member.userId || member.id) !== state.userId)
-                .map((member) => <option key={member.id} value={member.userId || member.id}>{memberName(member)}</option>)}
+                .filter((member) => (memberUserId(member)) !== state.userId)
+                .map((member) => <option key={member.id} value={memberUserId(member)}>{memberName(member)}</option>)}
             </select>
             <select name="difficulty" className={inputClass}><option>Easy</option><option>Medium</option><option>Hard</option></select>
             {canEdit && <input name="scheduledFor" type="datetime-local" className={inputClass} />}
@@ -467,17 +467,17 @@ export function GroupQuestlinePage() {
   const state = useActiveGroup();
   const [relics, setRelics] = useState<RelicDoc[]>([]);
 
-  async function loadRelics(groupId = state.group?.id) {
+  const loadRelics = useCallback(async (groupId = state.group?.id) => {
     if (!groupId) return;
     setRelics(await listGroupDocs<RelicDoc>("questRelics", groupId));
-  }
+  }, [state.group?.id]);
 
-  useEffect(() => { void loadRelics(); }, [state.group?.id]);
+  useEffect(() => { void loadRelics(); }, [loadRelics]);
 
   const fallback = renderGroupState(state);
   if (fallback) return fallback;
   const group = state.group!;
-  const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
+  const currentMember = state.members.find((member) => memberUserId(member) === state.userId);
   const mergedRelics = relicTemplates.map(([key, label]) => relics.find((relic) => relic.key === key) ?? { id: `${group.id}-${key}`, groupId: group.id, key, label, xpReward: 75 });
   const collected = mergedRelics.filter((relic) => relic.collectedBy).length;
 
@@ -539,12 +539,12 @@ export function GroupLeaderboardPage() {
       setRelics(relicItems);
     }
     void load();
-  }, [state.group?.id]);
+  }, [state.group]);
 
   const rows = useMemo(() => {
     const weekKey = getWeekKey();
     return state.members.map((member) => {
-      const memberId = member.userId || member.id;
+      const memberId = memberUserId(member);
       const transactionXp = transactions
         .filter((transaction) => transaction.userId === memberId && (mode === "overall" || transaction.weekKey === weekKey))
         .reduce((sum, transaction) => sum + transaction.amount, 0);

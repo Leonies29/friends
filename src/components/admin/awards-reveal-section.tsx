@@ -6,7 +6,7 @@ import { Avatar, Badge, Button, Card } from "@/components/ui";
 import type { GroupMember } from "@/hooks/use-active-group";
 import { AWARD_CATEGORIES } from "@/lib/game-data";
 import { getAwardResults, getVoteParticipationStats, listAwardCategories, updateAwardCategoryVisibility } from "@/services/award-service";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import type { AwardCategory } from "@/types/game";
 
 function memberName(member: { nickname?: string; username?: string }) {
@@ -32,7 +32,7 @@ export function AwardsRevealSection({
   useEffect(() => {
     setLoading(true);
     setError("");
-    const memberIds = filterActiveGameMembers(members).map((member) => member.userId || member.id);
+    const memberIds = filterActiveGameMembers(members).map((member) => memberUserId(member));
     void Promise.all([
       getAwardResults(groupId),
       listAwardCategories(groupId),
@@ -52,7 +52,7 @@ export function AwardsRevealSection({
     if (!revealed) return [];
     const rows = results.get(revealed) ?? [];
     return rows.map((row) => {
-      const member = members.find((item) => (item.userId || item.id) === row.userId);
+      const member = members.find((item) => memberUserId(item) === row.userId);
       return {
         userId: row.userId,
         count: row.count,
@@ -85,7 +85,7 @@ export function AwardsRevealSection({
               </p>
               {participation.pendingVoterIds.length > 0 && (
                 <p className="mt-2 text-sm font-semibold text-amber-700">
-                  Waiting: {participation.pendingVoterIds.map((id) => memberName(members.find((m) => (m.userId || m.id) === id) ?? {})).join(", ")}
+                  Waiting: {participation.pendingVoterIds.map((id) => memberName(members.find((m) => memberUserId(m) === id) ?? {})).join(", ")}
                 </p>
               )}
             </div>

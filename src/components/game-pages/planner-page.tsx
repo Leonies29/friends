@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, MapPin } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
@@ -19,16 +19,16 @@ export function PlannerPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const canEdit = canManagePlanning(state.currentMember?.role);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!state.group?.id) return;
     setLoading(true);
     const items = await listScheduleEvents(state.group.id);
     setEvents(items);
-    if (!selectedDate && items[0]?.date) setSelectedDate(items[0].date);
+    setSelectedDate((current) => current || items[0]?.date || current);
     setLoading(false);
-  }
+  }, [state.group?.id]);
 
-  useEffect(() => { void load(); }, [state.group?.id]);
+  useEffect(() => { void load(); }, [load]);
 
   const dates = useMemo(() => [...new Set(events.map((event) => event.date))].sort(), [events]);
   const dayEvents = events.filter((event) => event.date === selectedDate);

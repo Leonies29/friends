@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
+import { memberUserId } from "@/lib/game-members";
 import { useActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import type { AssassinElimination } from "@/types/game";
 import {
@@ -37,20 +38,20 @@ export function AssassinEmergencyPanel({
   const [startingLives, setStartingLives] = useState(5);
 
   const members = groupMembers.map((member) => ({
-    id: member.userId || member.id,
+    id: memberUserId(member),
     name: member.nickname || member.username || "Player"
   }));
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const assassin = await loadAssassinState(groupId);
     setActive(assassin.game?.status === "active");
     setContested(assassin.eliminations.filter((item) => item.status === "contested"));
     setStartingLives(assassin.game?.startingLives ?? 5);
-  }
+  }, [groupId]);
 
   useEffect(() => {
     void refresh();
-  }, [groupId]);
+  }, [refresh]);
 
   if (!active) return null;
 

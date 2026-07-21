@@ -16,6 +16,7 @@ import {
 } from "@/services/group-service";
 import type { Group } from "@/types";
 import { Badge, Button, Card } from "@/components/ui";
+import { NotificationBell } from "@/components/notification-bell";
 
 export function SelectGroupPage() {
   const router = useRouter();
@@ -168,6 +169,9 @@ export function SelectGroupPage() {
 
   return (
     <main className="min-h-screen px-3 py-6 sm:px-4 sm:py-8 md:px-8">
+      <div className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-50">
+        <NotificationBell userId={userId} />
+      </div>
       <section className="mx-auto grid max-w-3xl gap-4 sm:gap-6">
         <div className="turkish-tile premium-border rounded-[1.75rem] bg-primary p-5 text-primary-foreground shadow-2xl sm:rounded-[2.5rem] sm:p-8">
           <Badge className="border-white/20 bg-white/10 text-primary-foreground/80">Choose your adventure</Badge>

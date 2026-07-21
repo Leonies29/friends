@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
+import { NotificationBell } from "@/components/notification-bell";
+import { memberUserId } from "@/lib/game-members";
 import { signOut } from "firebase/auth";
 import { useTheme } from "next-themes";
 import { getFirebaseAuth } from "@/firebase/auth";
@@ -13,6 +15,7 @@ import { GAMES_UPDATED_EVENT } from "@/lib/game-events";
 import { buildNavigationFromGames, filterVisibleNavItems, isNavItemActive, splitMobileNavigation } from "@/lib/game-navigation";
 import { canManageGames, resolveEffectiveRole } from "@/services/permissions";
 import { ensureDefaultGames, listGames } from "@/services/game-service";
+import { isSuperAdmin } from "@/services/superadmin-service";
 import { listXpTransactions } from "@/services/xp-service";
 import { clearActiveGroupCookie } from "@/lib/session-cookies";
 import { cn, calculateLevel, getLevelProgress } from "@/lib/utils";
@@ -26,15 +29,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const state = useActiveGroup();
   const [totalXp, setTotalXp] = useState(0);
   const [games, setGames] = useState<Game[]>([]);
+  const [isDev, setIsDev] = useState(false);
   const role = resolveEffectiveRole(state.currentMember, state.group, state.userId, state.currentMember?.email);
   const canAdmin = canManageGames(role);
-  const currentMember = state.members.find((member) => member.id === state.userId || member.userId === state.userId);
+  const currentMember = state.members.find((member) => memberUserId(member) === state.userId);
   const displayName = currentMember?.nickname || currentMember?.username || "Traveler";
   const level = calculateLevel(totalXp);
 
   const navItems = useMemo(() => buildNavigationFromGames(games, canAdmin), [games, canAdmin]);
   const visibleNavItems = useMemo(() => filterVisibleNavItems(navItems, canAdmin), [navItems, canAdmin]);
   const mobileNavSplit = useMemo(() => splitMobileNavigation(visibleNavItems), [visibleNavItems]);
+
+  useEffect(() => {
+    if (!state.userId) {
+      setIsDev(false);
+      return;
+    }
+    void isSuperAdmin(state.userId).then(setIsDev).catch(() => setIsDev(false));
+  }, [state.userId]);
 
   useEffect(() => {
     if (!state.group?.id || !state.userId) return;
@@ -71,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     reload();
     window.addEventListener(GAMES_UPDATED_EVENT, reload);
     return () => window.removeEventListener(GAMES_UPDATED_EVENT, reload);
-  }, [state.group?.id, state.userId, state.currentMember?.email, pathname, canAdmin, role]);
+  }, [state.group, state.userId, state.currentMember?.email, state.currentMember?.nickname, pathname, canAdmin, role]);
 
   async function logout() {
     await signOut(getFirebaseAuth()).catch(() => undefined);
@@ -131,6 +143,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-50 flex items-center gap-2">
+        {isDev && (
+          <Link
+            href="/dev"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-black text-foreground transition hover:border-accent"
+          >
+            🛠 Dev
+          </Link>
+        )}
+        <NotificationBell userId={state.userId} />
         <Button variant="secondary" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
           <Sun className="h-4 w-4 dark:hidden" />
           <Moon className="hidden h-4 w-4 dark:block" />

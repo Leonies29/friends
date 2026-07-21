@@ -95,7 +95,7 @@ export function QuizPage() {
       await loadQuestion(playerSession);
     }
     setLoading(false);
-  }, [state.group?.id, state.userId, displayName, loadQuestion]);
+  }, [state.group, state.userId, displayName, loadQuestion]);
 
   useEffect(() => { void load(); }, [load]);
 

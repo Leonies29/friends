@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Loader2, Plus, UserMinus, UserPlus } from "lucide-react";
 import { Badge, Button, Card, Field } from "@/components/ui";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup, type GroupMember } from "@/hooks/use-active-group";
 import { addPlannedMemberSlot, removePlannedMemberSlot } from "@/services/group-service";
 import { deactivateGroupMember, demoteMemberToPlayer, promoteMemberToAdmin, reactivateGroupMember, transferGroupOwnership } from "@/services/member-service";
@@ -77,7 +77,7 @@ export function MembersManagementPanel({ embedded = false }: { embedded?: boolea
           Active in games ({activeMembers.length})
         </p>
         {activeMembers.map((member) => {
-          const userId = member.userId || member.id;
+          const userId = memberUserId(member);
           const memberIsOwner = userId === state.group?.ownerId || userId === state.group?.createdBy;
           return (
             <div key={member.id} className="flex flex-col gap-2 rounded-2xl border border-border bg-background px-3 py-3 sm:flex-row sm:items-center">
@@ -159,7 +159,7 @@ export function MembersManagementPanel({ embedded = false }: { embedded?: boolea
             Inactive ({inactiveMembers.length})
           </p>
           {inactiveMembers.map((member) => {
-            const userId = member.userId || member.id;
+            const userId = memberUserId(member);
             return (
               <div key={member.id} className="flex flex-col gap-2 rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">

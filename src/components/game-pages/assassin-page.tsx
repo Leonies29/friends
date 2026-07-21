@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Crosshair, RefreshCw, Skull, Swords, Target } from "lucide-react";
 import { Avatar, Badge, Button, Card } from "@/components/ui";
@@ -37,7 +37,7 @@ export function AssassinPage() {
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [missionExpanded, setMissionExpanded] = useState(false);
 
-  async function load(options?: { silent?: boolean }) {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!state.group?.id) return;
     const silent = options?.silent ?? false;
     if (silent) setRefreshing(true);
@@ -50,7 +50,7 @@ export function AssassinPage() {
     if (!silent) setMissionExpanded(false);
     if (silent) setRefreshing(false);
     else setLoading(false);
-  }
+  }, [state.group?.id]);
 
   const refreshButton = (
     <Button type="button" variant="secondary" size="sm" disabled={refreshing} onClick={() => void load({ silent: true })}>
@@ -61,7 +61,7 @@ export function AssassinPage() {
 
   useEffect(() => {
     void load();
-  }, [state.group?.id, state.members.length]);
+  }, [load, state.members.length]);
 
   const myPlayer = players.find((player) => player.uid === state.userId);
   const myMission = missions.find((mission) => mission.playerId === state.userId);

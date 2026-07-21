@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Crosshair, Crown, Map, Sparkles, Trophy } from "lucide-react";
 import { Avatar, Badge, Card, Progress } from "@/components/ui";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { listRecentActivity } from "@/services/activity-service";
 import { countAwardsWonByUser, countUserVotes } from "@/services/award-service";
@@ -28,7 +28,7 @@ export function HomeDashboard() {
   const [assassinStatus, setAssassinStatus] = useState("Survivor");
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
-  const member = state.members.find((item) => item.id === state.userId || item.userId === state.userId);
+  const member = state.members.find((item) => memberUserId(item) === state.userId);
   const displayName = member?.nickname || member?.username || "Traveler";
   const avatarUrl = resolveMemberAvatar(state.group, member ?? {});
 
@@ -49,7 +49,7 @@ export function HomeDashboard() {
 
       const userXp = transactions.filter((item) => item.userId === userId).reduce((sum, item) => sum + item.amount, 0);
       const memberXp = filterActiveGameMembers(state.members).map((item) => {
-        const id = item.userId || item.id;
+        const id = memberUserId(item);
         return { id, xp: transactions.filter((tx) => tx.userId === id).reduce((sum, tx) => sum + tx.amount, 0) };
       }).sort((a, b) => b.xp - a.xp);
       const position = memberXp.findIndex((item) => item.id === userId) + 1;
@@ -66,7 +66,7 @@ export function HomeDashboard() {
       setLoading(false);
     }
     void load();
-  }, [state.group?.id, state.userId, state.members]);
+  }, [state.group, state.userId, state.members]);
 
   const level = calculateLevel(xp);
   const profileStats = useMemo(() => ([

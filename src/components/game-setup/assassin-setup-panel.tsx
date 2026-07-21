@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button } from "@/components/ui";
-import { filterActiveGameMembers } from "@/lib/game-members";
+import { filterActiveGameMembers, memberUserId } from "@/lib/game-members";
 import { useActiveGroup } from "@/hooks/use-active-group";
 import { ASSASSIN_MISSION_CATEGORIES, ASSASSIN_MISSION_DIFFICULTIES } from "@/lib/assassin-default-missions";
 import { resolveMemberAvatar } from "@/lib/istanbul-avatars";
@@ -24,14 +24,12 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
   const [loading, setLoading] = useState(true);
 
   const members = useMemo(() => filterActiveGameMembers(state.members).map((member) => ({
-    id: member.userId || member.id,
+    id: memberUserId(member),
     name: member.nickname || member.username || "Player",
     avatarUrl: resolveMemberAvatar(state.group, member)
   })), [state.group, state.members]);
 
-  const memberKey = members.map((member) => member.id).join("|");
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -48,9 +46,9 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [groupId, state.group?.destinationId, members]);
 
-  useEffect(() => { void load(); }, [groupId, memberKey]);
+  useEffect(() => { void load(); }, [load]);
 
   async function handleAddMission(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

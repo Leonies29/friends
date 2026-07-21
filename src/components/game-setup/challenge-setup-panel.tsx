@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { Badge, Button } from "@/components/ui";
 import { getFirebaseFirestore } from "@/firebase/firestore";
@@ -15,13 +15,13 @@ export function ChallengeSetupPanel({ groupId }: { groupId: string }) {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     const db = getFirebaseFirestore();
     const snapshot = await getDocs(query(collection(db, "challenges"), where("groupId", "==", groupId)));
     setChallenges(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Challenge));
-  }
+  }, [groupId]);
 
-  useEffect(() => { void load(); }, [groupId]);
+  useEffect(() => { void load(); }, [load]);
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
