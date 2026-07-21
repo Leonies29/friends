@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, MapPin, Pencil, Trash2 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
 import { useActiveGroup } from "@/hooks/use-active-group";
@@ -19,7 +19,16 @@ export function PlannerPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
+
+  // A clear, hard-to-miss confirmation after add/edit/delete — without it, people can't tell the
+  // click landed and re-click "to be sure", which is exactly what creates duplicate events.
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast((current) => (current === message ? "" : current)), 2500);
+  }
 
   const load = useCallback(async () => {
     if (!state.group?.id) return;
@@ -37,8 +46,9 @@ export function PlannerPage() {
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!state.group?.id) return;
+    if (!state.group?.id || creating) return;
     setError("");
+    setCreating(true);
     const form = new FormData(event.currentTarget);
     try {
       await createScheduleEvent(state.group.id, {
@@ -50,9 +60,12 @@ export function PlannerPage() {
         location: String(form.get("location") ?? "")
       });
       event.currentTarget.reset();
+      showToast("✅ Event added to the planner!");
       await load();
     } catch (err) {
       setError(formatFirestoreError(err, "Unable to save this event."));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -71,6 +84,7 @@ export function PlannerPage() {
         location: String(form.get("location") ?? "")
       });
       setEditingEventId(null);
+      showToast("✅ Event updated!");
       await load();
     } catch (err) {
       setError(formatFirestoreError(err, "Unable to update this event."));
@@ -84,6 +98,7 @@ export function PlannerPage() {
     setBusyId(eventId);
     try {
       await deleteScheduleEvent(eventId);
+      showToast("🗑️ Event deleted.");
       await load();
     } catch (err) {
       setError(formatFirestoreError(err, "Unable to delete this event."));
@@ -97,6 +112,18 @@ export function PlannerPage() {
 
   return (
     <PageShell eyebrow="Planner" title="Trip Planner" description="Daily schedule, activities, locations, and notes for Istanbul." group={state.group}>
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-800 shadow-xl dark:border-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-200"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <Card>
         <Badge>Calendar</Badge>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -179,7 +206,7 @@ export function PlannerPage() {
             <input name="endTime" type="time" className={inputClass} />
             <input name="location" placeholder="Location" className={inputClass} />
             <textarea name="description" placeholder="Notes" className={`${inputClass} min-h-24`} />
-            <Button type="submit">Save event</Button>
+            <Button type="submit" disabled={creating}>{creating ? "Saving..." : "Save event"}</Button>
           </form>
         </Card>
       </section>
