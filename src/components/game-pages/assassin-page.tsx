@@ -35,6 +35,7 @@ export function AssassinPage() {
   const [eliminations, setEliminations] = useState<AssassinElimination[]>([]);
   const [game, setGame] = useState<AssassinGame | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
   const [missionExpanded, setMissionExpanded] = useState(false);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
@@ -81,13 +82,17 @@ export function AssassinPage() {
     : survivors.length === 1 ? survivors[0] : null;
 
   async function markAccomplished() {
-    if (!state.group?.id || !state.userId || !myPlayer?.currentTargetId) return;
+    if (!state.group?.id || !state.userId || !myPlayer?.currentTargetId || claiming) return;
     setError("");
+    setClaiming(true);
     try {
       await claimElimination(state.group.id, state.userId, myPlayer.currentTargetId);
+      setMissionExpanded(false);
       await load({ silent: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to claim elimination.");
+    } finally {
+      setClaiming(false);
     }
   }
 
@@ -260,7 +265,7 @@ export function AssassinPage() {
         </div>
       </Card>
 
-      {myPlayer?.isAlive && myMission && (
+      {myPlayer?.isAlive && myMission && pendingByMe.length === 0 && (
         missionExpanded ? (
           <Card>
             <div className="flex items-start justify-between gap-2">
@@ -284,9 +289,9 @@ export function AssassinPage() {
               <p className="text-sm font-black uppercase tracking-wide text-muted-foreground">Secret mission</p>
               <p className="mt-2 text-lg font-semibold">{myMission.missionText}</p>
             </div>
-            <Button className="mt-4" onClick={() => void markAccomplished()}>
+            <Button className="mt-4" disabled={claiming} onClick={() => void markAccomplished()}>
               <Target className="h-4 w-4" />
-              Mission accomplished
+              {claiming ? "Claiming..." : "Mission accomplished"}
             </Button>
             <p className="mt-2 text-sm text-muted-foreground">Players remaining: {survivors.length}</p>
           </Card>

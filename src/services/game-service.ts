@@ -114,9 +114,19 @@ export async function getGame(gameId: string) {
   return { id: snapshot.id, ...snapshot.data() } as Game;
 }
 
+// Groups created before the "Secret Challenges" → "Challenges" rename already have the old title
+// baked into their games doc — renaming the template only affects newly-seeded groups. Fix it up
+// in place the next time anyone loads this group's games, instead of requiring a manual rename.
+async function renameLegacySecretChallengesGame(groupId: string, games: Game[]) {
+  const legacy = games.find((game) => game.category === "challenge" && game.title === "Secret Challenges");
+  if (!legacy) return games;
+  await updateGame(legacy.id, { title: "Challenges" });
+  return games.map((game) => (game.id === legacy.id ? { ...game, title: "Challenges" } : game));
+}
+
 export async function ensureDefaultGames(groupId: string) {
   const existing = await listGames(groupId);
-  if (existing.length) return existing;
+  if (existing.length) return renameLegacySecretChallengesGame(groupId, existing);
 
   const db = getFirebaseFirestore();
   await Promise.all(defaultGameTemplates.map((template) =>

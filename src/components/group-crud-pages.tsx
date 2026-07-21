@@ -30,8 +30,7 @@ import {
   setScheduleAttendance,
   summarizeAttendance
 } from "@/services/schedule-service";
-import { addXpTransaction, awardGameXp, getWeekKey, listXpTransactions } from "@/services/xp-service";
-import { resolveGameByCategory } from "@/services/game-service";
+import { addXpTransaction, getWeekKey, listXpTransactions } from "@/services/xp-service";
 import type { AttendanceStatus, Challenge, Photo, ScheduleEvent, XpTransaction } from "@/types";
 import { calculateLevel } from "@/lib/utils";
 
@@ -315,6 +314,7 @@ export function GroupChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [saving, setSaving] = useState(false);
   const [proofError, setProofError] = useState("");
+  const [actionError, setActionError] = useState("");
   const canEdit = canManageGames(state.currentMember?.role);
   const canScore = canManageScores(state.currentMember?.role);
   const canAssignToOthers = Boolean(state.userId);
@@ -373,31 +373,31 @@ export function GroupChallengesPage() {
 
   // Approving used to only flip the doc's status — it never actually wrote an xpTransaction, so
   // the reward never reached the real leaderboard/ceremony (both read xpTransactions only).
+  // Deliberately always a plain addXpTransaction, not awardGameXp: Challenges was never part of
+  // team mode's scope (only bingo/quiz/treasure/assassin are), so it must never silently award 0
+  // XP just because someone flipped this game to team mode with nobody assigned to a team.
   async function approveChallenge(challenge: Challenge) {
     if (!state.userId) return;
-    await updateGroupDoc("challenges", challenge.id, {
-      status: "approved",
-      approvedBy: state.userId,
-      approvedAt: new Date().toISOString()
-    });
-
-    const challengeGame = await resolveGameByCategory(group.id, "challenge");
-    const xpInput = {
-      groupId: group.id,
-      userId: challenge.ownerId,
-      amount: challenge.xpReward,
-      sourceType: "challenge" as const,
-      sourceId: challenge.id,
-      reason: `Completed challenge: ${challenge.title}`,
-      createdBy: state.userId
-    };
-    if (challengeGame) {
-      await awardGameXp({ ...xpInput, gameId: challengeGame.id });
-    } else {
-      await addXpTransaction(xpInput);
+    setActionError("");
+    try {
+      await updateGroupDoc("challenges", challenge.id, {
+        status: "approved",
+        approvedBy: state.userId,
+        approvedAt: new Date().toISOString()
+      });
+      await addXpTransaction({
+        groupId: group.id,
+        userId: challenge.ownerId,
+        amount: challenge.xpReward,
+        sourceType: "challenge",
+        sourceId: challenge.id,
+        reason: `Completed challenge: ${challenge.title}`,
+        createdBy: state.userId
+      });
+      await loadChallenges(group.id);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Unable to approve this challenge.");
     }
-
-    await loadChallenges(group.id);
   }
 
   async function submitChallengeProof(event: FormEvent<HTMLFormElement>, challengeId: string) {
@@ -459,6 +459,7 @@ export function GroupChallengesPage() {
           </form>
         </Card>
       )}
+      {actionError && <Card className="border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700">{actionError}</Card>}
       <div className="grid gap-4">
         {challenges.length === 0 && <Card><Badge>Empty</Badge><p className="mt-3 font-black">No challenges yet for this group.</p></Card>}
         {challenges.map((challenge) => (

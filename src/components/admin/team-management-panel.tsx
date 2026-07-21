@@ -18,6 +18,12 @@ import type { Game, GameTeamMembership, Team } from "@/types";
 
 const selectClass = "rounded-2xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-accent focus:ring-4 focus:ring-accent/15";
 
+// Only these games actually fan XP out through awardGameXp's team logic. Listing others here
+// (e.g. Challenges, which is always a plain addXpTransaction) would let an admin flip one to team
+// mode with no way for it to ever take effect — and for Challenges specifically, no one assigned
+// to a team would silently zero out every approval's reward instead.
+const TEAM_MODE_CATEGORIES: Game["category"][] = ["bingo", "quiz", "treasure", "assassin"];
+
 function memberLabel(member: GroupMember) {
   return member.nickname || member.username || "Player";
 }
@@ -47,8 +53,9 @@ export function TeamManagementPanel({ embedded = false }: { embedded?: boolean }
   useEffect(() => {
     if (!state.group?.id) return;
     void listGames(state.group.id).then((loaded) => {
-      setGames(loaded);
-      setSelectedGameId((current) => current || loaded[0]?.id || "");
+      const eligible = loaded.filter((game) => TEAM_MODE_CATEGORIES.includes(game.category));
+      setGames(eligible);
+      setSelectedGameId((current) => current || eligible[0]?.id || "");
     }).catch(() => undefined);
   }, [state.group?.id]);
 
