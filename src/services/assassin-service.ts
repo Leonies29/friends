@@ -69,19 +69,19 @@ export async function createSetupGame(groupId: string, mode: AssassinSetupMode, 
   return created.id;
 }
 
-export async function updateAssassinGameSettings(groupId: string, settings: { startingLives?: number }) {
-  const db = getFirebaseFirestore();
-  const gameDoc = await getDocs(query(collection(db, GAMES), where("groupId", "==", groupId)));
-  if (!gameDoc.docs[0]) return;
-  await updateDoc(doc(db, GAMES, gameDoc.docs[0].id), {
-    ...settings,
-    updatedAt: serverTimestamp()
-  });
-}
-
 async function getCurrentAssassinGame(groupId: string) {
   const games = await listAssassinGames(groupId);
   return selectCurrentGame(games);
+}
+
+export async function updateAssassinGameSettings(groupId: string, settings: { startingLives?: number }) {
+  const db = getFirebaseFirestore();
+  const currentGame = await getCurrentAssassinGame(groupId);
+  if (!currentGame) return;
+  await updateDoc(doc(db, GAMES, currentGame.id), {
+    ...settings,
+    updatedAt: serverTimestamp()
+  });
 }
 
 export async function startAssassinGame(groupId: string, members: Array<{ id: string; username: string; avatarUrl?: string | null }>) {
@@ -98,9 +98,14 @@ export async function startAssassinGame(groupId: string, members: Array<{ id: st
 
   const db = getFirebaseFirestore();
   const currentGame = await getCurrentAssassinGame(groupId);
-  const gameId = currentGame?.id ?? (await createSetupGame(groupId, setup.mode));
+  // A finished game is a permanent record of who won that round — reusing its doc would
+  // overwrite that history the moment a new game starts. Only an unfinished (setup) game gets
+  // reused; anything else (finished, or no game yet) gets a brand new doc so replaying the
+  // assassin game in the same group keeps every past round's result intact.
+  const reusableGame = currentGame && currentGame.status !== "finished" ? currentGame : null;
+  const gameId = reusableGame?.id ?? (await createSetupGame(groupId, setup.mode));
   const isDuelStart = members.length === 2;
-  const startingLives = currentGame?.startingLives ?? 5;
+  const startingLives = reusableGame?.startingLives ?? currentGame?.startingLives ?? 5;
 
   await updateDoc(doc(db, GAMES, gameId), {
     status: "active",
@@ -154,22 +159,27 @@ export async function startAssassinGame(groupId: string, members: Array<{ id: st
   return loadAssassinState(groupId);
 }
 
+// Aborts the game currently in progress (or setup) so an admin can reconfigure it. Only touches
+// the CURRENT game doc — past finished games must stay untouched so replaying assassin in the
+// same group doesn't erase who won a previous round.
 export async function resetAssassinGame(groupId: string) {
   const db = getFirebaseFirestore();
-  const [games, players, missions, eliminations] = await Promise.all([
-    getDocs(query(collection(db, GAMES), where("groupId", "==", groupId))),
+  const [currentGame, players, missions, eliminations] = await Promise.all([
+    getCurrentAssassinGame(groupId),
     getDocs(query(collection(db, PLAYERS), where("groupId", "==", groupId))),
     getDocs(query(collection(db, MISSIONS), where("groupId", "==", groupId))),
     getDocs(query(collection(db, ELIMINATIONS), where("groupId", "==", groupId)))
   ]);
 
   await Promise.all([
-    ...games.docs.map((item) => updateDoc(doc(db, GAMES, item.id), {
-      status: "setup",
-      phase: "normal",
-      winnerId: null,
-      updatedAt: serverTimestamp()
-    })),
+    currentGame && currentGame.status !== "finished"
+      ? updateDoc(doc(db, GAMES, currentGame.id), {
+        status: "setup",
+        phase: "normal",
+        winnerId: null,
+        updatedAt: serverTimestamp()
+      })
+      : Promise.resolve(),
     ...players.docs.map((item) => deleteDoc(doc(db, PLAYERS, item.id))),
     ...missions.docs.map((item) => deleteDoc(doc(db, MISSIONS, item.id))),
     ...eliminations.docs.map((item) => deleteDoc(doc(db, ELIMINATIONS, item.id)))

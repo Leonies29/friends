@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import { ArrowRight, Loader2, LogIn, UserRound } from "lucide-react";
+import { getFirebaseAuth } from "@/firebase/auth";
+import { setActiveGroupCookie } from "@/lib/session-cookies";
+import { activateGroupForUser } from "@/services/group-service";
 import { Badge, Button, Field, GameCard } from "@/components/ui";
 
 type PlannedMember = {
@@ -28,6 +32,8 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
   const [group, setGroup] = useState<JoinableGroup | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkingAccess, setCheckingAccess] = useState(false);
+  const attemptedGroupId = useRef<string | null>(null);
 
   async function findGroup() {
     const code = inviteCode.trim();
@@ -61,6 +67,28 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedInitialInviteCode]);
 
+  // If the person opening this invite link is already signed in and already belongs to this
+  // group (the owner opening their own link, or a member re-opening it), skip the "who are you"
+  // picker entirely and drop them straight into the group's dashboard.
+  useEffect(() => {
+    if (!group || attemptedGroupId.current === group.id) return;
+    const auth = getFirebaseAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user || attemptedGroupId.current === group.id) return;
+      attemptedGroupId.current = group.id;
+      setCheckingAccess(true);
+      void activateGroupForUser(user.uid, group.id)
+        .then(() => {
+          setActiveGroupCookie(group.id);
+          router.replace("/dashboard");
+        })
+        .catch(() => {
+          setCheckingAccess(false);
+        });
+    });
+    return () => unsubscribe();
+  }, [group, router]);
+
   function buildAuthHref(pathname: "/login" | "/register", nickname: string) {
     if (!group) return;
     const params = new URLSearchParams({
@@ -93,7 +121,14 @@ export function JoinGroupCard({ initialInviteCode = "" }: { initialInviteCode?: 
 
       {error && <p className="mt-4 rounded-2xl bg-rose-500/10 p-3 text-sm font-semibold text-rose-600">{error}</p>}
 
-      {group && (
+      {group && checkingAccess && (
+        <div className="mt-5 flex items-center gap-3 rounded-3xl border border-border bg-surface-elevated p-4">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <p className="text-sm font-semibold text-muted-foreground">Opening your group...</p>
+        </div>
+      )}
+
+      {group && !checkingAccess && (
         <div className="mt-5 rounded-3xl border border-border bg-surface-elevated p-4">
           <Badge>Group found</Badge>
           <h3 className="mt-2 text-2xl font-black">{group.name}</h3>

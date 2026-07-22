@@ -172,10 +172,12 @@ export function AssassinEmergencyPanel({
 
 export function AssassinEmergencySection({
   groupId,
-  members
+  members,
+  defaultOpen = false
 }: {
   groupId: string;
   members: GroupMember[];
+  defaultOpen?: boolean;
 }) {
   const [active, setActive] = useState(false);
 
@@ -189,9 +191,11 @@ export function AssassinEmergencySection({
 
   return (
     <AdminCollapsibleSection
+      id="admin-assassin-section"
       title="Assassin live controls"
       emoji="🔪"
       summary="Emergency actions while the assassin game is running."
+      defaultOpen={defaultOpen}
     >
       <AssassinEmergencyPanel groupId={groupId} members={members} embedded />
     </AdminCollapsibleSection>

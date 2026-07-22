@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Check, Copy, Loader2, Minus, Plus } from "lucide-react";
 import { AssassinEmergencySection } from "@/components/admin/assassin-emergency-panel";
 import { AdminCollapsibleSection } from "@/components/admin/admin-collapsible-section";
@@ -41,6 +42,11 @@ function AdminHero({ group }: { group: ActiveGroup }) {
 
 export function AdminDashboard() {
   const state = useActiveGroup();
+  const searchParams = useSearchParams();
+  // Notification links (e.g. the admin-approvals badge) can send the admin here with
+  // ?focus=assassin so the relevant section opens pre-expanded and scrolled into view instead of
+  // leaving them to hunt through collapsed sections.
+  const focusSection = searchParams.get("focus");
   const [games, setGames] = useState<Game[]>([]);
   const [loadingGames, setLoadingGames] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -84,6 +90,16 @@ export function AdminDashboard() {
       setInviteLink(buildInviteLink(state.group.inviteCode));
     }
   }, [state.group?.inviteCode]);
+
+  useEffect(() => {
+    if (!focusSection || loadingGames) return;
+    // The target section (e.g. the assassin panel) mounts open via defaultOpen once its own
+    // async "is the game active" check resolves, so give it a beat before scrolling to it.
+    const timer = setTimeout(() => {
+      document.getElementById(`admin-${focusSection}-section`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [focusSection, loadingGames]);
 
   if (state.loading) {
     return (
@@ -225,7 +241,7 @@ export function AdminDashboard() {
         </AdminCollapsibleSection>
       )}
 
-      <AssassinEmergencySection groupId={group.id} members={state.members} />
+      <AssassinEmergencySection groupId={group.id} members={state.members} defaultOpen={focusSection === "assassin"} />
 
       <AdminCollapsibleSection
         title="Awards"

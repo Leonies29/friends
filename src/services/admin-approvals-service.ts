@@ -6,6 +6,9 @@ export type PendingApprovals = {
   bingo: number;
   assassin: number;
   total: number;
+  // The game a pending bingo submission belongs to, so a notification can link straight to that
+  // game's setup panel instead of the generic /admin page.
+  bingoGameId: string | null;
 };
 
 // Aggregates everything an admin/owner might otherwise only notice by opening each game's own
@@ -21,5 +24,6 @@ export async function getPendingApprovalsCount(groupId: string): Promise<Pending
   const challenges = challengesSnapshot.size;
   const bingo = bingoSnapshot.size;
   const assassin = assassinSnapshot.size;
-  return { challenges, bingo, assassin, total: challenges + bingo + assassin };
+  const bingoGameId = (bingoSnapshot.docs[0]?.data() as { gameId?: string } | undefined)?.gameId ?? null;
+  return { challenges, bingo, assassin, total: challenges + bingo + assassin, bingoGameId };
 }

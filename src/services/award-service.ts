@@ -222,3 +222,24 @@ export async function advanceAwardCeremony(groupId: string, nextStep: number, is
     : { status: "active", step: nextStep, phase: "suspense", updatedAt: serverTimestamp() },
   { merge: true });
 }
+
+// Once a ceremony reaches "complete" there was previously no way back — every future visit to
+// the Ceremony tab landed straight on the static "all winners" recap instead of the category-by-
+// category reveal animation, which is what admins actually want when replaying it (e.g. after
+// testing it once before the real trip finale). This puts the ceremony back to its pre-launch
+// state so "Launch the ceremony" starts a fresh, fully animated run-through.
+export async function resetAwardCeremony(groupId: string) {
+  const db = getFirebaseFirestore();
+  const categories = await listAwardCategories(groupId);
+  await Promise.all([
+    setDoc(doc(db, AWARD_CEREMONY_COLLECTION, groupId), {
+      groupId,
+      status: "idle",
+      step: 0,
+      phase: "suspense",
+      orderedCategoryIds: [],
+      updatedAt: serverTimestamp()
+    }),
+    ...categories.map((category) => updateAwardCategoryResultsRevealed(category.id, false))
+  ]);
+}

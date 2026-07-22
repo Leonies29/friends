@@ -11,6 +11,7 @@ import {
   getAwardResults,
   getVoteParticipationStats,
   listAwardCategories,
+  resetAwardCeremony,
   revealAwardCeremonyWinner,
   startAwardCeremony,
   subscribeAwardCeremony
@@ -37,6 +38,7 @@ export function AwardsCeremonyView({
   const [ceremony, setCeremony] = useState<AwardCeremonyDoc | null>(null);
   const [starting, setStarting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -101,6 +103,12 @@ export function AwardsCeremonyView({
     setAdvancing(false);
   }
 
+  async function handleRestart() {
+    setResetting(true);
+    await resetAwardCeremony(groupId);
+    setResetting(false);
+  }
+
   if (loading) {
     return (
       <Card>
@@ -143,6 +151,11 @@ export function AwardsCeremonyView({
           <p className="text-5xl">🏆</p>
           <h3 className="mt-3 text-3xl font-black">Ceremony complete!</h3>
           <p className="mt-2 text-muted-foreground">Here are all the winners of the trip.</p>
+          {canManage && (
+            <Button className="mt-5" variant="secondary" disabled={resetting} onClick={() => void handleRestart()}>
+              {resetting ? "Restarting..." : "🔁 Replay the ceremony"}
+            </Button>
+          )}
         </Card>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {orderedCategories.map((category) => {

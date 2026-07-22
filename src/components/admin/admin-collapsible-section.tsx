@@ -6,12 +6,14 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AdminCollapsibleSection({
+  id,
   title,
   summary,
   emoji,
   defaultOpen = false,
   children
 }: {
+  id?: string;
   title: string;
   summary?: string;
   emoji?: string;
@@ -21,7 +23,7 @@ export function AdminCollapsibleSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-sm sm:rounded-[1.5rem]">
+    <div id={id} className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-sm sm:rounded-[1.5rem]">
       <button
         type="button"
         aria-expanded={open}

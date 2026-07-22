@@ -376,15 +376,13 @@ export function GroupChallengesPage() {
   // Deliberately always a plain addXpTransaction, not awardGameXp: Challenges was never part of
   // team mode's scope (only bingo/quiz/treasure/assassin are), so it must never silently award 0
   // XP just because someone flipped this game to team mode with nobody assigned to a team.
+  // The XP write must land *before* the status flips to "approved": the Approve button only
+  // renders while status is "submitted", so if the status write went first and the XP write then
+  // failed, the challenge would look done forever with no XP and no way to retry.
   async function approveChallenge(challenge: Challenge) {
     if (!state.userId) return;
     setActionError("");
     try {
-      await updateGroupDoc("challenges", challenge.id, {
-        status: "approved",
-        approvedBy: state.userId,
-        approvedAt: new Date().toISOString()
-      });
       await addXpTransaction({
         groupId: group.id,
         userId: challenge.ownerId,
@@ -393,6 +391,11 @@ export function GroupChallengesPage() {
         sourceId: challenge.id,
         reason: `Completed challenge: ${challenge.title}`,
         createdBy: state.userId
+      });
+      await updateGroupDoc("challenges", challenge.id, {
+        status: "approved",
+        approvedBy: state.userId,
+        approvedAt: new Date().toISOString()
       });
       await loadChallenges(group.id);
     } catch (error) {

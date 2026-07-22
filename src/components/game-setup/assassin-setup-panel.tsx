@@ -70,12 +70,17 @@ export function AssassinSetupPanel({ groupId }: { groupId: string }) {
       {gameStatus === "active" && (
         <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Game already started. Live changes are available in Admin → Assassin live controls.</p>
       )}
+      {gameStatus === "finished" && (
+        <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800">The previous game is over and its winner stays on record. Adjust assignments and start a new game whenever you&apos;re ready.</p>
+      )}
       {message && <p className="text-sm font-semibold text-emerald-700">{message}</p>}
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" type="button" onClick={() => void generateRandomSetup(groupId, members, "random").then((next) => { setAssignments(next); setMessage("Random circle generated."); })}>🎲 Generate</Button>
         <Button size="sm" variant="secondary" type="button" onClick={() => void generateRandomSetup(groupId, members, "random", assignments).then((next) => { setAssignments(next); setMessage("Regenerated."); })}>🔁 Regenerate</Button>
-        <Button size="sm" type="button" disabled={gameStatus === "active"} onClick={() => void startAssassinGame(groupId, members.map((member) => ({ id: member.id, username: member.name, avatarUrl: member.avatarUrl }))).then(() => { setMessage("Assassin game started."); void load(); }).catch((err) => setError(err instanceof Error ? err.message : "Unable to start assassin game."))}>▶️ Start assassin</Button>
+        <Button size="sm" type="button" disabled={gameStatus === "active"} onClick={() => void startAssassinGame(groupId, members.map((member) => ({ id: member.id, username: member.name, avatarUrl: member.avatarUrl }))).then(() => { setMessage("Assassin game started."); void load(); }).catch((err) => setError(err instanceof Error ? err.message : "Unable to start assassin game."))}>
+          {gameStatus === "finished" ? "🔁 Start a new assassin game" : "▶️ Start assassin"}
+        </Button>
       </div>
 
       <AssassinTargetGraph assignments={assignments} />
