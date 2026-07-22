@@ -8,9 +8,9 @@ import type { UserNotification } from "@/types";
 
 function formatDate(value: UserNotification["createdAt"]) {
   if (!value) return "";
-  if (typeof value === "string") return new Date(value).toLocaleDateString();
-  if (value instanceof Date) return value.toLocaleDateString();
-  return new Date(value.seconds * 1000).toLocaleDateString();
+  if (typeof value === "string") return new Date(value).toLocaleDateString("en");
+  if (value instanceof Date) return value.toLocaleDateString("en");
+  return new Date(value.seconds * 1000).toLocaleDateString("en");
 }
 
 export function NotificationBell({ userId }: { userId: string | null }) {

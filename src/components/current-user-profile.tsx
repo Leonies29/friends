@@ -139,7 +139,7 @@ export function CurrentUserProfile() {
               <div className="pb-2">
                 <Badge>Joined {new Date(profile.joinedAt).toLocaleDateString("en")}</Badge>
                 <h1 className="mt-3 font-display text-6xl font-black leading-none">{profile.username}</h1>
-                <p className="mt-2 font-semibold text-muted-foreground">Level {profile.level} / {profile.totalXp.toLocaleString()} XP</p>
+                <p className="mt-2 font-semibold text-muted-foreground">Level {profile.level} / {profile.totalXp.toLocaleString("en")} XP</p>
               </div>
             </div>
             <LevelMedallion level={profile.level} xp={profile.totalXp} className="h-28 w-28" />
@@ -184,7 +184,7 @@ export function CurrentUserProfile() {
           return (
             <GameCard key={stat.label}>
               <Icon className="h-7 w-7 text-accent" />
-              <p className="mt-5 text-3xl font-black">{stat.value.toLocaleString()}</p>
+              <p className="mt-5 text-3xl font-black">{stat.value.toLocaleString("en")}</p>
               <p className="text-sm font-semibold text-muted-foreground">{stat.label}</p>
             </GameCard>
           );

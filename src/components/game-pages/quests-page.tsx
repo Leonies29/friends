@@ -211,7 +211,7 @@ export function QuestsPage() {
             <p className="mt-2 text-3xl font-black">
               {summary.done}/{summary.total}
             </p>
-            <p className="text-sm text-muted-foreground">{summary.xp.toLocaleString()} XP earned from quests</p>
+            <p className="text-sm text-muted-foreground">{summary.xp.toLocaleString("en")} XP earned from quests</p>
           </div>
           <div className="rounded-2xl border border-border bg-background px-4 py-3 text-right">
             <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">Remaining</p>

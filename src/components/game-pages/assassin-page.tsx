@@ -375,7 +375,7 @@ export function AssassinPage() {
             return (
               <motion.div key={item.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.04 }} className="rounded-2xl border border-border bg-background p-4">
                 <p className="font-black">🔪 {killer?.nickname || killer?.username} → {victim?.nickname || victim?.username}</p>
-                <p className="text-sm text-muted-foreground">{new Date(item.createdAt).toLocaleString()} · {eliminationStatusLabel(item.status)}</p>
+                <p className="text-sm text-muted-foreground">{new Date(item.createdAt).toLocaleString("en")} · {eliminationStatusLabel(item.status)}</p>
               </motion.div>
             );
           })}

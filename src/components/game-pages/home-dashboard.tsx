@@ -104,7 +104,7 @@ export function HomeDashboard() {
           <div className="min-w-0 flex-1">
             <Badge>Level {level}</Badge>
             <h2 className="mt-2 break-words text-2xl font-black sm:text-3xl">{displayName}</h2>
-            <p className="text-sm font-semibold text-muted-foreground">{xp.toLocaleString()} XP</p>
+            <p className="text-sm font-semibold text-muted-foreground">{xp.toLocaleString("en")} XP</p>
           </div>
         </div>
         <Progress value={getLevelProgress(xp)} className="mt-4" />

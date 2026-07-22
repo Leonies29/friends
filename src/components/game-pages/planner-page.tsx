@@ -49,7 +49,11 @@ export function PlannerPage() {
     if (!state.group?.id || creating) return;
     setError("");
     setCreating(true);
-    const form = new FormData(event.currentTarget);
+    // Capture the form element before the first await: a DOM event's currentTarget goes back to
+    // null once the event finishes dispatching, so reading event.currentTarget after an await
+    // (to reset the form below) throws "Cannot read properties of null".
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     try {
       await createScheduleEvent(state.group.id, {
         title: String(form.get("title") ?? ""),
@@ -59,7 +63,7 @@ export function PlannerPage() {
         endTime: String(form.get("endTime") ?? ""),
         location: String(form.get("location") ?? "")
       });
-      event.currentTarget.reset();
+      formEl.reset();
       showToast("✅ Event added to the planner!");
       await load();
     } catch (err) {
@@ -135,7 +139,7 @@ export function PlannerPage() {
               onClick={() => setSelectedDate(date)}
               className={`rounded-2xl px-4 py-3 text-sm font-black ${selectedDate === date ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}
             >
-              {new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+              {new Date(`${date}T12:00:00`).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}
             </button>
           ))}
         </div>

@@ -51,13 +51,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!state.group?.id || !state.userId) return;
+    // AppShell lives in the (app) layout, so it never remounts between pages — without
+    // `pathname` here, the header's XP/level would be fetched once on first load and then stay
+    // stuck for the rest of the session no matter how much XP gets awarded elsewhere. The
+    // `games` effect just below already depends on `pathname` for the same reason.
     void listXpTransactions(state.group.id)
       .then((transactions) => {
         const xp = transactions.filter((item) => item.userId === state.userId).reduce((sum, item) => sum + item.amount, 0);
         setTotalXp(xp);
       })
       .catch(() => undefined);
-  }, [state.group?.id, state.userId]);
+  }, [state.group?.id, state.userId, pathname]);
 
   useEffect(() => {
     if (!state.group?.id) {
@@ -110,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1">
               <Badge>Level {level}</Badge>
               <p className="mt-2 truncate text-xl font-black">{displayName}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{totalXp.toLocaleString()} XP</p>
+              <p className="text-xs font-semibold text-muted-foreground">{totalXp.toLocaleString("en")} XP</p>
             </div>
           </div>
           <Progress value={getLevelProgress(totalXp)} className="mt-4" />
