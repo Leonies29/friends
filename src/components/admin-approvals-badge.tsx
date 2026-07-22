@@ -12,9 +12,12 @@ const EMPTY: PendingApprovals = { challenges: 0, bingo: 0, assassin: 0, total: 0
 // generic /admin page and making them hunt for the right section. Priority order (when several
 // types are pending at once) roughly follows "proofs waiting on a player" before "a dispute
 // between two players".
+// This app is a static export (GitHub Pages) — /admin/games/{id}/setup only ever exists for the
+// single build-time placeholder id "_", so a real gameId in that path 404s. The actual bingo
+// review UI is an in-page modal inside /admin's Games section, opened via ?focus=bingo&gameId=.
 function resolveReviewHref(counts: PendingApprovals): string {
   if (counts.challenges > 0) return "/challenges";
-  if (counts.bingo > 0 && counts.bingoGameId) return `/admin/games/${counts.bingoGameId}/setup`;
+  if (counts.bingo > 0 && counts.bingoGameId) return `/admin?focus=bingo&gameId=${counts.bingoGameId}`;
   if (counts.assassin > 0) return "/admin?focus=assassin";
   return "/admin";
 }

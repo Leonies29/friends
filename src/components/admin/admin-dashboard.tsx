@@ -45,8 +45,12 @@ export function AdminDashboard() {
   const searchParams = useSearchParams();
   // Notification links (e.g. the admin-approvals badge) can send the admin here with
   // ?focus=assassin so the relevant section opens pre-expanded and scrolled into view instead of
-  // leaving them to hunt through collapsed sections.
+  // leaving them to hunt through collapsed sections. ?gameId is only meaningful alongside
+  // focus=bingo, to auto-open that specific game's setup modal (this app is a static export with
+  // no server-rendered dynamic routes, so /admin/games/{id}/setup is not a reachable URL — the
+  // real bingo review UI is the in-page setup modal inside the Games section).
   const focusSection = searchParams.get("focus");
+  const focusGameId = searchParams.get("gameId");
   const [games, setGames] = useState<Game[]>([]);
   const [loadingGames, setLoadingGames] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -93,10 +97,13 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (!focusSection || loadingGames) return;
+    // Bingo review lives inside the generic "Games" section (there's no dedicated bingo
+    // section), everything else maps 1:1 to its own section id.
+    const targetId = focusSection === "bingo" ? "admin-games-section" : `admin-${focusSection}-section`;
     // The target section (e.g. the assassin panel) mounts open via defaultOpen once its own
     // async "is the game active" check resolves, so give it a beat before scrolling to it.
     const timer = setTimeout(() => {
-      document.getElementById(`admin-${focusSection}-section`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 300);
     return () => clearTimeout(timer);
   }, [focusSection, loadingGames]);
@@ -207,9 +214,11 @@ export function AdminDashboard() {
       )}
 
       <AdminCollapsibleSection
+        id="admin-games-section"
         title="Games"
         emoji="🎮"
         summary="Configure, activate, and create trip games."
+        defaultOpen={focusSection === "bingo"}
       >
         {loadingGames ? (
           <Card className="flex items-center gap-3 border-0 p-0 shadow-none">
@@ -217,7 +226,13 @@ export function AdminDashboard() {
             <p className="font-semibold text-muted-foreground">Loading games...</p>
           </Card>
         ) : (
-          <GameManagementPanel groupId={group.id} games={games} onReload={async () => { await loadAdmin(group.id); }} embedded />
+          <GameManagementPanel
+            groupId={group.id}
+            games={games}
+            onReload={async () => { await loadAdmin(group.id); }}
+            embedded
+            autoOpenGameId={focusSection === "bingo" ? focusGameId : null}
+          />
         )}
       </AdminCollapsibleSection>
 

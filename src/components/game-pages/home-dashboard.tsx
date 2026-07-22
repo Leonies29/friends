@@ -21,6 +21,7 @@ export function HomeDashboard() {
   const [loading, setLoading] = useState(true);
   const [xp, setXp] = useState(0);
   const [rank, setRank] = useState(1);
+  const [hasScores, setHasScores] = useState(false);
   const [questsDone, setQuestsDone] = useState(0);
   const [awardsVoted, setAwardsVoted] = useState(0);
   const [awardsWon, setAwardsWon] = useState(0);
@@ -57,6 +58,9 @@ export function HomeDashboard() {
 
       setXp(userXp);
       setRank(position || 1);
+      // Before anyone has earned XP everyone ties at 0, so "position" is really just array order,
+      // not an achievement — showing "#1" then reads as "you're already winning" for nobody.
+      setHasScores(memberXp.some((item) => item.xp > 0));
       setQuestsDone(completions.filter((item) => item.userId === userId).length);
       setAwardsVoted(votes.voted);
       setAwardsWon(awardsWonCount);
@@ -85,13 +89,13 @@ export function HomeDashboard() {
 
   const level = calculateLevel(xp);
   const profileStats = useMemo(() => ([
-    { label: "Ranking position", value: `#${rank}`, icon: Trophy },
+    { label: "Ranking position", value: hasScores ? `#${rank}` : "—", icon: Trophy },
     { label: "Completed quests", value: questsDone, icon: Sparkles },
     { label: "Assassin status", value: assassinStatus, icon: Crosshair },
     { label: "Assassin eliminations", value: eliminations, icon: Map },
     { label: "Awards voted", value: awardsVoted, icon: Crown },
     { label: "Awards won", value: awardsWon, icon: Trophy }
-  ]), [rank, questsDone, assassinStatus, eliminations, awardsVoted, awardsWon]);
+  ]), [rank, hasScores, questsDone, assassinStatus, eliminations, awardsVoted, awardsWon]);
 
   if (state.loading || loading) return <LoadingCard label="Loading your adventure..." />;
   if (!state.group) return <EmptyGroupCard />;

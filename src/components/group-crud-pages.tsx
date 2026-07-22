@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Camera,
   Check,
@@ -315,9 +316,17 @@ export function GroupChallengesPage() {
   const [saving, setSaving] = useState(false);
   const [proofError, setProofError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [toast, setToast] = useState("");
   const canEdit = canManageGames(state.currentMember?.role);
   const canScore = canManageScores(state.currentMember?.role);
   const canAssignToOthers = Boolean(state.userId);
+
+  // A clear, hard-to-miss confirmation after assigning a challenge — otherwise there's no visible
+  // feedback that the click actually landed.
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast((current) => (current === message ? "" : current)), 2500);
+  }
 
   const loadChallenges = useCallback(async (groupId = state.group?.id) => {
     if (!groupId) return;
@@ -334,7 +343,12 @@ export function GroupChallengesPage() {
     event.preventDefault();
     if (!state.userId) return;
     setSaving(true);
-    const form = new FormData(event.currentTarget);
+    setProofError("");
+    // Capture the form element before any await: a DOM event's currentTarget goes back to null
+    // once the event finishes dispatching, so reading event.currentTarget after an await (to
+    // reset the form below) throws "Cannot read properties of null".
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     const ownerId = String(form.get("ownerId") ?? "");
     if (ownerId === state.userId) {
       setProofError("Assign the challenge to another participant.");
@@ -343,27 +357,32 @@ export function GroupChallengesPage() {
     }
     const owner = state.members.find((member) => member.id === ownerId || member.userId === ownerId);
     const assigner = state.members.find((member) => memberUserId(member) === state.userId);
-    const [{ addDoc, collection, serverTimestamp }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
-    const scheduledFor = canEdit ? String(form.get("scheduledFor") ?? "") : "";
-    await addDoc(collection(getFirebaseFirestore(), "challenges"), {
-      groupId: group.id,
-      ownerId,
-      ownerName: memberName(owner),
-      assignedById: state.userId,
-      assignedByName: memberName(assigner),
-      title: String(form.get("title") ?? ""),
-      description: String(form.get("description") ?? ""),
-      difficulty: String(form.get("difficulty") ?? "Easy"),
-      xpReward: CHALLENGE_XP_REWARD,
-      scheduledFor,
-      status: scheduledFor ? "scheduled" : "secret",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    event.currentTarget.reset();
-    setProofError("");
-    await loadChallenges(group.id);
-    setSaving(false);
+    try {
+      const [{ addDoc, collection, serverTimestamp }, { getFirebaseFirestore }] = await Promise.all([import("firebase/firestore"), import("@/firebase/firestore")]);
+      const scheduledFor = canEdit ? String(form.get("scheduledFor") ?? "") : "";
+      await addDoc(collection(getFirebaseFirestore(), "challenges"), {
+        groupId: group.id,
+        ownerId,
+        ownerName: memberName(owner),
+        assignedById: state.userId,
+        assignedByName: memberName(assigner),
+        title: String(form.get("title") ?? ""),
+        description: String(form.get("description") ?? ""),
+        difficulty: String(form.get("difficulty") ?? "Easy"),
+        xpReward: CHALLENGE_XP_REWARD,
+        scheduledFor,
+        status: scheduledFor ? "scheduled" : "secret",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      formEl.reset();
+      showToast(`✅ Challenge assigned to ${memberName(owner)}!`);
+      await loadChallenges(group.id);
+    } catch (error) {
+      setProofError(error instanceof Error ? error.message : "Unable to create this challenge.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function updateChallenge(challengeId: string, data: Record<string, unknown>) {
@@ -408,7 +427,10 @@ export function GroupChallengesPage() {
     if (!state.userId) return;
 
     setProofError("");
-    const form = new FormData(event.currentTarget);
+    // Same reasoning as createChallenge above: capture the form before any await, or reset()
+    // throws on a currentTarget that's already gone null.
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     const description = String(form.get("proof") ?? "");
     const file = form.get("photo");
 
@@ -433,7 +455,8 @@ export function GroupChallengesPage() {
           }
         });
       }
-      event.currentTarget.reset();
+      formEl.reset();
+      showToast("✅ Proof submitted for review!");
     } catch (error) {
       setProofError(error instanceof Error ? error.message : "Unable to submit the proof.");
     }
@@ -441,6 +464,18 @@ export function GroupChallengesPage() {
 
   return (
     <div className="grid gap-6">
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-800 shadow-xl dark:border-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-200"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <PageHero eyebrow="Challenges" title="Challenges" description="Everyone can assign private missions to other participants. Admins approve proofs." group={group} />
       {canAssignToOthers && (
         <Card>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { GameCustomizeModal } from "@/components/game-customize-modal";
 import { GameSetupModal } from "@/components/game-setup-modal";
@@ -49,15 +49,26 @@ export function GameManagementPanel({
   groupId,
   games,
   onReload,
-  embedded = false
+  embedded = false,
+  autoOpenGameId = null
 }: {
   groupId: string;
   games: Game[];
   onReload: () => Promise<void>;
   embedded?: boolean;
+  // Lets a notification link (e.g. "N to review") jump straight to a specific game's setup
+  // modal instead of the generic games list — there is no routed page for this on a static
+  // export, so it has to be opened as in-page state.
+  autoOpenGameId?: string | null;
 }) {
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [setupGame, setSetupGame] = useState<Game | null>(null);
+
+  useEffect(() => {
+    if (!autoOpenGameId) return;
+    const match = games.find((game) => game.id === autoOpenGameId);
+    if (match) setSetupGame(match);
+  }, [autoOpenGameId, games]);
 
   const activeGames = useMemo(
     () => games.filter((game) => !game.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
